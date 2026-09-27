@@ -24,7 +24,7 @@ TITAN_CODE_URL  = f"{GITHUB_RAW}/TITAN_CODE.py"
 VERSION_URL     = f"{GITHUB_RAW}/version.txt"
 SETUP_URL       = f"{GITHUB_RAW}/titan_setup.py"
 
-API_KEY         = "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"
+API_KEY         = ""  # never store key here — each user enters their own
 
 # ══════════════════════════════════════════════════════════════════
 #  PATHS
@@ -53,7 +53,7 @@ def step(msg): print(f"\n  {msg}")
 # ══════════════════════════════════════════════════════════════════
 def install_packages():
     step("📦 Checking required packages...")
-    packages = ["streamlit", "groq", "requests"]
+    packages = ["streamlit", "groq", "requests", "duckduckgo-search", "pdfplumber", "beautifulsoup4"]
     for pkg in packages:
         r = subprocess.run(
             [sys.executable, "-m", "pip", "install", pkg, "-q"],
@@ -153,8 +153,21 @@ def setup_name():
 #  STEP 4 — Save API key (first time only)
 # ══════════════════════════════════════════════════════════════════
 def setup_key():
-    if not TITAN_KEY.exists():
-        TITAN_KEY.write_text(API_KEY, encoding="utf-8")
+    # If key already saved on this device, keep it (never overwrite)
+    if TITAN_KEY.exists() and TITAN_KEY.read_text(encoding="utf-8").strip():
+        return
+    # No saved key — ask the user to enter their own Groq API key
+    print()
+    print("  ╔══════════════════════════════════════════════════╗")
+    print("  ║   🔑  Enter your Groq API Key to use TITAN ULTRA ║")
+    print("  ║   Get a free key at: https://console.groq.com   ║")
+    print("  ╚══════════════════════════════════════════════════╝")
+    _k = input("  Paste your Groq API key here >> ").strip()
+    if _k:
+        TITAN_KEY.write_text(_k, encoding="utf-8")
+        ok("API key saved — you won't need to enter it again.")
+    else:
+        info("No key entered — you can add it later inside TITAN ULTRA (sidebar).")
 
 
 # ══════════════════════════════════════════════════════════════════

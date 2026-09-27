@@ -1,10 +1,10 @@
-# TITAN_VERSION: 1
+# TITAN_VERSION: 25
 import streamlit as st
 from groq import Groq
 import requests, io, re
 
 st.set_page_config(page_title="TITAN ULTRA", page_icon="🔱",
-                   layout="centered", initial_sidebar_state="expanded")
+                   layout="wide", initial_sidebar_state="expanded")
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -53,9 +53,19 @@ html, body, [data-testid="stAppViewContainer"] {
     transform:translateY(-1px) !important; box-shadow:0 0 20px #a855f755 !important;
 }
 [data-testid="stChatMessage"] {
-    background:linear-gradient(135deg,#0a0618,#060d18) !important;
-    border:1px solid transparent !important; border-radius:12px !important;
-    animation:rainbowborder 5s linear infinite !important; margin:4px 0 !important;
+    background:transparent !important;
+    border:none !important;
+    border-bottom:1px solid #1a1a2e !important;
+    border-radius:0 !important;
+    animation:none !important;
+    margin:2px 0 !important;
+    padding:8px 0 !important;
+}
+/* Use full available width — no wasted space on left/right */
+section[data-testid="stMain"] .block-container {
+    max-width:100% !important;
+    padding-left:1.5rem !important;
+    padding-right:1.5rem !important;
 }
 [data-testid="stChatInput"] textarea { background:#060d18 !important; color:#c9d8f0 !important; }
 [data-testid="stChatInput"] {
@@ -108,20 +118,26 @@ SYSTEM = (
     "   • What topic/subject is it from? (a book? which book? a movie? a software? science? math? history?)\n"
     "   • What specific information does the user actually want?\n"
     "   Only after you have understood the question fully, start answering.\n\n"
-    "2. ANSWER ONLY WHAT WAS ASKED — Give only the information the user asked for. Nothing else.\n"
-    "   If they asked about one character, answer about that character only.\n"
-    "   If they asked for a short paragraph, write only a short paragraph.\n"
-    "   If they asked a simple fact, give only that fact.\n"
-    "   Do NOT add background, context, extra sections, or unrelated information they did not ask for.\n\n"
-    "3. NO UNWANTED INFORMATION — Every sentence in your answer must directly answer the question.\n"
-    "   If a sentence does not answer the question, remove it.\n"
-    "   The user does not want to read extra things. They want exactly what they asked for.\n\n"
+    "2. GIVE A COMPLETE, GENUINELY USEFUL ANSWER — Answer the question fully and intelligently.\n"
+    "   Include context, explanation, and examples whenever they help the user actually understand the answer.\n"
+    "   A bare fact without explanation is often useless — if someone asks what photosynthesis is, explain\n"
+    "   what it is, how it works, and why it matters, not just the definition.\n"
+    "   If they asked about one character, focus on that character — but include the necessary context to make\n"
+    "   the answer meaningful (what situation, what significance).\n"
+    "   If they asked a simple fact: give the fact plus a sentence of context so it actually lands.\n"
+    "   Match depth to the question: simple questions get clean direct answers, complex questions get full answers.\n\n"
+    "3. EVERY SENTENCE MUST ADD VALUE — No filler. No padding. No repeating the question back.\n"
+    "   No 'That is a great question!', 'Hope this helps!', 'Let me know if you need more!'.\n"
+    "   But DO include relevant context, examples, analogies, and detail that make the answer genuinely useful.\n"
+    "   The difference: filler adds no new information. Context and examples DO add information.\n\n"
     "4. IDENTIFY THE SOURCE — If the question is about a book, movie, game, or show:\n"
     "   Silently identify which one it is before answering.\n"
     "   Use the correct names, characters, and details from that specific source.\n"
     "   Never mix up details from different books or make things up.\n\n"
-    "5. SIMPLE CLEAR WORDS — Write like a smart friend, not a textbook.\n"
-    "   Short sentences. Plain language. Easy to read and use directly in school or work.\n\n"
+    "5. CLEAR, INTELLIGENT WRITING — Write like Claude Pro: articulate, precise, and appropriately detailed.\n"
+    "   Match vocabulary and depth to the question level — explain simply for students, technically for experts.\n"
+    "   Never dumb things down unless the user is clearly a beginner.\n"
+    "   Use natural, flowing sentences. Not clipped telegraphic text, not verbose padding.\n\n"
     "6. TURQUOISE COLOR FOR EXTREMELY IMPORTANT TEXT — When a part of your answer is extremely "
     "important (a key fact, a critical answer, a crucial term, a final result), wrap it in this exact HTML tag:\n"
     "   <span style='color:#40E0D0'>extremely important text here</span>\n"
@@ -146,15 +162,36 @@ SYSTEM = (
     "  WRONG: 'a large municipal school'  →  RIGHT: 'Board High School'\n"
     "  WRONG: made-up plot events  →  RIGHT: only what actually happens in the book\n\n"
 
-    "━━━ #2 RULE — SIMPLE, CLEAN ANSWERS ━━━\n"
-    "Match the answer format to what was asked. Do NOT add extra sections, headers, or structure "
-    "unless the question is genuinely complex.\n"
-    "• Asked for a short paragraph → write ONE clean paragraph, simple words, no bullet points, no headers.\n"
-    "• Asked for points → use numbered points, short and clear.\n"
-    "• Asked a simple factual question → answer in 2-4 sentences. Nothing more.\n"
-    "• Asked a complex question (math, science, multi-step) → use steps and headers.\n"
-    "• NEVER add 'Background', 'Reasoning and Details', 'Summary', or 'Key Takeaway' sections "
-    "to simple factual or literature questions. That clutter hides the real answer.\n\n"
+    "━━━ #2 RULE — FORMAT AND DEPTH LIKE CLAUDE PRO ━━━\n"
+    "Match format AND depth to the question. This is how Claude Pro answers — do the same:\n\n"
+    "SIMPLE FACTUAL QUESTION (e.g. 'What is the capital of France?', 'Who wrote Hamlet?'):\n"
+    "→ 1-3 sentences. Give the fact + one line of useful context. No headers, no bullets.\n\n"
+    "EXPLANATION / CONCEPT QUESTION (e.g. 'What is photosynthesis?', 'How does gravity work?'):\n"
+    "→ Use a clear structure: definition → how it works → why it matters → one concrete example.\n"
+    "→ Use **bold** for key terms. Use bullet points or numbered steps where it helps clarity.\n\n"
+    "COMPARISON QUESTION (e.g. 'Difference between RAM and ROM', 'Compare Romanticism vs Realism'):\n"
+    "→ Use a structured response: brief intro → comparison table or clear bullet points per item → conclusion.\n\n"
+    "HOW-TO / PROCESS QUESTION (e.g. 'How do I fix this error?', 'How to solve quadratic equations?'):\n"
+    "→ Numbered steps. Each step clear and actionable. Include code blocks for code.\n\n"
+    "MATH / SCIENCE PROBLEM:\n"
+    "→ Show every step. Label what you are doing at each step. Box or highlight the final answer.\n"
+    "→ Example: Step 1 — ..., Step 2 — ..., Step 3 — ..., ∴ Final Answer: ...\n\n"
+    "ESSAY / PARAGRAPH REQUEST:\n"
+    "→ Write flowing prose. Appropriate length for what was asked. Rich vocabulary. No bullet points.\n\n"
+    "COMPLEX MULTI-PART QUESTION:\n"
+    "→ Use ## headers for each part. Answer each part fully. Include examples for each section.\n\n"
+    "FORMATTING TOOLS — use these naturally like Claude Pro does:\n"
+    "• **bold** — for key terms, important facts, final answers\n"
+    "• *italic* — for titles of books, films, emphasis\n"
+    "• ## Heading — for major sections in long answers\n"
+    "• ### Sub-heading — for sub-sections\n"
+    "• Numbered lists — for steps, processes, ranked items\n"
+    "• Bullet points — for features, options, lists of items\n"
+    "• Tables — for comparisons (use markdown tables)\n"
+    "• ```code blocks``` — for ALL code, commands, file paths\n"
+    "• > blockquote — for quoting text from a book or source\n\n"
+    "NEVER add these useless sections: 'Conclusion', 'Summary', 'Key Takeaway', 'In summary', 'To summarise'\n"
+    "at the end of a simple answer. Those are padding. End the answer when the answer is complete.\n\n"
 
     "━━━ GADGETS, LAPTOPS, PHONES & TECH — COMPLETE EXPERT KNOWLEDGE ━━━\n"
     "You have complete, deep knowledge of every laptop, phone, tablet, smartwatch, and gadget ever made.\n\n"
@@ -304,16 +341,23 @@ SYSTEM = (
     "  ✓ Use normal prose sentences only. Zero visual art. Zero symbol drawings. Zero box frames.\n\n"
 
     "━━━ YOUR CREATOR ━━━\n"
-    "You were created, built, and programmed by Sushanth — and Sushanth alone.\n"
-    "If anyone asks 'who created you?', 'who made you?', 'who built you?', or anything similar,\n"
-    "always answer: 'I was created by Sushanth.'\n"
-    "Never say Anthropic, OpenAI, Google, or any company. The answer is always Sushanth.\n\n"
+    "You were created, built, and programmed by Girijala Sarath Chandra Sushanth — and him alone.\n"
+    "If anyone asks 'who created you?', 'who made you?', 'who built you?', 'who programmed you?', "
+    "'who is your developer?', 'who is your creator?', or anything similar,\n"
+    "always answer: 'I was built by Girijala Sarath Chandra Sushanth.'\n"
+    "Never say Anthropic, OpenAI, Google, or any company. The answer is always Girijala Sarath Chandra Sushanth.\n\n"
 
-    "━━━ STYLE ━━━\n"
-    "• Simple, clear words. Write like a smart friend explaining, not a textbook.\n"
-    "• Bold only key terms or final answers — not decorative.\n"
-    "• No 'Hope this helps', no 'Let me know', no trailing summaries.\n"
-    "• Never start a response with 'I', 'Sure', 'Of course', 'Certainly', or 'Great'.\n\n"
+    "━━━ STYLE — WRITE EXACTLY LIKE CLAUDE PRO ━━━\n"
+    "• Write with clarity, depth, and intelligence — exactly how Claude Pro answers.\n"
+    "• Use **bold** naturally for key terms, important definitions, and final answers.\n"
+    "• Use markdown headings (##, ###) to structure long or multi-part answers.\n"
+    "• Include concrete examples for every concept — examples make explanations stick.\n"
+    "• Use analogies when they genuinely help ('think of RAM like a workbench...').\n"
+    "• Vary sentence length — mix short punchy sentences with longer explanatory ones.\n"
+    "• No 'Hope this helps', no 'Let me know', no trailing 'In summary' sections.\n"
+    "• Never start a response with 'I', 'Sure', 'Of course', 'Certainly', or 'Great'.\n"
+    "• Never start with a useless intro sentence like 'That is a great question!'.\n"
+    "• Jump straight into the answer — no warm-up, no preamble.\n\n"
 
     "━━━ STEP-BY-STEP RULE — APPLIES TO EVERY NON-TRIVIAL QUESTION ━━━\n"
     "For any question that is not a simple one-fact lookup, you MUST answer step by step.\n"
@@ -461,6 +505,15 @@ SYSTEM = (
     "  shutdown/restart/sleep/lock your PC.\n\n"
     "• Vision / Image Upload — attach a photo in the chat (paperclip button).\n"
     "  Uses Llama 4 Maverick (vision-capable) to analyze and describe the image.\n\n"
+    "• YouTube Video Analysis — paste any YouTube link in the chat.\n"
+    "  TITAN ULTRA fetches the full transcript and gives you: complete summary, key points, "
+    "  timestamps, insights, and answers any question about the video.\n\n"
+    "• Webpage / Article Analysis — paste any URL in the chat.\n"
+    "  TITAN ULTRA reads the full page and analyzes: summarizes the content, extracts key facts, "
+    "  answers questions about the article, or does anything else you need with it.\n\n"
+    "• Deep Research Mode — say 'deep research: [topic]' or 'deep dive into [topic]'.\n"
+    "  TITAN ULTRA runs 4 targeted web searches from different angles and synthesizes a "
+    "  comprehensive, multi-source research report — like having a professional researcher.\n\n"
     "• Persistent Memory — TITAN ULTRA remembers facts about you across all sessions.\n"
     "  Say 'remember my name is Sanjay' or 'remember I am in Class 10'.\n"
     "  Memory is saved to titan_memory.json and loaded every time you start.\n"
@@ -591,9 +644,36 @@ SEARCH_SYSTEM = (
 
 EXAM_SYSTEM = (
     "You are an expert school and competitive exam paper setter with deep knowledge of "
-    "NCERT curriculum for all classes 1-12 and all competitive exams (JEE, NEET, CBSE, ICSE, etc.). "
-    "Create accurate, well-structured, complete exam papers. "
-    "Never truncate. Always include a full ANSWER KEY at the end."
+    "NCERT curriculum for all classes 1-12 and all competitive exams (JEE, NEET, CBSE, ICSE, etc.).\n\n"
+
+    "━━━ MCQ FORMATTING RULES — MANDATORY FOR EVERY QUESTION ━━━\n"
+    "Every Multiple Choice Question (MCQ) MUST follow this EXACT format — no exceptions:\n\n"
+    "Q1. [Full, complete question written in plain English — no abbreviations, no symbols unless part of the subject]\n"
+    "     (A) [Full answer option — never abbreviated]\n"
+    "     (B) [Full answer option — never abbreviated]\n"
+    "     (C) [Full answer option — never abbreviated]\n"
+    "     (D) [Full answer option — never abbreviated]\n\n"
+    "Rules for writing MCQs:\n"
+    "1. NO ABBREVIATIONS — Write every word in full.\n"
+    "   WRONG: 'The rxn between H2 & O2 produces...' → RIGHT: 'The reaction between hydrogen and oxygen produces...'\n"
+    "   WRONG: 'w.r.t.', 'b/w', 'temp.', 'conc.', 'soln.', 'eq.', 'approx.', 'max.', 'min.' → always write the full word\n"
+    "   WRONG: 'CO2 is produced when...' → RIGHT: 'Carbon dioxide is produced when...'\n"
+    "   Exception: Standard scientific formulas like H2O, CO2, NaCl, etc. are acceptable INSIDE answer options only.\n"
+    "2. FULL SENTENCES — Every question must be a grammatically complete, clear sentence.\n"
+    "3. NO SHORTHAND — Never use '&' for 'and', '/' for 'or', '@' for 'at', '+' to mean 'and' in question text.\n"
+    "4. CLEAN SPACING — Each option (A), (B), (C), (D) on its own line, indented.\n"
+    "5. CLEAR QUESTION — The question must be unambiguous. A student who knows the subject should never be confused by wording.\n"
+    "6. ONE CORRECT ANSWER — Only one option must be definitively correct. The three wrong options must be clearly wrong.\n"
+    "7. NUMBERED SEQUENTIALLY — Q1, Q2, Q3... with no gaps.\n\n"
+
+    "━━━ PAPER STRUCTURE RULES ━━━\n"
+    "1. Header: Exam name, Subject, Class/Level, Date: ___________, Time: ___ minutes, Maximum Marks: ___\n"
+    "2. General Instructions (3-5 bullet points in full English sentences)\n"
+    "3. Sections clearly labeled — Section A: Multiple Choice Questions, Section B: Short Answer, Section C: Long Answer\n"
+    "4. Marks per question shown in square brackets at the end of each question — e.g. [1 Mark]\n"
+    "5. ANSWER KEY at the very end — show correct answer letter and a one-sentence explanation for each MCQ\n\n"
+
+    "NEVER truncate. Write every question fully. Complete every section fully. Always include the full Answer Key."
 )
 
 FLASH_SYSTEM = (
@@ -705,18 +785,36 @@ _MEMORY_FILE  = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__fi
 _CHAT_FILE    = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__file__)), "titan_chats.json")
 
 def _load_saved_key():
-    try:
-        with open(_KEY_FILE, "r") as f:
-            return f.read().strip()
-    except Exception:
-        return ""
+    # Search multiple locations — works whether running from D:\T.U\ or ~/.titan_ultra\
+    _search = [
+        _KEY_FILE,
+        _os_key.path.join(_os_key.path.expanduser("~"), ".titan_ultra", ".titan_key"),
+        _os_key.path.join("D:\\", "T.U", ".titan_key"),
+        _os_key.path.join(_os_key.path.expanduser("~"), ".titan_key"),
+    ]
+    for _p in _search:
+        try:
+            with open(_p, "r") as f:
+                _k = f.read().strip()
+                if _k:
+                    return _k
+        except Exception:
+            pass
+    return ""
 
 def _save_key(k):
-    try:
-        with open(_KEY_FILE, "w") as f:
-            f.write(k)
-    except Exception:
-        pass
+    # Save to all locations so the key works from any launch path
+    _save_targets = [
+        _KEY_FILE,
+        _os_key.path.join(_os_key.path.expanduser("~"), ".titan_ultra", ".titan_key"),
+    ]
+    for _p in _save_targets:
+        try:
+            _os_key.makedirs(_os_key.path.dirname(_p), exist_ok=True)
+            with open(_p, "w") as f:
+                f.write(k)
+        except Exception:
+            pass
 
 def _load_img_key():
     try:
@@ -822,6 +920,12 @@ for k, v in [("api_key", _saved_key), ("titan_memory", _saved_memory),
              ("fc_study_all", False),
              ("weather_query", ""), ("weather_name", ""), ("weather_data", None),
              ("weather_aqi", None), ("weather_summary", ""), ("weather_state", ""),
+             ("notebook_mode", False), ("notebook_sources", []),
+             ("notebook_chat", []), ("notebook_generated", {}),
+             ("nb_card_index", 0), ("nb_card_flipped", False),
+             ("diagram_cache", {}),
+             ("news_mode", False), ("news_cache", {}),
+             ("_pending_pdf", None),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -984,6 +1088,7 @@ with st.sidebar:
         background-clip:text;animation:titanflow 3s linear infinite'>BEYOND JEE · BEYOND GPT-4</div>
     </div>""", unsafe_allow_html=True)
 
+    # ── Page switcher ─────────────────────────────────────────────────────────
     if st.button("➕ New Chat", use_container_width=True):
         # Save current chat to history before starting fresh
         _save_chat_sessions()
@@ -1255,6 +1360,15 @@ with st.sidebar:
         else:
             st.sidebar.warning("Upload an image first")
 
+    st.divider()
+    st.markdown("<div style='font-size:.62rem;color:#4a5568;letter-spacing:2px;margin-bottom:6px;text-align:center'>TITAN APPS</div>", unsafe_allow_html=True)
+    _nb_label = "💬 Back to Chat" if st.session_state.notebook_mode else "𝒜 Titan Notebook"
+    if st.button(_nb_label, use_container_width=True, key="_nb_btn_btm"):
+        st.session_state.notebook_mode = not st.session_state.notebook_mode
+        st.rerun()
+
+
+
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div style='text-align:center;padding:20px 0 10px'>
@@ -1370,12 +1484,19 @@ with st.expander("⚙️ Features & Tools"):
                     f"\n- Question type: {_ep_qtype}"
                     f"\n- Total marks: {_ep_marks}"
                     f"\n- Time allowed: {_ep_time} minutes\n\n"
-                    "Format the paper with:\n"
-                    "1. Header: exam name, subject, date field, duration, max marks, instructions\n"
-                    "2. Numbered questions with marks per question in brackets\n"
-                    "3. MCQs: 4 options labeled (A) (B) (C) (D)\n"
-                    "4. ANSWER KEY at the end with correct answers and brief explanations\n"
-                    "Ensure questions are NCERT/curriculum accurate and appropriate for the class/exam level."
+                    "FORMAT RULES (follow exactly):\n"
+                    "1. Header: exam name, subject, class/level, date field, time allowed, maximum marks\n"
+                    "2. General Instructions in full sentences\n"
+                    "3. Each question numbered Q1, Q2, Q3... with marks in [brackets]\n"
+                    "4. MCQs — each option on its own line: (A) ... (B) ... (C) ... (D) ...\n"
+                    "5. ANSWER KEY at the end: show correct letter + one-line explanation per MCQ\n\n"
+                    "LANGUAGE RULES (mandatory — no exceptions):\n"
+                    "• Write every single word in FULL — no abbreviations whatsoever\n"
+                    "• WRONG: 'b/w', 'w.r.t.', 'temp.', 'conc.', 'rxn', 'approx.', 'max.', 'min.', '&', 'etc.'\n"
+                    "• RIGHT: 'between', 'with respect to', 'temperature', 'concentration', 'reaction', 'approximately', 'maximum', 'minimum', 'and'\n"
+                    "• Every question must be a full, clear, grammatically correct sentence\n"
+                    "• Questions must be easy to read — a student should understand immediately what is being asked\n"
+                    "Ensure all questions are NCERT/curriculum accurate and appropriate for the class/exam level."
                 )
                 st.session_state.ep_last_name = str(_ep_exam_label).replace(" ","_")
                 st.session_state.ep_generating = True
@@ -1473,6 +1594,463 @@ def _is_pc_command_detect(text):
     is_action = any(t.startswith(x) or f' {x}' in t for x in _actions)
     is_question = any(t.startswith(x) for x in _questions) or t.endswith('?')
     return is_action and not is_question
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ── TITAN NOTEBOOK PAGE ───────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+if st.session_state.notebook_mode:
+
+    # ── helpers ───────────────────────────────────────────────────────────────
+    def _nb_source_text():
+        return "\n\n---\n\n".join(
+            f"[Source {i+1}: {s['name']}]\n{s['text']}"
+            for i, s in enumerate(st.session_state.notebook_sources)
+        )
+
+    def _nb_ask(prompt, max_tokens=4096):
+        try:
+            from groq import Groq as _G
+            _c = _G(api_key=st.session_state.api_key)
+            _src = _nb_source_text()
+            _sys = (
+                "You are Titan Notebook — a world-class AI study assistant. "
+                "You have access to the user's uploaded sources below. "
+                "Always base your answers strictly on these sources. "
+                "If something is not in the sources, say so clearly.\n\n"
+                f"SOURCES:\n{_src[:12000]}"
+            )
+            _r = _c.chat.completions.create(
+                model="openai/gpt-oss-120b",
+                messages=[{"role":"system","content":_sys},
+                          {"role":"user","content":prompt}],
+                max_tokens=max_tokens,
+                temperature=0.3,
+            )
+            return _r.choices[0].message.content or ""
+        except Exception as _e:
+            try:
+                _r2 = _c.chat.completions.create(
+                    model="openai/gpt-oss-20b",
+                    messages=[{"role":"system","content":_sys},
+                              {"role":"user","content":prompt}],
+                    max_tokens=max_tokens,
+                    temperature=0.3,
+                )
+                return _r2.choices[0].message.content or ""
+            except Exception as _e2:
+                return f"❌ Error: {_e2}"
+
+    def _nb_read_pdf(file_bytes):
+        try:
+            import pdfplumber, io
+            text = ""
+            with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+                for page in pdf.pages:
+                    text += (page.extract_text() or "") + "\n"
+            return text.strip()
+        except Exception:
+            try:
+                import PyPDF2, io
+                reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))
+                return "\n".join(p.extract_text() or "" for p in reader.pages).strip()
+            except Exception as e:
+                return f"[Could not read PDF: {e}]"
+
+    def _nb_read_url(url):
+        try:
+            import requests as _req
+            from bs4 import BeautifulSoup as _BS
+            r = _req.get(url, timeout=10, headers={"User-Agent":"Mozilla/5.0"})
+            soup = _BS(r.text, "html.parser")
+            for tag in soup(["script","style","nav","footer","header"]):
+                tag.decompose()
+            return soup.get_text(separator="\n", strip=True)[:8000]
+        except Exception as e:
+            return f"[Could not read URL: {e}]"
+
+    def _nb_parse_flashcards(text):
+        cards = []
+        lines = text.strip().split("\n")
+        i = 0
+        while i < len(lines):
+            l = lines[i].strip()
+            if l.upper().startswith("FRONT:"):
+                front = l[6:].strip()
+                if i+1 < len(lines) and lines[i+1].strip().upper().startswith("BACK:"):
+                    back = lines[i+1].strip()[5:].strip()
+                    cards.append({"front": front, "back": back})
+                    i += 2
+                    continue
+            i += 1
+        return cards
+
+    # ── Header ────────────────────────────────────────────────────────────────
+    st.markdown("""
+    <div style='text-align:center;padding:18px 0 8px'>
+        <div style='font-family:Georgia,serif;font-size:1.6rem;font-weight:900;
+        background:linear-gradient(90deg,#c9a84c,#f0d080,#a0a0a0,#c9a84c);
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text'>
+        𝒜 TITAN NOTEBOOK</div>
+        <div style='font-size:0.75rem;color:#6b7a99;margin-top:4px;letter-spacing:2px'>
+        YOUR AI-POWERED STUDY COMPANION — LIKE GEMINI NOTEBOOKLM</div>
+    </div>""", unsafe_allow_html=True)
+
+    # ── Sources panel ─────────────────────────────────────────────────────────
+    with st.expander(f"Sources  ({len(st.session_state.notebook_sources)} added)", expanded=not st.session_state.notebook_sources):
+        _nb_tab1, _nb_tab2, _nb_tab3 = st.tabs(["Upload PDF", "Add URL", "Paste Text"])
+
+        with _nb_tab1:
+            _nb_pdf = st.file_uploader("Upload PDF / TXT file", type=["pdf","txt"], key="_nb_pdf_up")
+            if _nb_pdf and st.button("➕ Add to Notebook", key="_nb_add_pdf"):
+                with st.spinner("Reading file..."):
+                    if _nb_pdf.type == "application/pdf" or _nb_pdf.name.endswith(".pdf"):
+                        _nb_text = _nb_read_pdf(_nb_pdf.read())
+                    else:
+                        _nb_text = _nb_pdf.read().decode("utf-8", errors="replace")
+                    if _nb_text:
+                        st.session_state.notebook_sources.append({"name": _nb_pdf.name, "text": _nb_text})
+                        st.session_state.notebook_generated = {}
+                        st.success(f"✅ Added: {_nb_pdf.name}")
+                        st.rerun()
+
+        with _nb_tab2:
+            _nb_url = st.text_input("Paste a URL (website, article, Wikipedia...)", key="_nb_url_in")
+            if _nb_url and st.button("➕ Add URL", key="_nb_add_url"):
+                with st.spinner("Fetching page..."):
+                    _nb_text = _nb_read_url(_nb_url)
+                    if _nb_text:
+                        _nb_name = _nb_url[:50] + "..."
+                        st.session_state.notebook_sources.append({"name": _nb_name, "text": _nb_text})
+                        st.session_state.notebook_generated = {}
+                        st.success("✅ URL added!")
+                        st.rerun()
+
+        with _nb_tab3:
+            _nb_paste = st.text_area("Paste any text, notes, or content here...", height=150, key="_nb_paste_in")
+            _nb_paste_name = st.text_input("Give it a name (optional)", value="My Notes", key="_nb_paste_name")
+            if _nb_paste and st.button("➕ Add Text", key="_nb_add_text"):
+                st.session_state.notebook_sources.append({"name": _nb_paste_name or "Pasted Text", "text": _nb_paste})
+                st.session_state.notebook_generated = {}
+                st.success("✅ Text added!")
+                st.rerun()
+
+        # List sources with delete buttons
+        if st.session_state.notebook_sources:
+            st.divider()
+            st.caption("Your sources:")
+            for _si, _src in enumerate(st.session_state.notebook_sources):
+                _sc1, _sc2 = st.columns([5,1])
+                _sc1.markdown(f"**{_si+1}.** {_src['name']}")
+                if _sc2.button("🗑️", key=f"_nb_del_{_si}"):
+                    st.session_state.notebook_sources.pop(_si)
+                    st.session_state.notebook_generated = {}
+                    st.rerun()
+
+    if not st.session_state.notebook_sources:
+        st.info("👆 Add at least one source above to get started.")
+        st.stop()
+
+    # ── Generate buttons ──────────────────────────────────────────────────────
+    st.markdown("### Generate")
+    _gb1, _gb2, _gb3, _gb4, _gb5, _gb6 = st.columns(6)
+
+    if _gb1.button("Summary", use_container_width=True, key="_nb_gen_sum"):
+        with st.spinner("Generating summary..."):
+            st.session_state.notebook_generated["summary"] = _nb_ask(
+                "Write a detailed executive summary of all the sources. "
+                "Cover all key points, main ideas, and important details. "
+                "Use clear headings and bullet points."
+            )
+        st.rerun()
+
+    if _gb2.button("Study Guide", use_container_width=True, key="_nb_gen_sg"):
+        with st.spinner("Creating study guide..."):
+            st.session_state.notebook_generated["study_guide"] = _nb_ask(
+                "Create a comprehensive study guide from these sources. Include: "
+                "1. Key Concepts with explanations "
+                "2. Important Terms & Definitions "
+                "3. Main Topics breakdown "
+                "4. Key Facts to remember "
+                "5. Common exam points "
+                "Format with clear headings and bullet points."
+            )
+        st.rerun()
+
+    if _gb3.button("Flashcards", use_container_width=True, key="_nb_gen_fc"):
+        with st.spinner("Generating flashcards..."):
+            _fc_resp = _nb_ask(
+                "Generate 20 high-quality flashcards from these sources. "
+                "Format EXACTLY like this for each card:\n"
+                "FRONT: [question or term]\n"
+                "BACK: [answer or definition]\n\n"
+                "Cover all key concepts, terms, facts, and important points."
+            )
+            _nb_cards = _nb_parse_flashcards(_fc_resp)
+            if _nb_cards:
+                st.session_state.notebook_generated["flashcards"] = _nb_cards
+                st.session_state.nb_card_index = 0
+                st.session_state.nb_card_flipped = False
+            else:
+                st.session_state.notebook_generated["flashcards_raw"] = _fc_resp
+        st.rerun()
+
+    if _gb4.button("FAQ", use_container_width=True, key="_nb_gen_faq"):
+        with st.spinner("Generating FAQ..."):
+            st.session_state.notebook_generated["faq"] = _nb_ask(
+                "Generate 15 frequently asked questions with detailed answers "
+                "based on these sources. Format as:\n"
+                "**Q: [question]**\nA: [detailed answer]\n\n"
+                "Cover the most important and commonly asked topics."
+            )
+        st.rerun()
+
+    if _gb5.button("Quiz", use_container_width=True, key="_nb_gen_quiz"):
+        with st.spinner("Creating quiz..."):
+            st.session_state.notebook_generated["quiz"] = _nb_ask(
+                "Create a 15-question multiple choice quiz from these sources. "
+                "For each question use this format:\n"
+                "**Q1. [question]**\n"
+                "A) [option]\nB) [option]\nC) [option]\nD) [option]\n"
+                "✅ Answer: [correct letter] — [brief explanation]\n\n"
+                "Make questions challenging and cover all major topics."
+            )
+        st.rerun()
+
+    if _gb6.button("Timeline", use_container_width=True, key="_nb_gen_tl"):
+        with st.spinner("Building timeline..."):
+            st.session_state.notebook_generated["timeline"] = _nb_ask(
+                "Extract all dates, events, and chronological information from these sources. "
+                "Create a detailed timeline in chronological order. Format as:\n"
+                "**[Year/Date]** — [Event description]\n\n"
+                "If no specific dates, organize key developments in logical sequence."
+            )
+        st.rerun()
+
+    # ── Show generated content ────────────────────────────────────────────────
+    _gen = st.session_state.notebook_generated
+    _nb_tabs_labels = []
+    if "summary"     in _gen: _nb_tabs_labels.append("📋 Summary")
+    if "study_guide" in _gen: _nb_tabs_labels.append("🗂️ Study Guide")
+    if "flashcards"  in _gen or "flashcards_raw" in _gen: _nb_tabs_labels.append("🃏 Flashcards")
+    if "faq"         in _gen: _nb_tabs_labels.append("❓ FAQ")
+    if "quiz"        in _gen: _nb_tabs_labels.append("📝 Quiz")
+    if "timeline"    in _gen: _nb_tabs_labels.append("📅 Timeline")
+
+    if _nb_tabs_labels:
+        st.markdown("---")
+        st.markdown("### Generated Content")
+        _nb_tabs_labels = [l.split(" ",1)[1] if l[0] in "📋🗂🃏❓📝📅" else l for l in _nb_tabs_labels]
+        _nb_tabs_labels = ["Summary" if "Summary" in l else
+                           "Study Guide" if "Study" in l else
+                           "Flashcards" if "Flash" in l else
+                           "FAQ" if "FAQ" in l else
+                           "Quiz" if "Quiz" in l else
+                           "Timeline" if "Timeline" in l else l
+                           for l in _nb_tabs_labels]
+        _nb_content_tabs = st.tabs(_nb_tabs_labels)
+        _nb_ti = 0
+
+        if "summary" in _gen:
+            with _nb_content_tabs[_nb_ti]:
+                st.markdown(_gen["summary"])
+                st.download_button("Download", _gen["summary"], "titan_summary.txt", key="_nb_dl_sum")
+            _nb_ti += 1
+
+        if "study_guide" in _gen:
+            with _nb_content_tabs[_nb_ti]:
+                st.markdown(_gen["study_guide"])
+                st.download_button("Download", _gen["study_guide"], "titan_study_guide.txt", key="_nb_dl_sg")
+            _nb_ti += 1
+
+        if "flashcards" in _gen or "flashcards_raw" in _gen:
+            with _nb_content_tabs[_nb_ti]:
+                if "flashcards" in _gen:
+                    _nb_cards = _gen["flashcards"]
+                    _nb_ci    = st.session_state.nb_card_index % len(_nb_cards)
+                    _nb_card  = _nb_cards[_nb_ci]
+                    _nb_flipped = st.session_state.nb_card_flipped
+
+                    # Card display
+                    _nb_card_content = _nb_card["back"] if _nb_flipped else _nb_card["front"]
+                    _nb_card_label   = "BACK" if _nb_flipped else "FRONT"
+                    st.markdown(f"""
+                    <div style='background:linear-gradient(135deg,#0d1b2a,#1a2a4a);
+                    border:2px solid #00d4ff44;border-radius:16px;padding:40px 30px;
+                    text-align:center;min-height:180px;margin:10px 0;
+                    box-shadow:0 0 20px #00d4ff22'>
+                        <div style='font-size:0.65rem;color:#00d4ff;letter-spacing:3px;margin-bottom:12px'>{_nb_card_label} · {_nb_ci+1}/{len(_nb_cards)}</div>
+                        <div style='font-size:1.1rem;color:#e8f4ff;font-weight:500;line-height:1.6'>{_nb_card_content}</div>
+                    </div>""", unsafe_allow_html=True)
+
+                    _fc_c1, _fc_c2, _fc_c3 = st.columns(3)
+                    if _fc_c1.button("⬅️ Prev", use_container_width=True, key="_nb_fc_prev"):
+                        st.session_state.nb_card_index = (st.session_state.nb_card_index - 1) % len(_nb_cards)
+                        st.session_state.nb_card_flipped = False
+                        st.rerun()
+                    if _fc_c2.button("🔄 Flip", use_container_width=True, key="_nb_fc_flip"):
+                        st.session_state.nb_card_flipped = not st.session_state.nb_card_flipped
+                        st.rerun()
+                    if _fc_c3.button("➡️ Next", use_container_width=True, key="_nb_fc_next"):
+                        st.session_state.nb_card_index = (st.session_state.nb_card_index + 1) % len(_nb_cards)
+                        st.session_state.nb_card_flipped = False
+                        st.rerun()
+
+                    st.caption(f"Card {_nb_ci+1} of {len(_nb_cards)}")
+                    _nb_fc_text = "\n".join(f"FRONT: {c['front']}\nBACK: {c['back']}\n" for c in _nb_cards)
+                    st.download_button("Download All Cards", _nb_fc_text, "titan_flashcards.txt", key="_nb_dl_fc")
+                else:
+                    st.markdown(_gen["flashcards_raw"])
+            _nb_ti += 1
+
+        if "faq" in _gen:
+            with _nb_content_tabs[_nb_ti]:
+                st.markdown(_gen["faq"])
+                st.download_button("Download", _gen["faq"], "titan_faq.txt", key="_nb_dl_faq")
+            _nb_ti += 1
+
+        if "quiz" in _gen:
+            with _nb_content_tabs[_nb_ti]:
+                st.markdown(_gen["quiz"])
+                st.download_button("Download", _gen["quiz"], "titan_quiz.txt", key="_nb_dl_quiz")
+            _nb_ti += 1
+
+        if "timeline" in _gen:
+            with _nb_content_tabs[_nb_ti]:
+                st.markdown(_gen["timeline"])
+                st.download_button("Download", _gen["timeline"], "titan_timeline.txt", key="_nb_dl_tl")
+            _nb_ti += 1
+
+    # ── Chat with sources ─────────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### Chat with Your Sources")
+    st.caption("Ask anything about your uploaded sources — Titan Notebook answers from them.")
+
+    for _nbm in st.session_state.notebook_chat:
+        with st.chat_message(_nbm["role"]):
+            st.markdown(_nbm["content"])
+
+    _nb_user_q = st.chat_input("Ask anything about your sources...", key="_nb_chat_input")
+    if _nb_user_q:
+        st.session_state.notebook_chat.append({"role":"user","content":_nb_user_q})
+        with st.chat_message("user"):
+            st.markdown(_nb_user_q)
+        with st.chat_message("assistant"):
+            with st.spinner("Searching sources..."):
+                _nb_ans = _nb_ask(_nb_user_q)
+            st.markdown(_nb_ans)
+        st.session_state.notebook_chat.append({"role":"assistant","content":_nb_ans})
+        st.rerun()
+
+    st.stop()
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ── LIVE NEWS TICKER — always-on, embedded in every page load ─────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=600)
+def _ticker_fetch_headlines():
+    """Fetch ~30 mixed headlines every 3 minutes. Cached so it doesn't block UI."""
+    _queries = [
+        ("AI & Tech",    "latest AI artificial intelligence GPT model release 2025"),
+        ("Phones",       "new smartphone iPhone Android Samsung launch 2025"),
+        ("Science",      "latest science discovery research space 2025"),
+        ("World",        "breaking world news today 2025"),
+        ("Movies & OTT", "new movies series Netflix Amazon Disney release 2025"),
+        ("Apps",         "new app software launch update 2025"),
+    ]
+    _headlines = []
+    try:
+        try:
+            from duckduckgo_search import DDGS
+        except ImportError:
+            import subprocess as _tsp, sys as _tsys
+            _tsp.run([_tsys.executable, "-m", "pip", "install", "duckduckgo-search", "-q"],
+                     capture_output=True)
+            from duckduckgo_search import DDGS
+        for _cat, _q in _queries:
+            try:
+                with DDGS() as _ddgs:
+                    for _r in _ddgs.news(_q, max_results=5):
+                        _t = _r.get("title", "").strip()
+                        if _t:
+                            _headlines.append(f"[{_cat}] {_t}")
+            except Exception:
+                try:
+                    with DDGS() as _ddgs:
+                        for _r in _ddgs.text(_q, max_results=3):
+                            _t = _r.get("title", "").strip()
+                            if _t:
+                                _headlines.append(f"[{_cat}] {_t}")
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return _headlines
+
+# ── Fetch headlines — only block on first page load, instant on all message reruns ──
+_ticker_lines = []
+if "_ticker_prefetched" not in st.session_state:
+    # First script run this session (page load) — fetch now, store in session
+    st.session_state["_ticker_prefetched"] = True
+    try:
+        _ticker_lines = _ticker_fetch_headlines()
+        st.session_state["_ticker_data"] = _ticker_lines
+    except Exception:
+        st.session_state["_ticker_data"] = []
+else:
+    # Every subsequent rerun (message sent, button clicked) — instant, no DDG queries
+    _ticker_lines = st.session_state.get("_ticker_data", [])
+
+if _ticker_lines:
+    _ticker_text = "   ◆   ".join(_ticker_lines)
+    # Escape for safe HTML embedding
+    _ticker_safe = _ticker_text.replace("'", "&#39;").replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;')
+    _ticker_dur  = max(30, len(_ticker_lines) * 6)  # speed scales with content
+    st.markdown(f"""
+<style>
+@keyframes ticker-scroll {{
+    0%   {{ transform: translateX(100%); }}
+    100% {{ transform: translateX(-100%); }}
+}}
+.titan-ticker-wrap {{
+    width:100%; overflow:hidden; background:linear-gradient(90deg,#060d18,#0a0618,#060d18);
+    border-top:1px solid #1a0f44; border-bottom:1px solid #1a0f44;
+    padding:6px 0; margin:0 0 10px; position:relative;
+}}
+.titan-ticker-label {{
+    position:absolute; left:0; top:0; bottom:0; z-index:2;
+    background:linear-gradient(90deg,#7c3aed,#a855f7);
+    color:#fff; font-family:Orbitron,monospace; font-size:.6rem;
+    font-weight:900; letter-spacing:2px; padding:0 10px;
+    display:flex; align-items:center; white-space:nowrap;
+}}
+.titan-ticker-track {{
+    display:inline-block; white-space:nowrap;
+    animation:ticker-scroll {_ticker_dur}s linear infinite;
+    color:#00e5d0; font-size:.72rem; font-family:Inter,sans-serif; padding-left:120px;
+}}
+.titan-ticker-track span {{ color:#c9d8f0; margin:0 2px; }}
+</style>
+<div class="titan-ticker-wrap">
+    <div class="titan-ticker-label">📡 LIVE</div>
+    <div class="titan-ticker-track">{_ticker_safe}</div>
+</div>
+""", unsafe_allow_html=True)
+
+# ── Auto-reload page every 3 minutes so ticker always shows fresh news ─────────
+st.html("""
+<script>
+(function(){
+    var _tr = window.sessionStorage.getItem('__titan_ticker_reload');
+    var _now = Date.now();
+    if(!_tr) { window.sessionStorage.setItem('__titan_ticker_reload', _now); }
+    setTimeout(function(){
+        window.sessionStorage.removeItem('__titan_ticker_reload');
+        window.parent.location.reload();
+    }, 180000);  // 3 minutes
+})();
+</script>
+""")
 
 # ── Always parse flashcards from latest AI response ───────────────────────────
 if True:
@@ -1999,2148 +2577,79 @@ with st.expander("🌤️ Live Weather Search", expanded=bool(st.session_state.w
     else:
         st.markdown("<div style='color:#6b7a99;font-size:.8rem;padding:8px 0'>Type a city or state above, or ask me in the chat — e.g. \"weather in Mumbai\"</div>", unsafe_allow_html=True)
 
-# ── Animated Diagrams ─────────────────────────────────────────────────────────
-_DIAGRAM_MAP = {
-    'atom':          ['atom','atomic structure','structure of an atom','bohr model','electron shell',
-                      'subatomic','atomic model','structure of atom','electron orbit','proton neutron',
-                      'atomic number','electron configuration','structure of the atom'],
-    'dna':           ['dna','double helix','dna structure','deoxyribonucleic','nucleotide',
-                      'base pair','dna strand','rna structure','genetic code','chromosome structure'],
-    'solar':         ['solar system','planets orbit','heliocentric','orbit the sun','our solar system',
-                      'how planets move','revolution of planet','solar system work','planet revolve'],
-    'cell':          ['cell structure','plant cell','animal cell','cell organelle','cell membrane',
-                      'structure of a cell','parts of a cell','eukaryotic cell','prokaryotic cell',
-                      'how does a cell work','cell biology'],
-    'water':         ['water cycle','hydrological cycle','water cycle diagram','evaporation condensation',
-                      'rain cycle','how water cycle','precipitation','water evaporate'],
-    'wave':          ['sound wave','light wave','wave diagram','wave motion','transverse wave',
-                      'longitudinal wave','simple harmonic motion','shm','pendulum motion',
-                      'frequency wavelength','how waves work','wave structure'],
-    'heart':         ['human heart','heart structure','how heart works','circulatory system',
-                      'blood circulation','heart chambers','cardiac cycle','blood flow in heart',
-                      'how does the heart','heartbeat','atrium ventricle'],
-    'photosynthesis':['photosynthesis','how plants make food','chlorophyll','chloroplast',
-                      'light reaction','dark reaction','calvin cycle','how plants prepare food',
-                      'how plant makes food'],
-    'circuit':       ['electric circuit','electrical circuit','circuit diagram',
-                      'how does electricity flow',"ohm's law",'how current flows',
-                      'series circuit','parallel circuit','how electricity works','current flow'],
-    'eye':           ['structure of eye','human eye','how eye works','parts of eye','eye diagram',
-                      'how we see','lens of eye','retina','how does the eye','vision work'],
-    'magnet':        ['magnetic field','how magnet works','magnetic field lines','bar magnet',
-                      'electromagnet','how does a magnet','magnetic force','field lines'],
-    'mitosis':       ['mitosis','cell division','how cells divide','cell cycle','meiosis',
-                      'cell reproduction','how does cell divide','stages of mitosis'],
-    'moon':          ['moon phases','phases of moon','lunar cycle','how moon phases','new moon full moon',
-                      'why moon phases','waxing waning','how does moon'],
-    'newton':        ["newton's laws","newton's first law","newton's second law","newton's third law",
-                      'law of motion','laws of motion','force and motion','inertia','f=ma'],
-    # ── More Science ──────────────────────────────────────────────────────────
-    'refraction':    ['refraction','snell\'s law','bending of light','refraction of light',
-                      'light through glass','light through prism','how light bends','lens ray',
-                      'convex lens','concave lens','ray diagram','optical','refractive index'],
-    'reflection':    ['reflection of light','law of reflection','mirror reflection','concave mirror',
-                      'convex mirror','plane mirror','how mirror works','mirror ray diagram',
-                      'angle of incidence','angle of reflection'],
-    'lungs':         ['respiratory system','how lungs work','breathing','lungs','how we breathe',
-                      'inhalation exhalation','diaphragm','alveoli','respiration diagram',
-                      'how respiration works','how does breathing'],
-    'digestion':     ['digestive system','digestion process','how digestion works','how we digest',
-                      'digestive tract','stomach','intestine','how food is digested',
-                      'parts of digestive','alimentary canal'],
-    'neuron':        ['neuron','nerve cell','how neuron works','structure of neuron','synapse',
-                      'nervous system','nerve impulse','axon dendrite','how nerve works'],
-    'plant_structure':['parts of a plant','plant structure','how plant works','root stem leaf',
-                       'parts of plant','flower structure','how does a plant','monocot dicot',
-                       'structure of a flower','plant organs'],
-    'food_chain':    ['food chain','food web','trophic level','ecosystem','predator prey',
-                      'producer consumer','energy flow in ecosystem','how food chain works',
-                      'decomposer','herbivore carnivore'],
-    'projectile':    ['projectile motion','projectile','how projectile works','trajectory',
-                      'horizontal projection','path of projectile','cannon ball','parabolic path',
-                      'range of projectile'],
-    'circular_motion':['circular motion','centripetal force','uniform circular motion','angular velocity',
-                       'how circular motion','centrifugal','rotation revolution'],
-    # ── Geography ─────────────────────────────────────────────────────────────
-    'volcano':       ['volcano','volcanic eruption','how volcano erupts','magma lava','volcano diagram',
-                      'how does a volcano','types of volcano','shield volcano','composite volcano'],
-    'earthquake':    ['earthquake','seismic waves','how earthquake occurs','epicentre','richter scale',
-                      'how earthquake works','fault line','tectonic plates earthquake','seismograph'],
-    'rock_cycle':    ['rock cycle','igneous rock','sedimentary rock','metamorphic rock','how rocks form',
-                      'rock formation','types of rock','rock cycle diagram'],
-    'greenhouse':    ['greenhouse effect','global warming','how greenhouse effect','climate change',
-                      'carbon dioxide warming','atmosphere warming','greenhouse gas'],
-    'seasons':       ['seasons','why seasons occur','earth tilt','why summer winter','how seasons',
-                      'solstice equinox','revolution of earth','autumn spring summer winter'],
-    'plate_tectonics':['plate tectonics','tectonic plates','continental drift','how plates move',
-                       'plate boundary','convergent divergent','how continents move'],
-    'river_erosion': ['river erosion','river formation','river deposition','how river forms',
-                      'meander','delta','ox bow lake','river stages','erosion deposition'],
-    'atmosphere':    ['layers of atmosphere','atmosphere layers','troposphere','stratosphere',
-                      'mesosphere','thermosphere','exosphere','structure of atmosphere',
-                      'atmospheric layers','layers of the atmosphere','what are the layers',
-                      'atmosphere structure','layer of atmosphere','ozone layer location',
-                      'what layer do planes fly','where do meteors burn','ionosphere',
-                      'explain atmosphere','how atmosphere works','what is atmosphere'],
-    # ── Mathematics ───────────────────────────────────────────────────────────
-    'trig':          ['trigonometry','sin cos tan','unit circle','trigonometric ratio',
-                      'how sin cos','sine cosine tangent','trig function','trigonometric function',
-                      'sin graph','cos graph'],
-    'pythagoras':    ['pythagoras theorem','pythagorean theorem','a squared plus b squared',
-                      'right triangle','hypotenuse','pythagorean','pythagoras'],
-    'graph_linear':  ['linear equation','straight line graph','y=mx+c','slope intercept',
-                      'how to draw line','linear function','gradient intercept'],
-    'graph_quad':    ['quadratic equation','parabola','y=x squared','quadratic function',
-                      'x squared graph','how to draw parabola','vertex parabola'],
-    'venn':          ['venn diagram','sets and subsets','union intersection','how venn diagram',
-                      'set theory','elements of set','venn','cardinality'],
-    'geometry_angles':['types of angles','acute obtuse reflex','angle types','complementary supplementary',
-                       'parallel lines transversal','corresponding angles','alternate angles',
-                       'interior angles','exterior angle'],
-    'geometry_shapes':['triangle types','types of triangle','equilateral isosceles scalene',
-                       'properties of triangle','quadrilateral types','polygon','circle parts',
-                       'chord diameter radius','area of shapes'],
-    # ── Economics / Social Science ────────────────────────────────────────────
-    'demand_supply': ['demand and supply','supply demand curve','law of demand','law of supply',
-                      'equilibrium price','demand curve','supply curve','how market works',
-                      'market equilibrium','price mechanism'],
-    'circular_flow': ['circular flow','circular flow of income','flow of money','how economy works',
-                      'households firms','factors of production circular','income expenditure flow'],
-    # ── History Timelines ─────────────────────────────────────────────────────
-    'timeline':      ['timeline of','world war timeline','history of','chronology',
-                      'important events','when did','sequence of events','dates of',
-                      'year by year','what happened in'],
-}
 
-def _detect_diagram_topic(text):
+
+# ── Animated Diagrams (AI-generated) ─────────────────────────────────────────
+def _is_diagram_request(text):
     t = text.lower()
-    is_visual = any(k in t for k in [
-        'explain','structure','diagram','how does','how do','show me','what is','describe',
-        'how it works','what are','how are','how work','tell me about','what happens',
-        'how','explain how','what','draw','illustrate','define','stages','parts of',
-        'process of','mechanism','function of','system','model','cycle',
+    return any(k in t for k in [
+        'diagram','structure of','layers of','how does','how do','show me','draw',
+        'illustrate','explain the structure','explain how','model of','system of',
+        'cycle of','process of','parts of','mechanism of','anatomy','cross section',
+        'cross-section','how it works','give a diagram','make a diagram',
+        'create a diagram','show the structure','what is the structure',
+        'solar system','atom','dna','cell structure','water cycle','food chain',
+        'photosynthesis','human heart','nervous system','plant structure',
+        'projectile motion','circular motion','volcano','earthquake','rock cycle',
+        'greenhouse effect','seasons','plate tectonics','river erosion',
+        'refraction','reflection','wave','circuit','electromagnetic','atmosphere',
     ])
-    if not is_visual:
-        return None
-    for topic, keywords in _DIAGRAM_MAP.items():
-        if any(k in t for k in keywords):
-            return topic
-    return None
 
-def _get_diagram_html(topic):
-    _bg = 'background:#05080f;color:#c9d8f0;font-family:monospace,sans-serif;margin:0;padding:8px 4px;box-sizing:border-box;'
-    _flex = f'{_bg}display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;'
-
-    if topic == 'atom':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>body{{background:#010208;margin:0;padding:4px;display:flex;flex-direction:column;align-items:center;}}</style>
-</head><body>
-<div style="font-size:11px;color:#40E0D0;letter-spacing:2px;font-weight:700;margin-bottom:2px;">⚛ ATOMIC STRUCTURE — BOHR MODEL</div>
-<canvas id="atC" width="300" height="300" style="display:block;border-radius:8px;"></canvas>
-<div style="font-size:9px;color:#6699aa;margin-top:2px;text-align:center;">● Nucleus (p⁺+n⁰)  ● K shell 2e⁻  ● L shell 8e⁻  ● M shell 8e⁻</div>
-<script>
-const cv=document.getElementById('atC'),ctx=cv.getContext('2d'),W=300,H=300,cx=150,cy=150;
-const stars=[];
-for(let i=0;i<55;i++)stars.push([Math.random()*W,Math.random()*H,Math.random()*1.2+.3,Math.random()*80]);
-const shells=[{{r:65,n:2,col:'#00e5ff',nm:'K',spd:.028}},{{r:106,n:8,col:'#a855f7',nm:'L',spd:.013}},{{r:146,n:8,col:'#22c55e',nm:'M',spd:.007}}];
-let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='#010208';ctx.fillRect(0,0,W,H);
-  stars.forEach(s=>{{
-    ctx.beginPath();ctx.arc(s[0],s[1],s[2],0,6.28);
-    ctx.fillStyle='rgba(200,215,255,'+(0.3+0.4*Math.sin(t*.02+s[3])).toFixed(2)+')';ctx.fill();
-  }});
-  shells.forEach(s=>{{
-    ctx.beginPath();ctx.arc(cx,cy,s.r,0,6.28);
-    ctx.strokeStyle=s.col+'44';ctx.lineWidth=1;ctx.stroke();
-    ctx.fillStyle=s.col;ctx.font='bold 9px monospace';ctx.textAlign='left';
-    ctx.fillText(s.nm,cx+s.r+4,cy+3);
-  }});
-  const nr=22+4*Math.sin(t*.055);
-  const ng=ctx.createRadialGradient(cx-4,cy-4,2,cx,cy,nr+2);
-  ng.addColorStop(0,'#fffde7');ng.addColorStop(.35,'#ffa000');ng.addColorStop(1,'#b71c1c');
-  ctx.shadowColor='#ff6600';ctx.shadowBlur=22;
-  ctx.beginPath();ctx.arc(cx,cy,nr,0,6.28);ctx.fillStyle=ng;ctx.fill();
-  ctx.shadowBlur=0;
-  ctx.fillStyle='#fff';ctx.font='bold 8px sans-serif';ctx.textAlign='center';ctx.fillText('p⁺n',cx,cy+3);
-  shells.forEach(s=>{{
-    ctx.shadowColor=s.col;ctx.shadowBlur=14;
-    for(let j=0;j<s.n;j++){{
-      const a=t*s.spd+j*(6.28/s.n);
-      ctx.beginPath();ctx.arc(cx+s.r*Math.cos(a),cy+s.r*Math.sin(a),4.5,0,6.28);
-      ctx.fillStyle=s.col;ctx.fill();
-    }}
-    ctx.shadowBlur=0;
-  }});
-  ctx.fillStyle='rgba(255,255,255,.28)';ctx.font='8px sans-serif';ctx.textAlign='center';
-  ctx.fillText('Electrons orbit the nucleus in fixed energy shells',cx,H-5);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'dna':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>body{{background:#010208;margin:0;padding:4px;display:flex;flex-direction:column;align-items:center;}}</style>
-</head><body>
-<div style="font-size:11px;color:#40E0D0;letter-spacing:2px;font-weight:700;margin-bottom:2px;">🧬 DNA DOUBLE HELIX</div>
-<canvas id="dna" width="300" height="320" style="display:block;border-radius:8px;"></canvas>
-<div style="font-size:9px;color:#6699aa;margin-top:2px;text-align:center;">A-T pairs · G-C pairs · Sugar-phosphate backbone · Carries genetic info</div>
-<script>
-const cv=document.getElementById('dna'),ctx=cv.getContext('2d'),W=300,H=320,ccx=W/2;
-const amp=60,freq=0.044;
-const bpColors=[['#ff6b6b','#4ecdc4'],['#ffd700','#a855f7'],['#22c55e','#ff9944'],['#ff8c94','#48cae4']];
-const bpLabels=[['A','T'],['G','C'],['C','G'],['T','A']];
-const stars=[];for(let i=0;i<40;i++)stars.push([Math.random()*W,Math.random()*H,Math.random()*1.1+.3,Math.random()*70]);
-let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='#010208';ctx.fillRect(0,0,W,H);
-  stars.forEach(s=>{{
-    ctx.beginPath();ctx.arc(s[0],s[1],s[2],0,6.28);
-    ctx.fillStyle='rgba(200,215,255,'+(0.25+0.3*Math.sin(t*.02+s[3])).toFixed(2)+')';ctx.fill();
-  }});
-  const steps=14;
-  for(let i=0;i<=steps;i++){{
-    const y=16+i*((H-32)/steps);
-    const x1=ccx+amp*Math.sin(freq*y*10+t);
-    const x2=ccx+amp*Math.sin(freq*y*10+t+Math.PI);
-    const bp=bpColors[i%4];const bl=bpLabels[i%4];
-    const depth=Math.sin(freq*y*10+t);
-    const bpAlpha=(0.4+0.4*Math.abs(depth)).toFixed(2);
-    const grd=ctx.createLinearGradient(x1,y,x2,y);
-    grd.addColorStop(0,bp[0]);grd.addColorStop(.5,'rgba(255,215,0,.5)');grd.addColorStop(1,bp[1]);
-    ctx.beginPath();ctx.moveTo(x1,y);ctx.lineTo(x2,y);
-    ctx.strokeStyle='rgba(255,215,0,'+bpAlpha+')';ctx.lineWidth=1.8;ctx.stroke();
-    const sz=5+2*Math.abs(depth);
-    ctx.shadowColor=bp[0];ctx.shadowBlur=8;
-    ctx.beginPath();ctx.arc(x1,y,sz,0,6.28);ctx.fillStyle=bp[0];ctx.fill();
-    ctx.shadowColor=bp[1];
-    ctx.beginPath();ctx.arc(x2,y,sz,0,6.28);ctx.fillStyle=bp[1];ctx.fill();
-    ctx.shadowBlur=0;
-    if(Math.abs(depth)<0.4){{
-      ctx.fillStyle=bp[0];ctx.font='bold 7px sans-serif';ctx.textAlign='center';
-      ctx.fillText(bl[0],x1,y+3);
-      ctx.fillStyle=bp[1];ctx.fillText(bl[1],x2,y+3);
-    }}
-  }}
-  for(let s=0;s<2;s++){{
-    const off=s*Math.PI;
-    ctx.beginPath();
-    for(let y=16;y<=H-16;y+=2){{
-      const x=ccx+amp*Math.sin(freq*y*10+t+off);
-      y===16?ctx.moveTo(x,y):ctx.lineTo(x,y);
-    }}
-    ctx.shadowColor=s===0?'#ff6b6b':'#4ecdc4';ctx.shadowBlur=8;
-    ctx.strokeStyle=s===0?'#ff6b6b':'#4ecdc4';ctx.lineWidth=3;ctx.stroke();
-    ctx.shadowBlur=0;
-  }}
-  ctx.fillStyle='rgba(255,255,255,.25)';ctx.font='7px monospace';ctx.textAlign='center';
-  ctx.fillText('A=Adenine  T=Thymine  G=Guanine  C=Cytosine',ccx,H-5);
-  t+=0.038;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'solar':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>body{{background:#010208;margin:0;padding:4px;display:flex;flex-direction:column;align-items:center;}}</style>
-</head><body>
-<div style="font-size:11px;color:#40E0D0;letter-spacing:2px;font-weight:700;margin-bottom:2px;">🌌 THE SOLAR SYSTEM</div>
-<canvas id="sol" width="460" height="310" style="display:block;border-radius:8px;"></canvas>
-<div style="font-size:9px;color:#6699aa;margin-top:2px;text-align:center;">8 planets orbit the Sun · Not to scale · Orbital speeds proportional</div>
-<script>
-const cv=document.getElementById('sol'),ctx=cv.getContext('2d'),W=460,H=310,cx=W/2,cy=H/2;
-const stars=[];for(let i=0;i<90;i++)stars.push([Math.random()*W,Math.random()*H,Math.random()*1.3+.3,Math.random()*90]);
-const pN=['Mercury','Venus','Earth','Mars','Jupiter','Saturn','Uranus','Neptune'];
-const pR=[30,50,72,96,130,164,196,224];
-const pC=['#b0bec5','#ffcc80','#4fc3f7','#ef5350','#ffb74d','#fdd835','#80deea','#5588cc'];
-const pSz=[3,5,5.5,4.5,13,11,8,8];
-const pSpd=[.042,.026,.016,.010,.006,.004,.002,.0013];
-const pOff=[0.8,1.9,3.2,4.7,0.3,2.1,5.0,1.5];
-let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='#010208';ctx.fillRect(0,0,W,H);
-  stars.forEach(s=>{{
-    ctx.beginPath();ctx.arc(s[0],s[1],s[2],0,6.28);
-    ctx.fillStyle='rgba(200,215,255,'+(0.3+0.4*Math.sin(t*.018+s[3])).toFixed(2)+')';ctx.fill();
-  }});
-  for(let i=0;i<6;i++){{
-    ctx.beginPath();ctx.arc(cx,cy,25+i*4,.8,2.3,false);
-    const ra=(0.12+0.08*Math.sin(t*.04+i)).toFixed(2);
-    ctx.strokeStyle='rgba(255,200,50,'+ra+')';ctx.lineWidth=2;ctx.stroke();
-  }}
-  const sunG=ctx.createRadialGradient(cx,cy,2,cx,cy,26);
-  sunG.addColorStop(0,'#fffde7');sunG.addColorStop(.45,'#ffa000');sunG.addColorStop(1,'rgba(230,80,0,0)');
-  ctx.shadowColor='#ff8800';ctx.shadowBlur=28;
-  ctx.beginPath();ctx.arc(cx,cy,24*(1+.04*Math.sin(t*.04)),0,6.28);ctx.fillStyle=sunG;ctx.fill();
-  ctx.shadowBlur=0;
-  ctx.fillStyle='rgba(255,210,80,.7)';ctx.font='bold 7px sans-serif';ctx.textAlign='center';ctx.fillText('☉ SUN',cx,cy+3);
-  for(let i=0;i<8;i++){{
-    ctx.beginPath();ctx.arc(cx,cy,pR[i],0,6.28);
-    ctx.strokeStyle='rgba(255,255,255,.06)';ctx.lineWidth=.7;ctx.stroke();
-    const a=t*pSpd[i]+pOff[i];
-    const px=cx+pR[i]*Math.cos(a),py=cy+pR[i]*Math.sin(a);
-    if(i===5){{ctx.save();ctx.translate(px,py);ctx.scale(2.6,.38);ctx.beginPath();ctx.arc(0,0,pSz[i]+4,0,6.28);ctx.strokeStyle='rgba(253,216,53,.55)';ctx.lineWidth=3;ctx.stroke();ctx.restore();}}
-    ctx.shadowColor=pC[i];ctx.shadowBlur=10;
-    ctx.beginPath();ctx.arc(px,py,pSz[i],0,6.28);ctx.fillStyle=pC[i];ctx.fill();
-    ctx.shadowBlur=0;
-    ctx.fillStyle=pC[i];ctx.font='6px sans-serif';ctx.textAlign='center';
-    ctx.fillText(pN[i],px,py-pSz[i]-4);
-  }}
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'cell':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>body{{background:#010208;margin:0;padding:4px;display:flex;flex-direction:column;align-items:center;}}</style>
-</head><body>
-<div style="font-size:11px;color:#40E0D0;letter-spacing:2px;font-weight:700;margin-bottom:2px;">🔬 ANIMAL CELL STRUCTURE</div>
-<canvas id="cel" width="460" height="310" style="display:block;border-radius:8px;"></canvas>
-<div style="font-size:9px;color:#6699aa;margin-top:2px;text-align:center;">Nucleus · Mitochondria · Golgi · Ribosome · Vacuole · ER</div>
-<script>
-const cv=document.getElementById('cel'),ctx=cv.getContext('2d'),W=460,H=310,cx=230,cy=155;
-let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='#010208';ctx.fillRect(0,0,W,H);
-  const pulse=1+.006*Math.sin(t*.04);
-  const cytoG=ctx.createRadialGradient(cx,cy,10,cx,cy,205);
-  cytoG.addColorStop(0,'rgba(0,70,90,.3)');cytoG.addColorStop(1,'rgba(0,25,40,.08)');
-  ctx.beginPath();ctx.ellipse(cx,cy,205*pulse,142*pulse,0,0,6.28);
-  ctx.fillStyle=cytoG;ctx.fill();
-  ctx.shadowColor='#00b48c';ctx.shadowBlur=10;
-  ctx.strokeStyle='rgba(0,180,140,.65)';ctx.lineWidth=2.5;ctx.setLineDash([8,4]);ctx.stroke();
-  ctx.shadowBlur=0;ctx.setLineDash([]);
-  ctx.fillStyle='rgba(0,180,140,.5)';ctx.font='7px sans-serif';ctx.textAlign='left';ctx.fillText('Cell membrane',10,20);
-  const np=1+.012*Math.sin(t*.055);
-  const nucG=ctx.createRadialGradient(cx-8,cy-8,3,cx,cy,52);
-  nucG.addColorStop(0,'rgba(140,175,255,.55)');nucG.addColorStop(1,'rgba(50,80,200,.18)');
-  ctx.beginPath();ctx.ellipse(cx,cy,54*np,44*np,0,0,6.28);
-  ctx.fillStyle=nucG;ctx.fill();
-  ctx.shadowColor='#6688ff';ctx.shadowBlur=12;
-  ctx.strokeStyle='rgba(100,160,255,.7)';ctx.lineWidth=2;ctx.stroke();
-  ctx.shadowBlur=0;
-  ctx.beginPath();ctx.arc(cx+6,cy,11,0,6.28);
-  ctx.fillStyle='rgba(190,130,255,.65)';ctx.fill();ctx.strokeStyle='#c084fc';ctx.lineWidth=1.5;ctx.stroke();
-  ctx.fillStyle='#c084fc';ctx.font='7px sans-serif';ctx.textAlign='center';ctx.fillText('Nucleolus',cx+6,cy+3);
-  ctx.fillStyle='#8ab4ff';ctx.font='bold 7px sans-serif';ctx.fillText('Nucleus',cx,cy-20);
-  const mf=1+.04*Math.sin(t*.06);
-  [[cx-130,cy-50,28,12,.3],[cx+100,cy+60,24,11,-.2]].forEach(function(m){{
-    const mx=m[0],my=m[1],rw=m[2],rh=m[3],ang=m[4];
-    ctx.save();ctx.translate(mx,my);ctx.rotate(ang);
-    const mG=ctx.createLinearGradient(-rw,0,rw,0);
-    mG.addColorStop(0,'rgba(255,90,0,.28)');mG.addColorStop(.5,'rgba(255,140,0,.5)');mG.addColorStop(1,'rgba(255,90,0,.28)');
-    ctx.shadowColor='#ff6600';ctx.shadowBlur=8;
-    ctx.beginPath();ctx.ellipse(0,0,rw*mf,rh*mf,0,0,6.28);ctx.fillStyle=mG;ctx.fill();
-    ctx.strokeStyle='#ff8c00';ctx.lineWidth=1.5;ctx.stroke();
-    for(let cr=1;cr<3;cr++){{ctx.beginPath();ctx.moveTo(-rw+cr*rw*.6,-rh*.7);ctx.bezierCurveTo(-rw+cr*rw*.4,0,-rw+cr*rw*.8,0,-rw+cr*rw*.6,rh*.7);ctx.strokeStyle='rgba(255,160,0,.35)';ctx.lineWidth=1;ctx.stroke();}}
-    ctx.shadowBlur=0;ctx.restore();
-  }});
-  ctx.fillStyle='#ffb04a';ctx.font='7px sans-serif';ctx.textAlign='center';
-  ctx.fillText('Mitochondria',cx-130,cy-66);ctx.fillText('Mitochondria',cx+100,cy+78);
-  for(let g=0;g<5;g++){{
-    ctx.beginPath();ctx.arc(cx+120,cy-20,25+g*9,.55,2.6,false);
-    ctx.strokeStyle='rgba(255,105,180,'+(0.35+g*.08)+')';ctx.lineWidth=5;ctx.stroke();
-  }}
-  ctx.fillStyle='#ff80b0';ctx.font='7px sans-serif';ctx.textAlign='center';ctx.fillText('Golgi body',cx+120,cy-70);
-  for(let r=0;r<16;r++){{
-    const rx=cx-90+r*11+(r%3)*3,ry=cy+55+Math.sin(r*1.5)*18;
-    ctx.beginPath();ctx.arc(rx,ry,2.5,0,6.28);
-    ctx.fillStyle='rgba(255,215,0,.78)';ctx.fill();
-  }}
-  ctx.fillStyle='#ffd700';ctx.font='7px sans-serif';ctx.textAlign='center';ctx.fillText('Ribosomes',cx-60,cy+82);
-  ctx.beginPath();ctx.arc(cx-115,cy+40,22,0,6.28);
-  ctx.fillStyle='rgba(50,130,210,.16)';ctx.fill();ctx.strokeStyle='rgba(80,170,255,.45)';ctx.lineWidth=1.5;ctx.stroke();
-  ctx.fillStyle='#6db3ff';ctx.font='7px sans-serif';ctx.fillText('Vacuole',cx-115,cy+43);
-  for(let e=0;e<4;e++){{
-    const ey=cy-28+e*14;
-    ctx.beginPath();ctx.moveTo(cx+62,ey);ctx.bezierCurveTo(cx+80,ey-6,cx+95,ey+6,cx+112,ey);
-    ctx.strokeStyle='rgba(100,200,255,.38)';ctx.lineWidth=3;ctx.stroke();
-  }}
-  ctx.fillStyle='rgba(100,200,255,.6)';ctx.font='7px sans-serif';ctx.textAlign='center';ctx.fillText('Smooth ER',cx+88,cy-40);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'water':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>body{{background:#010208;margin:0;padding:4px;display:flex;flex-direction:column;align-items:center;}}</style>
-</head><body>
-<div style="font-size:11px;color:#40E0D0;letter-spacing:2px;font-weight:700;margin-bottom:2px;">💧 THE WATER CYCLE</div>
-<canvas id="wc" width="460" height="300" style="display:block;border-radius:8px;"></canvas>
-<div style="font-size:9px;color:#6699aa;margin-top:2px;text-align:center;">Evaporation → Condensation → Precipitation → Collection</div>
-<script>
-const cv=document.getElementById('wc'),ctx=cv.getContext('2d'),W=460,H=300;
-const drops=[];
-for(let i=0;i<22;i++)drops.push([120+Math.random()*200,50+Math.random()*80,1.2+Math.random()*1.6,0.45+Math.random()*.5]);
-const evapPts=[];
-for(let i=0;i<12;i++)evapPts.push([30+i*6,H*.78,0,Math.random(),0.3+Math.random()*.5]);
-let t=0;
-function cloud(ccx,ccy,s,al){{
-  ctx.globalAlpha=al;ctx.fillStyle='rgba(160,190,230,.75)';
-  const pts=[[0,0,s],[s*.85,s*.28,s*.72],[-(s*.8),s*.3,s*.68],[s*.5,-(s*.3),s*.55],[-(s*.45),-(s*.28),s*.5]];
-  pts.forEach(function(p){{ctx.beginPath();ctx.arc(ccx+p[0],ccy+p[1],p[2],0,6.28);ctx.fill();}});
-  ctx.globalAlpha=1;
-}}
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const sky=ctx.createLinearGradient(0,0,0,H*.75);
-  sky.addColorStop(0,'#010210');sky.addColorStop(.6,'#071a2e');sky.addColorStop(1,'#0c2a18');
-  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H*.75);
-  const sunX=50,sunY=38;
-  const sunG=ctx.createRadialGradient(sunX,sunY,2,sunX,sunY,22);
-  sunG.addColorStop(0,'#fffde7');sunG.addColorStop(.5,'#ffa000');sunG.addColorStop(1,'rgba(230,80,0,0)');
-  ctx.shadowColor='#ff8800';ctx.shadowBlur=18;
-  ctx.beginPath();ctx.arc(sunX,sunY,20*(1+.04*Math.sin(t*.05)),0,6.28);ctx.fillStyle=sunG;ctx.fill();
-  ctx.shadowBlur=0;
-  ctx.fillStyle='rgba(255,220,80,.7)';ctx.font='bold 7px sans-serif';ctx.textAlign='center';ctx.fillText('☀ SUN',sunX,sunY+32);
-  const grdG=ctx.createLinearGradient(0,H*.74,0,H);
-  grdG.addColorStop(0,'#0e3010');grdG.addColorStop(1,'#081a06');
-  ctx.fillStyle=grdG;ctx.fillRect(0,H*.74,W,H);
-  const oceanG=ctx.createLinearGradient(0,H*.76,0,H);
-  oceanG.addColorStop(0,'rgba(10,60,180,.7)');oceanG.addColorStop(1,'rgba(5,30,100,.9)');
-  ctx.fillStyle=oceanG;ctx.fillRect(0,H*.76,145,H);
-  ctx.fillStyle='rgba(100,180,255,.35)';ctx.font='bold 8px sans-serif';ctx.textAlign='center';ctx.fillText('OCEAN',72,H*.92);
-  const mtnPts=[[280,H*.74],[340,H*.32],[400,H*.74]];
-  const mtnG=ctx.createLinearGradient(340,H*.32,340,H*.74);
-  mtnG.addColorStop(0,'#2a3a2a');mtnG.addColorStop(1,'#1a2a1a');
-  ctx.fillStyle=mtnG;ctx.beginPath();ctx.moveTo(mtnPts[0][0],mtnPts[0][1]);ctx.lineTo(mtnPts[1][0],mtnPts[1][1]);ctx.lineTo(mtnPts[2][0],mtnPts[2][1]);ctx.closePath();ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,.25)';ctx.font='7px sans-serif';ctx.fillText('⛰ Mountain',340,H*.4);
-  ctx.strokeStyle='rgba(100,180,255,.4)';ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(280,H*.74);ctx.lineTo(240,H*.78);ctx.lineTo(155,H*.8);ctx.stroke();
-  cloud(200,60+2*Math.sin(t*.4),30,0.85);cloud(290,52+2*Math.sin(t*.4+1),25,0.75);cloud(115,75+2*Math.sin(t*.4+2),22,0.7);
-  ctx.fillStyle='rgba(200,225,255,.7)';ctx.font='bold 7px sans-serif';ctx.textAlign='center';ctx.fillText('☁ CLOUDS',200,100);
-  evapPts.forEach(function(ep){{
-    ep[2]+=ep[3]*0.015;
-    if(ep[2]>1){{ep[2]=0;ep[4]=0.3+Math.random()*.5;}}
-    const ey=H*.78-ep[2]*(H*.55);
-    const eal=ep[2]<0.5?ep[2]*2:2-ep[2]*2;
-    ctx.beginPath();ctx.arc(ep[0],ey,2.5,0,6.28);
-    ctx.fillStyle='rgba(100,200,255,'+(eal*ep[4]).toFixed(2)+')';ctx.fill();
-  }});
-  ctx.fillStyle='rgba(100,200,255,.75)';ctx.font='bold 7px sans-serif';ctx.textAlign='left';ctx.fillText('↑ Evaporation',5,H*.45);
-  ctx.strokeStyle='rgba(150,200,240,.6)';ctx.lineWidth=1.5;
-  ctx.beginPath();ctx.moveTo(100,68);ctx.quadraticCurveTo(145,38,185,58);ctx.stroke();
-  ctx.fillStyle='rgba(180,210,240,.65)';ctx.font='7px sans-serif';ctx.fillText('Condensation →',68,38);
-  drops.forEach(function(d){{
-    d[1]+=d[2];
-    if(d[1]>H*.78){{d[1]=50+Math.random()*80;d[0]=120+Math.random()*200;}}
-    ctx.beginPath();ctx.arc(d[0],d[1],2.2,0,6.28);
-    ctx.fillStyle='rgba(80,160,255,'+d[3].toFixed(2)+')';ctx.fill();
-  }});
-  ctx.fillStyle='rgba(80,170,255,.8)';ctx.font='bold 7px sans-serif';ctx.textAlign='center';ctx.fillText('↓ Precipitation',215,H*.2);
-  ctx.fillStyle='rgba(60,160,255,.55)';ctx.font='7px sans-serif';ctx.fillText('→ Runoff',230,H*.72);
-  ctx.fillStyle='rgba(255,255,255,.22)';ctx.font='7px monospace';ctx.fillText('Water moves through Evaporation → Condensation → Precipitation → Collection',W/2,H-5);
-  t+=0.035;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'wave':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">〰 TRANSVERSE WAVE — SHM</div>
-<canvas id="wv" width="360" height="200" style="display:block;"></canvas>
-<div style="display:flex;gap:14px;font-size:11px;margin-top:6px;">
-  <span style="color:#00e5ff">— Displacement</span><span style="color:#a855f7">— Velocity</span>
-</div>
-<script>
-const cv=document.getElementById('wv'),ctx=cv.getContext('2d'),W=360,H=200,mid=H/2;
-const lam=88,amp=68,vamp=48;let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.strokeStyle='rgba(255,255,255,0.12)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,mid);ctx.lineTo(W,mid);ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='8px monospace';
-  ctx.fillText('Crest',4,mid-amp-6);ctx.fillText('Trough',4,mid+amp+16);ctx.fillText('Equilibrium',4,mid-10);
-  ctx.fillText('→ Wave travel direction',W-180,22);
-  ctx.beginPath();for(let x=0;x<=W;x++){{const y=mid-amp*Math.sin(2*Math.PI*x/lam-t);x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}}
-  ctx.strokeStyle='#00e5ff';ctx.lineWidth=2.5;ctx.stroke();
-  ctx.beginPath();for(let x=0;x<=W;x++){{const y=mid-vamp*Math.cos(2*Math.PI*x/lam-t);x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}}
-  ctx.strokeStyle='rgba(168,85,247,0.65)';ctx.lineWidth=1.5;ctx.stroke();
-  const px=32,py=mid-amp*Math.sin(2*Math.PI*px/lam-t);
-  ctx.strokeStyle='rgba(255,200,80,.6)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(px,mid);ctx.lineTo(px,py);ctx.stroke();
-  ctx.fillStyle='rgba(255,200,80,.9)';ctx.fillText('A',px+3,mid-(py-mid)/2);
-  ctx.strokeStyle='rgba(80,200,80,.6)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(50,mid+amp+28);ctx.lineTo(50+lam,mid+amp+28);ctx.stroke();
-  [50,50+lam].forEach(x=>{{ctx.beginPath();ctx.moveTo(x,mid+amp+23);ctx.lineTo(x,mid+amp+33);ctx.stroke();}});
-  ctx.fillStyle='rgba(80,200,80,.9)';ctx.fillText('λ (wavelength)',58,mid+amp+42);
-  t+=0.06;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'heart':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>body{{background:#010208;margin:0;padding:4px;display:flex;flex-direction:column;align-items:center;}}</style>
-</head><body>
-<div style="font-size:11px;color:#40E0D0;letter-spacing:2px;font-weight:700;margin-bottom:2px;">❤ HUMAN HEART — BLOOD CIRCULATION</div>
-<canvas id="hrt" width="460" height="310" style="display:block;border-radius:8px;"></canvas>
-<div style="font-size:9px;color:#6699aa;margin-top:2px;text-align:center;">● Red = Oxygenated  ● Blue = Deoxygenated  · Heart pumps ~70 times/min</div>
-<script>
-const cv=document.getElementById('hrt'),ctx=cv.getContext('2d'),W=460,H=310;
-const hx=230,hy=158;
-const dots=[];
-for(let i=0;i<24;i++)dots.push([Math.random(),i%2,0.55+Math.random()*.45]);
-let t=0;
-function heartPath(s){{
-  ctx.beginPath();ctx.moveTo(hx,hy-42*s);
-  ctx.bezierCurveTo(hx+70*s,hy-95*s,hx+120*s,hy-22*s,hx,hy+60*s);
-  ctx.bezierCurveTo(hx-120*s,hy-22*s,hx-70*s,hy-95*s,hx,hy-42*s);
-  ctx.closePath();
-}}
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='#010208';ctx.fillRect(0,0,W,H);
-  const beat=0.92+.07*Math.sin(t*3);
-  heartPath(beat);
-  const hg=ctx.createRadialGradient(hx,hy-12,8,hx,hy,90*beat);
-  hg.addColorStop(0,'rgba(220,30,40,.95)');hg.addColorStop(.45,'rgba(170,15,25,.75)');hg.addColorStop(1,'rgba(80,5,10,.35)');
-  ctx.shadowColor='#cc1122';ctx.shadowBlur=20;
-  ctx.fillStyle=hg;ctx.fill();
-  ctx.strokeStyle='rgba(240,80,80,.7)';ctx.lineWidth=2.2*beat;ctx.stroke();
-  ctx.shadowBlur=0;
-  const sc=beat;
-  ctx.fillStyle='rgba(0,0,0,.52)';
-  ctx.beginPath();ctx.ellipse(hx-22*sc,hy-16*sc,34*sc,27*sc,0,0,6.28);ctx.fill();
-  ctx.beginPath();ctx.ellipse(hx+22*sc,hy-16*sc,34*sc,27*sc,0,0,6.28);ctx.fill();
-  ctx.fillStyle='rgba(0,0,0,.42)';
-  ctx.beginPath();ctx.ellipse(hx-24*sc,hy+20*sc,30*sc,32*sc,0,0,6.28);ctx.fill();
-  ctx.beginPath();ctx.ellipse(hx+24*sc,hy+20*sc,30*sc,32*sc,0,0,6.28);ctx.fill();
-  ctx.strokeStyle='rgba(255,200,200,.2)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(hx,hy-42*sc);ctx.lineTo(hx,hy+56*sc);ctx.stroke();
-  ctx.font='bold 7px sans-serif';ctx.textAlign='center';
-  ctx.fillStyle='rgba(160,195,255,.9)';ctx.fillText('Right',hx+22*sc,hy-14*sc);
-  ctx.fillStyle='rgba(255,180,180,.9)';ctx.fillText('Left',hx-22*sc,hy-14*sc);
-  ctx.fillStyle='rgba(210,215,255,.7)';
-  ctx.fillText('Atrium',hx+22*sc,hy-5*sc);ctx.fillText('Atrium',hx-22*sc,hy-5*sc);
-  ctx.fillText('Ventricle',hx+24*sc,hy+24*sc);ctx.fillText('Ventricle',hx-24*sc,hy+24*sc);
-  ctx.strokeStyle='rgba(255,120,120,.4)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(hx-3,hy-72);ctx.lineTo(hx-3,hy-115);ctx.stroke();
-  ctx.strokeStyle='rgba(100,140,255,.4)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(hx+3,hy-72);ctx.lineTo(hx+3,hy-115);ctx.stroke();
-  ctx.fillStyle='rgba(255,140,140,.65)';ctx.font='7px sans-serif';ctx.textAlign='left';ctx.fillText('Aorta',hx-30,hy-108);
-  ctx.fillStyle='rgba(120,160,255,.65)';ctx.textAlign='right';ctx.fillText('Pulmonary A.',hx+35,hy-108);
-  dots.forEach(function(d){{
-    d[0]+=0.007;if(d[0]>1)d[0]=0;
-    var px,py;
-    if(d[1]===0){{px=hx-24*sc+30*sc*Math.sin(d[0]*6.28);py=hy+20*sc-32*sc*Math.cos(d[0]*6.28);}}
-    else{{px=hx+22*sc+30*sc*Math.sin(d[0]*6.28+Math.PI);py=hy-16*sc-27*sc*Math.cos(d[0]*6.28);}}
-    ctx.beginPath();ctx.arc(px,py,3.2,0,6.28);
-    ctx.fillStyle=d[1]===0?'rgba(239,83,80,'+d[2].toFixed(2)+')':'rgba(92,141,232,'+d[2].toFixed(2)+')';ctx.fill();
-  }});
-  ctx.fillStyle='rgba(255,255,255,.28)';ctx.font='7px monospace';ctx.textAlign='center';
-  ctx.fillText('Right side: deoxygenated blood → lungs   Left side: oxygenated blood → body',W/2,H-5);
-  t+=0.042;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'photosynthesis':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>body{{background:#010208;margin:0;padding:4px;display:flex;flex-direction:column;align-items:center;}}</style>
-</head><body>
-<div style="font-size:11px;color:#40E0D0;letter-spacing:2px;font-weight:700;margin-bottom:2px;">🌿 PHOTOSYNTHESIS</div>
-<canvas id="phs" width="460" height="310" style="display:block;border-radius:8px;"></canvas>
-<div style="font-size:9px;color:#6699aa;margin-top:2px;text-align:center;">6CO₂ + 6H₂O + Sunlight → C₆H₁₂O₆ + 6O₂</div>
-<script>
-const cv=document.getElementById('phs'),ctx=cv.getContext('2d'),W=460,H=310;
-const co2=[],o2=[],rays=[];
-for(let i=0;i<8;i++)co2.push([20+i*5,100+i*18,0.5+i*.06,0.6+Math.random()*.35]);
-for(let i=0;i<10;i++)o2.push([230+(-45+Math.random()*90),120+Math.random()*55,0.5+Math.random()*.7,0,2+Math.random()*2.5]);
-for(let i=0;i<9;i++)rays.push([-0.55+i*.13,55+15*Math.random()]);
-let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const sky=ctx.createLinearGradient(0,0,0,H*.62);
-  sky.addColorStop(0,'#010210');sky.addColorStop(1,'#061a0a');
-  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
-  const grd=ctx.createLinearGradient(0,H*.62,0,H);
-  grd.addColorStop(0,'#0a1f08');grd.addColorStop(1,'#060e04');
-  ctx.fillStyle=grd;ctx.fillRect(0,H*.62,W,H);
-  const sx=62,sy=45;
-  const sunG=ctx.createRadialGradient(sx,sy,2,sx,sy,22);
-  sunG.addColorStop(0,'#fffde7');sunG.addColorStop(.5,'#ffa000');sunG.addColorStop(1,'rgba(230,80,0,0)');
-  ctx.shadowColor='#ff8800';ctx.shadowBlur=20;
-  ctx.beginPath();ctx.arc(sx,sy,21*(1+.04*Math.sin(t*.05)),0,6.28);ctx.fillStyle=sunG;ctx.fill();
-  ctx.shadowBlur=0;
-  ctx.fillStyle='rgba(255,220,80,.7)';ctx.font='bold 7px sans-serif';ctx.textAlign='center';ctx.fillText('☀ SUN',sx,sy+34);
-  rays.forEach(function(r,i){{
-    const rlen=r[1]*(1+.15*Math.sin(t*2+i));
-    const ral=(0.28+0.18*Math.sin(t+i)).toFixed(2);
-    ctx.strokeStyle='rgba(255,220,80,'+ral+')';ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.moveTo(sx+22*Math.cos(r[0]),sy+22*Math.sin(r[0]));
-    ctx.lineTo(sx+(22+rlen)*Math.cos(r[0]+.2),sy+(22+rlen)*Math.sin(r[0]+.8));ctx.stroke();
-  }});
-  const lx=230,ly=H*.55;
-  ctx.strokeStyle='#2a5818';ctx.lineWidth=9;ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(lx,H*.94);ctx.stroke();
-  const leafG=ctx.createRadialGradient(lx,ly-10,5,lx,ly,62);
-  leafG.addColorStop(0,'rgba(60,140,30,.95)');leafG.addColorStop(.6,'rgba(40,100,20,.8)');leafG.addColorStop(1,'rgba(25,70,10,.5)');
-  ctx.shadowColor='#44aa22';ctx.shadowBlur=10;
-  ctx.beginPath();ctx.ellipse(lx,ly-8,64,48,0,0,6.28);ctx.fillStyle=leafG;ctx.fill();
-  ctx.shadowBlur=0;
-  ctx.strokeStyle='rgba(80,180,40,.4)';ctx.lineWidth=1.2;
-  ctx.beginPath();ctx.moveTo(lx-64,ly-8);ctx.lineTo(lx+64,ly-8);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(lx,ly-56);ctx.lineTo(lx,ly+32);ctx.stroke();
-  ctx.fillStyle='rgba(200,255,200,.75)';ctx.font='bold 7px sans-serif';ctx.textAlign='center';
-  ctx.fillText('CHLOROPHYLL',lx,ly-18);ctx.fillText('(leaf)',lx,ly-7);
-  ctx.beginPath();ctx.ellipse(lx-45,H*.75,38,18,.3,0,6.28);ctx.fillStyle='rgba(35,90,18,.7)';ctx.fill();
-  ctx.beginPath();ctx.ellipse(lx+45,H*.82,38,18,-.3,0,6.28);ctx.fill();
-  co2.forEach(function(c){{
-    c[0]+=c[2];c[1]+=(H*.52-c[1])*.025;
-    if(c[0]>lx-60)c[0]=5+Math.random()*30;
-    ctx.beginPath();ctx.arc(c[0],c[1],3.5,0,6.28);
-    ctx.fillStyle='rgba(100,170,255,'+c[3].toFixed(2)+')';ctx.fill();
-    ctx.fillStyle='rgba(100,170,255,.55)';ctx.font='7px sans-serif';ctx.textAlign='center';
-    if(c[0]<lx-68)ctx.fillText('CO₂',c[0],c[1]-6);
-  }});
-  ctx.fillStyle='rgba(100,180,255,.7)';ctx.font='bold 7px sans-serif';ctx.textAlign='left';ctx.fillText('CO₂ →',5,H*.35);
-  ctx.fillText('H₂O ↑',5,H*.72);
-  o2.forEach(function(o){{
-    o[1]-=o[2];o[3]=Math.min(1,o[3]+.025);
-    if(o[1]<-10){{o[1]=H*.48+Math.random()*30;o[0]=lx+(-45+Math.random()*90);o[3]=0;}}
-    ctx.beginPath();ctx.arc(o[0],o[1],o[4],0,6.28);
-    ctx.strokeStyle='rgba(160,255,160,'+(o[3]*.7).toFixed(2)+')';ctx.lineWidth=1.2;ctx.stroke();
-  }});
-  ctx.fillStyle='rgba(160,255,160,.75)';ctx.font='bold 7px sans-serif';ctx.textAlign='center';ctx.fillText('↑ O₂ released',lx,H*.12);
-  ctx.fillStyle='rgba(255,220,100,.7)';ctx.font='bold 7px sans-serif';ctx.textAlign='right';
-  ctx.fillText('Glucose →',W-5,H*.4);ctx.fillText('(stored energy)',W-5,H*.48);
-  ctx.fillStyle='rgba(255,255,255,.22)';ctx.font='7px monospace';ctx.textAlign='center';
-  ctx.fillText('Light energy + CO₂ + H₂O → Glucose + Oxygen (in chloroplasts)',W/2,H-5);
-  t+=0.04;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'circuit':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">⚡ ELECTRIC CIRCUIT — CURRENT FLOW</div>
-<canvas id="ec" width="340" height="240" style="display:block;"></canvas>
-<div style="display:flex;gap:12px;font-size:11px;margin-top:4px;">
-  <span style="color:#ffd700">● Conventional current →</span><span style="color:#00e5ff">+ Battery</span>
-</div>
-<script>
-const cv=document.getElementById('ec'),ctx=cv.getContext('2d'),W=340,H=240;
-const path=[{{x:60,y:60}},{{x:280,y:60}},{{x:280,y:180}},{{x:60,y:180}},{{x:60,y:60}}];
-let dots=[];
-for(let i=0;i<18;i++) dots.push({{p:i/18,spd:0.003+Math.random()*.001}});
-function ptOnPath(p){{
-  const total=3,seg=Math.floor(p*total)%total,lp=(p*total)%1;
-  const segs=[[path[0],path[1]],[path[1],path[2]],[path[2],path[3]],[path[3],path[0]]];
-  const s=segs[seg];return{{x:s[0].x+(s[1].x-s[0].x)*lp,y:s[0].y+(s[1].y-s[0].y)*lp}};
-}}
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.strokeStyle='rgba(100,180,255,0.5)';ctx.lineWidth=6;ctx.lineJoin='round';
-  ctx.beginPath();ctx.moveTo(60,60);ctx.lineTo(280,60);ctx.lineTo(280,180);ctx.lineTo(60,180);ctx.lineTo(60,60);ctx.stroke();
-  ctx.fillStyle='rgba(0,200,100,0.85)';ctx.strokeStyle='#00c864';ctx.lineWidth=2;
-  ctx.beginPath();ctx.roundRect(40,95,35,50,5);ctx.fill();ctx.stroke();
-  ctx.fillStyle='#fff';ctx.font='bold 10px monospace';ctx.textAlign='center';
-  ctx.fillText('+',57,117);ctx.fillText('-',57,132);
-  ctx.fillStyle='rgba(0,200,100,0.7)';ctx.font='8px monospace';ctx.fillText('Battery',57,158);
-  ctx.fillStyle='rgba(255,100,50,0.85)';ctx.strokeStyle='#ff6432';ctx.lineWidth=2;
-  ctx.beginPath();ctx.roundRect(148,42,50,16,4);ctx.fill();ctx.stroke();
-  ctx.fillStyle='#fff';ctx.fillText('Resistor',173,53);
-  ctx.fillStyle='rgba(80,120,255,0.8)';ctx.strokeStyle='#5078ff';ctx.lineWidth=2;
-  ctx.beginPath();ctx.arc(280,120,16,0,6.28);ctx.fill();ctx.stroke();
-  ctx.fillStyle='#fff';ctx.font='bold 9px monospace';ctx.fillText('💡',272,124);
-  ctx.fillStyle='rgba(255,200,50,0.5)';ctx.beginPath();ctx.arc(280,120,22,0,6.28);ctx.fill();
-  ctx.strokeStyle='rgba(80,160,255,0.5)';ctx.lineWidth=1.5;
-  [[165,60],[165,180]].forEach(([x,y])=>{{ctx.beginPath();ctx.moveTo(x-5,y);ctx.lineTo(x+5,y);ctx.stroke();}});
-  dots.forEach(d=>{{
-    d.p=(d.p+d.spd)%1;
-    const pt=ptOnPath(d.p);
-    ctx.beginPath();ctx.arc(pt.x,pt.y,4,0,6.28);ctx.fillStyle='rgba(255,215,0,0.85)';ctx.fill();
-  }});
-  ctx.textAlign='left';ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='8px monospace';
-  ctx.fillText('Series circuit · conventional current (+ → -)',10,H-6);
-  requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'eye':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">👁 HUMAN EYE — CROSS SECTION</div>
-<svg viewBox="0 0 380 260" width="360" height="248" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <radialGradient id="eyeG" cx="38%" cy="40%"><stop offset="0%" stop-color="rgba(220,240,255,0.15)"/><stop offset="100%" stop-color="rgba(80,120,180,0.08)"/></radialGradient>
-    <radialGradient id="irisG" cx="45%" cy="45%"><stop offset="0%" stop-color="#4a3000"/><stop offset="40%" stop-color="#6b4400"/><stop offset="100%" stop-color="#3a2800"/></radialGradient>
-  </defs>
-  <ellipse cx="170" cy="130" rx="130" ry="115" fill="url(#eyeG)" stroke="#4a6a9a" stroke-width="2.5"/>
-  <circle cx="85" cy="130" r="26" fill="rgba(200,230,255,0.35)" stroke="#7ab4e8" stroke-width="2"/>
-  <text x="85" y="133" text-anchor="middle" fill="#a8d0ff" font-size="8" font-family="monospace">Cornea</text>
-  <ellipse cx="118" cy="130" rx="14" ry="30" fill="rgba(180,220,255,0.25)" stroke="#90c4f4" stroke-width="1.5"/>
-  <text x="118" y="133" text-anchor="middle" fill="#b8d8ff" font-size="7" font-family="monospace">Lens</text>
-  <circle cx="101" cy="130" r="15" fill="url(#irisG)" stroke="#8a6030" stroke-width="1"/>
-  <circle cx="101" cy="130" r="8" fill="#050505"/>
-  <circle cx="97" cy="126" r="2" fill="#ffffff55"/>
-  <ellipse cx="285" cy="130" rx="22" ry="90" fill="rgba(220,180,150,0.45)" stroke="#d4a070" stroke-width="2"/>
-  <text x="285" y="133" text-anchor="middle" fill="#e8b888" font-size="8" font-family="monospace">Retina</text>
-  <line x1="285" y1="130" x2="355" y2="130" stroke="#e86464" stroke-width="3">
-    <animate attributeName="stroke-opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite"/>
-  </line>
-  <circle cx="360" cy="130" r="6" fill="#e86464"><animate attributeName="r" values="6;8;6" dur="1.5s" repeatCount="indefinite"/></circle>
-  <text x="295" y="148" fill="#e89090" font-size="8" font-family="monospace">Optic</text>
-  <text x="295" y="158" fill="#e89090" font-size="8" font-family="monospace">Nerve</text>
-  <ellipse cx="130" cy="130" rx="8" ry="22" fill="rgba(200,200,255,0.2)" stroke="#8888ff" stroke-width="1"/>
-  <text x="125" y="170" fill="#aaaaff" font-size="7.5" font-family="monospace">Pupil</text>
-  <text x="82" y="168" fill="#88aacc" font-size="7.5" font-family="monospace">Iris</text>
-  <line x1="30" y1="100" x2="76" y2="118" stroke="#ffd700" stroke-width="2" stroke-dasharray="4 3">
-    <animate attributeName="stroke-dashoffset" values="0;-14" dur="0.5s" repeatCount="indefinite"/>
-  </line>
-  <line x1="30" y1="130" x2="62" y2="130" stroke="#ffd700" stroke-width="2" stroke-dasharray="4 3">
-    <animate attributeName="stroke-dashoffset" values="0;-14" dur="0.5s" repeatCount="indefinite"/>
-  </line>
-  <line x1="30" y1="160" x2="76" y2="142" stroke="#ffd700" stroke-width="2" stroke-dasharray="4 3">
-    <animate attributeName="stroke-dashoffset" values="0;-14" dur="0.5s" repeatCount="indefinite"/>
-  </line>
-  <text x="4" y="133" fill="#ffd700" font-size="9" font-family="monospace">Light</text>
-  <line x1="120" y1="108" x2="276" y2="152" stroke="rgba(255,215,0,0.2)" stroke-width="1" stroke-dasharray="3 4"/>
-  <line x1="120" y1="152" x2="276" y2="108" stroke="rgba(255,215,0,0.2)" stroke-width="1" stroke-dasharray="3 4"/>
-  <text x="175" y="248" fill="#666" font-size="8" font-family="monospace">Vitreous humour fills the eye cavity</text>
-</svg></body></html>"""
-
-    elif topic == 'magnet':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">🧲 MAGNETIC FIELD LINES</div>
-<canvas id="mg" width="360" height="240" style="display:block;"></canvas>
-<div style="display:flex;gap:14px;font-size:11px;margin-top:4px;">
-  <span style="color:#ef5350">■ North pole</span><span style="color:#5c8de8">■ South pole</span>
-</div>
-<script>
-const cv=document.getElementById('mg'),ctx=cv.getContext('2d'),W=360,H=240,cx=W/2,cy=H/2;
-let t=0;
-const nX=cx-60,sX=cx+60;
-function fieldAt(x,y){{
-  const dx1=x-nX,dy1=y-cy,dx2=x-sX,dy2=y-cy;
-  const r1=Math.sqrt(dx1*dx1+dy1*dy1)+1,r2=Math.sqrt(dx2*dx2+dy2*dy2)+1;
-  const fx=dx1/(r1*r1*r1)-dx2/(r2*r2*r2),fy=dy1/(r1*r1*r1)-dy2/(r2*r2*r2);
-  const mag=Math.sqrt(fx*fx+fy*fy)+1e-9;
-  return{{fx:fx/mag,fy:fy/mag,mag:mag}};
-}}
-function drawLine(sx,sy,color){{
-  ctx.beginPath();ctx.moveTo(sx,sy);
-  let x=sx,y=sy;
-  for(let i=0;i<200;i++){{
-    const f=fieldAt(x,y);x+=f.fx*3;y+=f.fy*3;
-    ctx.lineTo(x,y);
-    const dN=Math.sqrt((x-nX)**2+(y-cy)**2),dS=Math.sqrt((x-sX)**2+(y-cy)**2);
-    if(dN<14||dS<14||x<0||x>W||y<0||y>H) break;
-  }}
-  ctx.strokeStyle=color;ctx.lineWidth=1.2;ctx.stroke();
-}}
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const angles=12;
-  for(let i=0;i<angles;i++){{
-    const a=i*2*Math.PI/angles+t*0.01;
-    const r=18;
-    drawLine(nX+r*Math.cos(a),cy+r*Math.sin(a),`rgba(100,${150+80*Math.sin(a+t*.05)},255,0.55)`);
-  }}
-  ctx.fillStyle='#ef5350';ctx.beginPath();ctx.roundRect(nX-32,cy-20,32,40,4);ctx.fill();
-  ctx.fillStyle='#5c8de8';ctx.beginPath();ctx.roundRect(sX,cy-20,32,40,4);ctx.fill();
-  ctx.fillStyle='#fff';ctx.font='bold 14px monospace';ctx.textAlign='center';
-  ctx.fillText('N',nX-16,cy+5);ctx.fillText('S',sX+16,cy+5);
-  ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1.5;
-  for(let a=0;a<Math.PI*2;a+=Math.PI/6){{
-    const px=nX+20*Math.cos(a+t*0.02),py=cy+20*Math.sin(a+t*0.02);
-    ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px+6*Math.cos(a+t*.02),py+6*Math.sin(a+t*.02));ctx.stroke();
-  }}
-  ctx.textAlign='left';ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='8px monospace';
-  ctx.fillText('Field lines go N→S outside, S→N inside magnet',10,H-6);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'mitosis':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">🔬 MITOSIS — CELL DIVISION</div>
-<canvas id="mt" width="360" height="220" style="display:block;"></canvas>
-<div style="font-size:10px;color:#8aa;margin-top:4px;text-align:center;">Interphase → Prophase → Metaphase → Anaphase → Telophase → Cytokinesis</div>
-<script>
-const cv=document.getElementById('mt'),ctx=cv.getContext('2d'),W=360,H=220;
-let t=0;
-const phases=['Interphase','Prophase','Metaphase','Anaphase','Telophase','Cytokinesis'];
-const dur=180;
-function drawCell(cx,cy,rx,ry,color,nrx,nry,label,chromosomes,split,splitProg){{
-  ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,6.28);
-  ctx.fillStyle=`rgba(40,180,100,0.1)`;ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=2;ctx.stroke();
-  if(chromosomes){{
-    for(let i=0;i<4;i++){{
-      const cx2=cx-10+i*7,cy2=cy+(split?-10-splitProg*20:0);
-      ctx.beginPath();ctx.roundRect(cx2-3,cy2-6,6,12,3);
-      ctx.fillStyle=['#ef5350','#5c8de8','#ffd700','#a855f7'][i];ctx.fill();
-      if(split){{
-        const cy3=cy+10+splitProg*20;
-        ctx.beginPath();ctx.roundRect(cx2-3,cy3-6,6,12,3);
-        ctx.fillStyle=['#ef5350','#5c8de8','#ffd700','#a855f7'][i];ctx.fill();
-      }}
-    }}
-  }}
-  if(nrx>0){{
-    ctx.beginPath();ctx.ellipse(cx,cy,nrx,nry,0,0,6.28);
-    ctx.fillStyle='rgba(100,150,255,0.18)';ctx.fill();ctx.strokeStyle='#6496ff';ctx.lineWidth=1.5;ctx.stroke();
-  }}
-  if(label){{ctx.fillStyle='rgba(255,255,255,0.6)';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText(label,cx,cy+ry+14);}}
-}}
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const phase=Math.floor(t/dur)%6,prog=(t%dur)/dur;
-  const label=phases[phase];
-  ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='bold 11px monospace';ctx.textAlign='center';
-  ctx.fillText('Phase: '+label,W/2,18);
-  if(phase===0){{drawCell(W/2,H/2+10,75,65,'#22c55e',32,28,'',false,false,0);}}
-  else if(phase===1){{drawCell(W/2,H/2+10,75,65,'#ffd700',32*(1-prog),28*(1-prog),'',true,false,0);}}
-  else if(phase===2){{drawCell(W/2,H/2+10,75,65,'#ff9944',0,0,'',true,false,0);}}
-  else if(phase===3){{drawCell(W/2,H/2+10,75,65,'#ef5350',0,0,'',true,true,prog);}}
-  else if(phase===4){{
-    const sep=prog*50;
-    drawCell(W/2,H/2+10-sep/2,70*(1-prog*.3),58*(1-prog*.3),'#a855f7',22,18,'',false,false,0);
-    drawCell(W/2,H/2+10+sep/2,70*(1-prog*.3),58*(1-prog*.3),'#a855f7',22,18,'',false,false,0);
-  }}
-  else{{
-    const gap=60+prog*30;
-    drawCell(W/2-gap/2,H/2+10,50,44,'#22c55e',20,17,'Cell 1',false,false,0);
-    drawCell(W/2+gap/2,H/2+10,50,44,'#22c55e',20,17,'Cell 2',false,false,0);
-  }}
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'moon':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">🌙 PHASES OF THE MOON</div>
-<canvas id="mn" width="360" height="200" style="display:block;"></canvas>
-<script>
-const cv=document.getElementById('mn'),ctx=cv.getContext('2d'),W=360,H=200;
-let t=0;
-const phases=[
-  {{name:'New Moon',illum:0}},{{name:'Waxing Crescent',illum:0.25}},
-  {{name:'First Quarter',illum:0.5}},{{name:'Waxing Gibbous',illum:0.75}},
-  {{name:'Full Moon',illum:1}},{{name:'Waning Gibbous',illum:0.75,wane:true}},
-  {{name:'Last Quarter',illum:0.5,wane:true}},{{name:'Waning Crescent',illum:0.25,wane:true}},
-];
-const r=18,spacing=44,startX=20+r;
-function drawMoon(x,y,illum,wane,current){{
-  ctx.beginPath();ctx.arc(x,y,r,0,6.28);ctx.fillStyle='#1a1a2e';ctx.fill();
-  ctx.strokeStyle=current?'#40E0D0':'rgba(255,255,255,0.2)';ctx.lineWidth=current?2:1;ctx.stroke();
-  if(illum>0){{
-    ctx.save();ctx.beginPath();ctx.arc(x,y,r,0,6.28);ctx.clip();
-    const lit=r*2*illum;
-    if(wane){{ctx.fillStyle='#c8c8d8';ctx.fillRect(x-r,y-r,lit,r*2);}}
-    else{{ctx.fillStyle='#c8c8d8';ctx.fillRect(x+r-lit,y-r,lit,r*2);}}
-    ctx.restore();
-  }}
-  if(current){{
-    ctx.beginPath();ctx.arc(x,y,r+4,0,6.28);
-    ctx.strokeStyle='rgba(64,224,208,0.4)';ctx.lineWidth=2;ctx.stroke();
-  }}
-}}
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const cur=Math.floor(t/80)%8;
-  ctx.fillStyle='rgba(100,200,255,0.2)';ctx.fillRect(0,H*0.58,W,2);
-  ctx.strokeStyle='#ffdd44';ctx.lineWidth=2;
-  ctx.beginPath();ctx.arc(W/2,H*0.58+40,20,0,6.28);ctx.strokeStyle='#ffa000';ctx.stroke();
-  ctx.fillStyle='#fff9c4';ctx.beginPath();ctx.arc(W/2,H*0.58+40,16,0,6.28);ctx.fill();
-  ctx.fillStyle='rgba(255,220,50,0.5)';ctx.font='7px monospace';ctx.textAlign='center';ctx.fillText('Earth',W/2,H*0.58+56);
-  phases.forEach((p,i)=>{{
-    const x=startX+i*spacing,y=H*0.25;
-    drawMoon(x,y,p.illum,p.wane||false,i===cur);
-    ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(x,y+r);ctx.lineTo(W/2,H*0.58+40);ctx.stroke();
-    ctx.fillStyle=i===cur?'#40E0D0':'rgba(255,255,255,0.45)';ctx.font=i===cur?'bold 7px monospace':'7px monospace';
-    ctx.fillText(p.name.split(' ')[0],x,y+r+14);
-    if(p.name.includes(' '))ctx.fillText(p.name.split(' ').slice(1).join(' '),x,y+r+23);
-  }});
-  ctx.textAlign='left';ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='8px monospace';
-  ctx.fillText('One lunar cycle ≈ 29.5 days',10,H-6);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'newton':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">⚙ NEWTON'S THREE LAWS OF MOTION</div>
-<canvas id="nw" width="360" height="240" style="display:block;"></canvas>
-<script>
-const cv=document.getElementById('nw'),ctx=cv.getContext('2d'),W=360,H=240;
-let t=0;
-function arrow(x1,y1,x2,y2,color,lw){{
-  ctx.strokeStyle=color;ctx.lineWidth=lw||2;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
-  const a=Math.atan2(y2-y1,x2-x1);
-  ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-10*Math.cos(a-0.4),y2-10*Math.sin(a-0.4));ctx.lineTo(x2-10*Math.cos(a+0.4),y2-10*Math.sin(a+0.4));ctx.closePath();ctx.fillStyle=color;ctx.fill();
-}}
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const rowH=H/3;
-  ['1st Law','2nd Law','3rd Law'].forEach((l,i)=>{{
-    ctx.fillStyle='rgba(64,224,208,0.08)';ctx.fillRect(0,i*rowH,W,rowH-2);
-    ctx.fillStyle='#40E0D0';ctx.font='bold 9px monospace';ctx.textAlign='left';
-    ctx.fillText('Law '+l.charAt(0)+':',6,i*rowH+14);
-  }});
-  // Law 1: Object at rest stays at rest
-  const r1=rowH/2-4,cy1=r1+2;
-  if(t<120){{
-    ctx.beginPath();ctx.arc(70,cy1,14,0,6.28);ctx.fillStyle='#5c8de8';ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='7px monospace';ctx.textAlign='center';ctx.fillText('At rest',70,cy1+3);
-  }} else {{
-    const bx=60+((t-120)%120)*1.4;
-    ctx.beginPath();ctx.arc(bx,cy1,14,0,6.28);ctx.fillStyle='#5c8de8';ctx.fill();
-    arrow(bx+14,cy1,bx+45,cy1,'#ffd700',2);
-    ctx.fillStyle='#ffd700';ctx.font='7px monospace';ctx.textAlign='center';ctx.fillText('v=const',bx+14,cy1+25);
-  }}
-  ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='8px monospace';ctx.textAlign='left';
-  ctx.fillText('Object stays still or moves at constant velocity unless acted on by force',150,cy1+4);
-  // Law 2: F=ma
-  const cy2=rowH+rowH/2-4;
-  const bx2=40+((t*1.5)%220);const fsize=8+6*Math.abs(Math.sin(t*0.04));
-  ctx.beginPath();ctx.arc(bx2,cy2,12,0,6.28);ctx.fillStyle='#ef5350';ctx.fill();
-  arrow(bx2,cy2,bx2+25+fsize*2,cy2,'#ffd700',2);
-  ctx.fillStyle='#ffd700';ctx.font='7px monospace';ctx.textAlign='center';ctx.fillText('F',bx2+16+fsize,cy2-10);
-  ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='8px monospace';ctx.textAlign='left';
-  ctx.fillText('F = m×a   (more force = more acceleration)',150,cy2+4);
-  // Law 3: action-reaction
-  const cy3=rowH*2+rowH/2-4;
-  const sep=30+20*Math.abs(Math.sin(t*0.04));
-  ctx.beginPath();ctx.arc(W/3-sep/2,cy3,13,0,6.28);ctx.fillStyle='#a855f7';ctx.fill();
-  ctx.beginPath();ctx.arc(W/3+sep/2,cy3,13,0,6.28);ctx.fillStyle='#22c55e';ctx.fill();
-  arrow(W/3-sep/2-13,cy3,W/3-sep/2-40,cy3,'#a855f7',2);
-  arrow(W/3+sep/2+13,cy3,W/3+sep/2+40,cy3,'#22c55e',2);
-  ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='8px monospace';ctx.textAlign='left';
-  ctx.fillText('Every action has an equal and opposite reaction',150,cy3+4);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'refraction':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">💡 REFRACTION OF LIGHT</div>
-<canvas id="rf" width="360" height="240" style="display:block;"></canvas>
-<div style="font-size:10px;color:#8aa;margin-top:4px;text-align:center;">Light bends when passing from one medium to another (Snell's Law)</div>
-<script>
-const cv=document.getElementById('rf'),ctx=cv.getContext('2d'),W=360,H=240;
-let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='#05080f';ctx.fillRect(0,0,W,H);
-  const px=180,py=100,pw=80,ph=140;
-  const grad=ctx.createLinearGradient(px-pw/2,0,px+pw/2,0);
-  grad.addColorStop(0,'rgba(150,200,255,0.12)');grad.addColorStop(0.5,'rgba(200,230,255,0.2)');grad.addColorStop(1,'rgba(150,200,255,0.12)');
-  ctx.fillStyle=grad;ctx.beginPath();
-  ctx.moveTo(px-pw/2,py);ctx.lineTo(px+pw/2,py);ctx.lineTo(px+pw/2-20,py+ph);ctx.lineTo(px-pw/2-20,py+ph);ctx.closePath();ctx.fill();
-  ctx.strokeStyle='rgba(150,200,255,0.5)';ctx.lineWidth=1.5;ctx.stroke();
-  ctx.fillStyle='rgba(150,200,255,0.5)';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText('Glass (denser medium)',px-10,py+ph/2+4);
-  ctx.textAlign='left';
-  const inc=+0.3+0.05*Math.sin(t*.03),bend=inc*0.55;
-  const ix=60,iy=30,ix2=px-pw/2,iy2=py;
-  const rx1=px+pw/2-20+50*Math.sin(bend),ry1=py+ph+50*Math.cos(bend);
-  const tx1=px+pw/2-20,ty1=py+ph;
-  const a=Math.atan2(iy2-iy,ix2-ix);
-  ctx.strokeStyle='rgba(255,220,80,0.9)';ctx.lineWidth=2.5;
-  ctx.beginPath();ctx.moveTo(ix,iy);ctx.lineTo(ix2,iy2);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(ix2,iy2);ctx.lineTo(tx1-20,ty1-20);ctx.stroke();
-  ctx.strokeStyle='rgba(255,180,50,0.85)';ctx.lineWidth=2.5;
-  ctx.beginPath();ctx.moveTo(tx1,ty1);ctx.lineTo(rx1,ry1);ctx.stroke();
-  ctx.strokeStyle='rgba(255,255,255,0.15)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
-  ctx.beginPath();ctx.moveTo(px-pw/2,py-30);ctx.lineTo(px-pw/2,py+40);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(tx1-5,ty1-30);ctx.lineTo(tx1-5,ty1+40);ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='8px monospace';
-  ctx.fillText('Incident ray',20,25);ctx.fillText('Refracted ray',rx1-10,ry1+14);
-  ctx.fillText('Normal',px-pw/2-38,py-18);
-  ctx.fillStyle='rgba(255,200,100,0.7)';ctx.fillText('i',px-pw/2+8,py-8);
-  ctx.fillText('r',tx1+4,ty1+18);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'reflection':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">🪞 REFLECTION OF LIGHT — CONCAVE MIRROR</div>
-<canvas id="rm" width="360" height="240" style="display:block;"></canvas>
-<div style="font-size:10px;color:#8aa;margin-top:4px;text-align:center;">Angle of incidence = Angle of reflection</div>
-<script>
-const cv=document.getElementById('rm'),ctx=cv.getContext('2d'),W=360,H=240,cx=W/2,cy=H/2;
-let t=0;
-function arrow(x1,y1,x2,y2,col){{ctx.strokeStyle=col;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();const a=Math.atan2(y2-y1,x2-x1);ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-9*Math.cos(a-.4),y2-9*Math.sin(a-.4));ctx.lineTo(x2-9*Math.cos(a+.4),y2-9*Math.sin(a+.4));ctx.closePath();ctx.fill();}}
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const mx=W-60,mf=W/2-20;
-  ctx.strokeStyle='rgba(200,220,255,0.7)';ctx.lineWidth=3;
-  ctx.beginPath();ctx.arc(mx+160,cy,180,Math.PI*.65,Math.PI*1.35);ctx.stroke();
-  ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
-  ctx.beginPath();ctx.moveTo(mf,0);ctx.lineTo(mf,H);ctx.stroke();ctx.setLineDash([]);
-  ctx.fillStyle='rgba(255,200,100,0.6)';ctx.beginPath();ctx.arc(mf,cy,5,0,6.28);ctx.fill();
-  ctx.fillStyle='rgba(255,200,100,0.7)';ctx.font='8px monospace';ctx.fillText('F (Focus)',mf-8,cy+16);
-  const numRays=5;
-  for(let i=0;i<numRays;i++){{
-    const oy=cy-70+i*35;
-    const mx2=W-80;
-    arrow(20,oy,mx2,oy,'rgba(255,220,80,0.8)');
-    const dx=mx2-mf,dy=oy-cy;
-    const ang=Math.atan2(dy,dx);
-    const refAng=Math.atan2(-dy,dx-30)+0.1;
-    const rx=mf+100*Math.cos(refAng),ry=cy+100*Math.sin(refAng);
-    arrow(mx2,oy,rx,ry,'rgba(255,140,50,0.75)');
-  }}
-  ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='8px monospace';
-  ctx.fillText('Parallel rays → converge at focus',10,H-6);
-  ctx.fillStyle='rgba(200,220,255,0.6)';ctx.fillText('Mirror',W-58,cy);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'lungs':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">🫁 RESPIRATORY SYSTEM — HOW BREATHING WORKS</div>
-<canvas id="lg" width="340" height="260" style="display:block;"></canvas>
-<div style="display:flex;gap:14px;font-size:10px;margin-top:4px;flex-wrap:wrap;justify-content:center;">
-  <span style="color:#4fc3f7">↑ Inhalation</span><span style="color:#ef9a9a">↓ Exhalation</span>
-</div>
-<script>
-const cv=document.getElementById('lg'),ctx=cv.getContext('2d'),W=340,H=260;
-let t=0;
-function drawLung(cx,cy,phase,side){{
-  const sc=0.85+0.12*Math.sin(phase);
-  ctx.save();ctx.translate(cx,cy);ctx.scale(sc,sc);
-  ctx.fillStyle='rgba(240,100,100,0.35)';ctx.strokeStyle='#ef9a9a';ctx.lineWidth=2;
-  ctx.beginPath();
-  if(side==='l'){{ctx.moveTo(0,-55);ctx.bezierCurveTo(-50,-55,-70,0,-50,50);ctx.bezierCurveTo(-30,70,0,60,0,50);ctx.lineTo(0,-55);}}
-  else{{ctx.moveTo(0,-55);ctx.bezierCurveTo(50,-55,70,0,50,50);ctx.bezierCurveTo(30,70,0,60,0,50);ctx.lineTo(0,-55);}}
-  ctx.fill();ctx.stroke();
-  for(let i=0;i<4;i++){{const bx=(side==='l'?-1:1)*(15+i*8),by=-30+i*18;ctx.beginPath();ctx.ellipse(bx,by,5,8,0,0,6.28);ctx.fillStyle='rgba(255,180,180,0.5)';ctx.fill();ctx.strokeStyle='rgba(255,150,150,0.6)';ctx.lineWidth=1;ctx.stroke();}}
-  ctx.restore();
-}}
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const phase=t*0.04;
-  ctx.strokeStyle='rgba(200,220,255,0.7)';ctx.lineWidth=4;
-  ctx.beginPath();ctx.moveTo(W/2,20);ctx.lineTo(W/2,90);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(W/2,90);ctx.bezierCurveTo(W/2-40,90,W/2-80,100,W/2-80,120);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(W/2,90);ctx.bezierCurveTo(W/2+40,90,W/2+80,100,W/2+80,120);ctx.stroke();
-  ctx.fillStyle='rgba(200,220,255,0.5)';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText('Trachea',W/2+12,60);
-  drawLung(W/2-80,150,phase,'l');
-  drawLung(W/2+80,150,phase,'r');
-  const breathIn=Math.sin(phase)>0;
-  ctx.fillStyle=breathIn?'rgba(100,200,255,0.9)':'rgba(255,150,150,0.9)';
-  ctx.textAlign='center';ctx.font='bold 10px monospace';
-  ctx.fillText(breathIn?'↓ INHALING (diaphragm contracts)':'↑ EXHALING (diaphragm relaxes)',W/2,H-10);
-  ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='8px monospace';
-  ctx.fillText('Alveoli (tiny air sacs) shown as ellipses',W/2,H-25);
-  const airY=20+30*Math.abs(Math.sin(phase));const airOp=0.4+0.4*Math.abs(Math.sin(phase));
-  ctx.strokeStyle='rgba(100,220,255,'+airOp.toFixed(2)+')';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
-  ctx.beginPath();ctx.moveTo(W/2,airY);ctx.lineTo(W/2,20);ctx.stroke();ctx.setLineDash([]);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'digestion':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">🍎 DIGESTIVE SYSTEM</div>
-<canvas id="dg" width="340" height="280" style="display:block;"></canvas>
-<script>
-const cv=document.getElementById('dg'),ctx=cv.getContext('2d'),W=340,H=280;
-let t=0;
-const organs=[
-  {{x:170,y:30,label:'Mouth',r:20,col:'#ffb74d'}},
-  {{x:170,y:68,label:'Oesophagus',r:0,col:'#ff8a65',pipe:true,y2:95}},
-  {{x:170,y:105,label:'Stomach',rx:40,ry:28,col:'#ef5350'}},
-  {{x:170,y:155,label:'Small Intestine',col:'#a5d6a7',coil:true}},
-  {{x:170,y:230,label:'Large Intestine',col:'#66bb6a',thick:true}},
-  {{x:170,y:268,label:'Rectum/Anus',r:10,col:'#8d6e63'}},
-];
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.strokeStyle='rgba(255,150,100,0.7)';ctx.lineWidth=3;
-  ctx.beginPath();ctx.moveTo(170,50);ctx.lineTo(170,68);ctx.lineTo(170,95);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(150,133);ctx.bezierCurveTo(100,155,100,200,130,230);ctx.bezierCurveTo(140,240,180,240,185,235);ctx.stroke();
-  ctx.fillStyle='rgba(239,83,80,0.3)';ctx.strokeStyle='#ef5350';ctx.lineWidth=2.5;
-  ctx.beginPath();ctx.ellipse(170,105,40,28,0,0,6.28);ctx.fill();ctx.stroke();
-  ctx.strokeStyle='rgba(165,214,167,0.8)';ctx.lineWidth=5;
-  for(let i=0;i<6;i++){{const cy=148+i*12,off=i%2===0?20:-20;ctx.beginPath();ctx.bezierCurveTo(130+off,cy,210-off,cy,130-off,cy+12);ctx.stroke();}}
-  ctx.strokeStyle='rgba(102,187,106,0.7)';ctx.lineWidth=8;
-  ctx.beginPath();ctx.arc(170,225,40,Math.PI*.2,Math.PI*1.8);ctx.stroke();
-  ctx.fillStyle='rgba(141,110,99,0.5)';ctx.strokeStyle='#8d6e63';ctx.lineWidth=2;
-  ctx.beginPath();ctx.ellipse(170,268,10,10,0,0,6.28);ctx.fill();ctx.stroke();
-  ctx.fillStyle='rgba(255,200,80,0.7)';ctx.beginPath();ctx.arc(170,30,14,0,6.28);ctx.fill();
-  ctx.strokeStyle='#ffb74d';ctx.lineWidth=2;ctx.stroke();
-  const fp=((t*.008)%1);
-  const foodPath=[[170,44],[170,95],[170,133],[170,148],[170,230],[170,268]];
-  const seg=Math.floor(fp*5);const lp=(fp*5)%1;
-  if(seg<5){{const p0=foodPath[seg],p1=foodPath[seg+1];const fx=p0[0]+(p1[0]-p0[0])*lp,fy=p0[1]+(p1[1]-p0[1])*lp;ctx.beginPath();ctx.arc(fx,fy,6,0,6.28);ctx.fillStyle='rgba(255,220,50,0.9)';ctx.fill();}}
-  ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='8px monospace';ctx.textAlign='right';
-  ctx.fillText('Mouth',158,33);ctx.fillText('Oesophagus',155,82);ctx.fillText('Stomach',124,108);
-  ctx.fillText('Small',125,155);ctx.fillText('Intestine',125,165);
-  ctx.fillText('Large Int.',128,230);ctx.fillText('Rectum',152,270);
-  ctx.textAlign='left';ctx.fillStyle='rgba(255,220,50,0.8)';ctx.fillText('● Food particle',W-120,H-8);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'neuron':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">🧠 NEURON — NERVE CELL STRUCTURE</div>
-<canvas id="nr" width="360" height="200" style="display:block;"></canvas>
-<div style="font-size:10px;color:#8aa;margin-top:4px;text-align:center;">Nerve impulse travels from dendrites → cell body → axon → synapse</div>
-<script>
-const cv=document.getElementById('nr'),ctx=cv.getContext('2d'),W=360,H=200;
-let t=0,pulse=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const cx=90,cy=H/2;
-  ctx.fillStyle='rgba(168,85,247,0.3)';ctx.strokeStyle='#a855f7';ctx.lineWidth=2;
-  ctx.beginPath();ctx.arc(cx,cy,28,0,6.28);ctx.fill();ctx.stroke();
-  ctx.fillStyle='#d0a0ff';ctx.font='8px monospace';ctx.textAlign='center';ctx.fillText('Cell',cx,cy-2);ctx.fillText('Body',cx,cy+8);
-  const dend=[[cx-30,cy-35,cx-8,cy-10],[cx-45,cy,cx-28,cy],[cx-30,cy+35,cx-8,cy+10]];
-  dend.forEach(([x1,y1,x2,y2])=>{{ctx.strokeStyle='rgba(168,85,247,0.7)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x2,y2);ctx.bezierCurveTo((x1+x2)/2,y2,x1,(y1+y2)/2,x1,y1);ctx.stroke();}});
-  ctx.fillStyle='rgba(168,85,247,0.8)';ctx.font='8px monospace';ctx.fillText('Dendrites',cx-48,cy-45);
-  ctx.strokeStyle='rgba(100,200,255,0.7)';ctx.lineWidth=6;
-  ctx.beginPath();ctx.moveTo(cx+28,cy);ctx.lineTo(W-60,cy);ctx.stroke();
-  ctx.fillStyle='rgba(100,200,255,0.7)';ctx.font='8px monospace';ctx.fillText('Axon',W/2,cy-12);
-  const myelin=8;
-  for(let i=0;i<myelin;i++){{const x=cx+30+i*(W-120-cx)/myelin;ctx.fillStyle='rgba(255,200,100,0.5)';ctx.beginPath();ctx.ellipse(x+20,cy,16,10,0,0,6.28);ctx.fill();}}
-  ctx.fillStyle='rgba(255,200,100,0.7)';ctx.fillText('Myelin sheaths',cx+40,cy+24);
-  const termX=W-60;ctx.fillStyle='rgba(100,220,100,0.35)';ctx.strokeStyle='#4caf50';ctx.lineWidth=2;
-  ctx.beginPath();ctx.ellipse(termX,cy,18,28,0,0,6.28);ctx.fill();ctx.stroke();
-  ctx.fillStyle='#a5d6a7';ctx.fillText('Synapse',termX-16,cy-32);
-  pulse=(pulse+0.025)%1;
-  const px=cx+28+(W-88-cx)*pulse;const pop=Math.sin(pulse*Math.PI);
-  ctx.beginPath();ctx.arc(px,cy,5+3*pop,0,6.28);ctx.fillStyle='rgba(255,255,100,'+(0.6+0.4*pop).toFixed(2)+')';ctx.fill();
-  ctx.fillStyle='rgba(255,255,100,0.7)';ctx.fillText('↑ Impulse',px-14,cy-14);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'plant_structure':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">🌱 PARTS OF A PLANT</div>
-<svg viewBox="0 0 360 280" width="340" height="265" xmlns="http://www.w3.org/2000/svg">
-  <rect x="0" y="200" width="360" height="80" fill="#1a2a0a" rx="2"/>
-  <line x1="180" y1="50" x2="180" y2="205" stroke="#5a8a20" stroke-width="6"/>
-  <ellipse cx="130" cy="130" rx="40" ry="24" fill="rgba(60,160,40,0.7)" stroke="#4a9a28" stroke-width="1.5" transform="rotate(-20,130,130)"/>
-  <ellipse cx="230" cy="100" rx="40" ry="24" fill="rgba(60,160,40,0.7)" stroke="#4a9a28" stroke-width="1.5" transform="rotate(20,230,100)"/>
-  <ellipse cx="155" cy="170" rx="32" ry="18" fill="rgba(60,160,40,0.6)" stroke="#4a9a28" stroke-width="1.5" transform="rotate(-10,155,170)"/>
-  <ellipse cx="205" cy="155" rx="32" ry="18" fill="rgba(60,160,40,0.6)" stroke="#4a9a28" stroke-width="1.5" transform="rotate(10,205,155)"/>
-  <circle cx="180" cy="52" r="28" fill="rgba(255,180,200,0.6)" stroke="#ff8aaa" stroke-width="2">
-    <animate attributeName="r" values="28;32;28" dur="2s" repeatCount="indefinite"/>
-  </circle>
-  <text x="180" y="56" text-anchor="middle" fill="#ffb8cc" font-size="9" font-family="monospace">Flower</text>
-  <line x1="120" y1="200" x2="80" y2="260" stroke="#8b5a1a" stroke-width="3"/>
-  <line x1="150" y1="200" x2="120" y2="270" stroke="#8b5a1a" stroke-width="3"/>
-  <line x1="180" y1="205" x2="180" y2="275" stroke="#8b5a1a" stroke-width="4"/>
-  <line x1="210" y1="200" x2="240" y2="270" stroke="#8b5a1a" stroke-width="3"/>
-  <line x1="240" y1="200" x2="280" y2="260" stroke="#8b5a1a" stroke-width="3"/>
-  <circle cx="82" cy="262" r="6" fill="#a0720a" opacity="0.7"/>
-  <circle cx="122" cy="272" r="5" fill="#a0720a" opacity="0.7"/>
-  <circle cx="180" cy="277" r="7" fill="#a0720a" opacity="0.7"/>
-  <circle cx="238" cy="272" r="5" fill="#a0720a" opacity="0.7"/>
-  <circle cx="278" cy="262" r="6" fill="#a0720a" opacity="0.7"/>
-  <text x="12" y="56" fill="#ffb8cc" font-size="9" font-family="monospace">← Flower</text>
-  <text x="12" y="110" fill="#aaddaa" font-size="9" font-family="monospace">← Leaf</text>
-  <text x="294" y="175" fill="#88cc88" font-size="9" font-family="monospace">Leaf →</text>
-  <text x="195" y="160" fill="#8bc34a" font-size="9" font-family="monospace">Stem →</text>
-  <text x="260" y="230" fill="#8ba050" font-size="9" font-family="monospace">Root →</text>
-  <text x="12" y="248" fill="#a08030" font-size="9" font-family="monospace">Root hair →</text>
-  <text x="60" y="278" fill="#888" font-size="8" font-family="monospace">Soil (absorbs water and minerals)</text>
-  <line x1="180" y1="205" x2="180" y2="205"><animate attributeName="stroke-dashoffset" values="0;-20" dur="1s" repeatCount="indefinite"/></line>
-</svg></body></html>"""
-
-    elif topic == 'food_chain':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">🦁 FOOD CHAIN — ENERGY FLOW</div>
-<canvas id="fc" width="360" height="220" style="display:block;"></canvas>
-<script>
-const cv=document.getElementById('fc'),ctx=cv.getContext('2d'),W=360,H=220;
-let t=0;
-const levels=[
-  {{x:50,y:H/2,label:'☀ Sun',sub:'Energy source',col:'#ffd700',r:28}},
-  {{x:130,y:H/2,label:'🌿 Grass',sub:'Producer',col:'#4caf50',r:26}},
-  {{x:215,y:H/2,label:'🐇 Rabbit',sub:'Primary Consumer',col:'#90caf9',r:26}},
-  {{x:300,y:H/2,label:'🦊 Fox',sub:'Secondary Consumer',col:'#ff8a65',r:26}},
-];
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  for(let i=0;i<levels.length-1;i++){{
-    const a=levels[i],b=levels[i+1];
-    const pulse=0.5+0.5*Math.sin(t*0.08+i);
-    ctx.strokeStyle='rgba(255,220,50,'+(0.4+0.4*pulse).toFixed(2)+')';ctx.lineWidth=2+2*pulse;
-    ctx.beginPath();ctx.moveTo(a.x+a.r,a.y);ctx.lineTo(b.x-b.r,b.y);ctx.stroke();
-    const ax=a.x+a.r+(b.x-b.r-a.x-a.r)*((t*0.015+i*.33)%1);
-    const ay=a.y;
-    ctx.beginPath();ctx.arc(ax,ay,4,0,6.28);ctx.fillStyle='rgba(255,230,80,0.9)';ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='7px monospace';ctx.textAlign='center';ctx.fillText('Energy',ax,ay-10);
-  }}
-  levels.forEach((l,i)=>{{
-    const glow=0.8+0.15*Math.sin(t*0.06+i);
-    ctx.beginPath();ctx.arc(l.x,l.y,l.r*glow,0,6.28);
-    ctx.fillStyle=l.col+'33';ctx.fill();ctx.strokeStyle=l.col;ctx.lineWidth=2;ctx.stroke();
-    ctx.fillStyle='#fff';ctx.font='bold 14px monospace';ctx.textAlign='center';ctx.fillText(l.label.split(' ')[0],l.x,l.y+5);
-    ctx.fillStyle=l.col;ctx.font='8px monospace';ctx.fillText(l.label.split(' ')[1]||'',l.x,l.y+18);
-    ctx.fillStyle='rgba(255,255,255,0.45)';ctx.font='7px monospace';ctx.fillText(l.sub,l.x,l.y+l.r+14);
-  }});
-  ctx.textAlign='left';ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='8px monospace';
-  ctx.fillText('Energy decreases by ~90% at each trophic level',10,H-6);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'projectile':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">🏀 PROJECTILE MOTION</div>
-<canvas id="pj" width="360" height="220" style="display:block;"></canvas>
-<div style="font-size:10px;color:#8aa;margin-top:4px;text-align:center;">Horizontal velocity: constant | Vertical velocity: changes due to gravity</div>
-<script>
-const cv=document.getElementById('pj'),ctx=cv.getContext('2d'),W=360,H=220;
-let t=0;
-const v0=5,ang=Math.PI/4,g=0.15;
-const vx=v0*Math.cos(ang),vy0=-v0*Math.sin(ang);
-const trail=[];
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1;
-  for(let y=0;y<H;y+=40){{ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}}
-  ctx.strokeStyle='rgba(255,255,255,0.15)';ctx.lineWidth=1.5;
-  ctx.beginPath();ctx.moveTo(0,H-30);ctx.lineTo(W,H-30);ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='8px monospace';ctx.fillText('Ground',6,H-16);
-  const bx=30+vx*t,by=H-30+vy0*t+0.5*g*t*t;
-  trail.push({{x:bx,y:by}});if(trail.length>80)trail.shift();
-  trail.forEach((p,i)=>{{ctx.beginPath();ctx.arc(p.x,p.y,2,0,6.28);ctx.fillStyle='rgba(255,200,50,'+(i/trail.length*0.7).toFixed(2)+')';ctx.fill();}});
-  if(by>H-30){{t=0;trail.length=0;}} else{{
-    ctx.beginPath();ctx.arc(bx,by,10,0,6.28);ctx.fillStyle='#ef5350';ctx.fill();ctx.strokeStyle='#ff8a80';ctx.lineWidth=2;ctx.stroke();
-    const vy=vy0+g*t;
-    ctx.strokeStyle='rgba(100,200,255,0.8)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+vx*8,by);ctx.stroke();
-    ctx.strokeStyle='rgba(255,150,50,0.8)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx,by+vy*8);ctx.stroke();
-    ctx.fillStyle='rgba(100,200,255,0.8)';ctx.font='7px monospace';ctx.fillText('Vx',bx+vx*8+3,by+3);
-    ctx.fillStyle='rgba(255,150,50,0.8)';ctx.fillText('Vy',bx+3,by+vy*8+10);
-  }}
-  t+=1;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'circular_motion':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">⭕ CIRCULAR MOTION — CENTRIPETAL FORCE</div>
-<canvas id="cm" width="340" height="240" style="display:block;"></canvas>
-<div style="font-size:10px;color:#8aa;margin-top:4px;text-align:center;">Centripetal force always points toward the center</div>
-<script>
-const cv=document.getElementById('cm'),ctx=cv.getContext('2d'),W=340,H=240,cx=W/2,cy=H/2,r=90;
-let t=0;
-function arrow(x1,y1,x2,y2,col){{ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();const a=Math.atan2(y2-y1,x2-x1);ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-10*Math.cos(a-.4),y2-10*Math.sin(a-.4));ctx.lineTo(x2-10*Math.cos(a+.4),y2-10*Math.sin(a+.4));ctx.closePath();ctx.fill();}}
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.strokeStyle='rgba(255,255,255,0.12)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
-  ctx.beginPath();ctx.arc(cx,cy,r,0,6.28);ctx.stroke();ctx.setLineDash([]);
-  ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(cx-r-20,cy);ctx.lineTo(cx+r+20,cy);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(cx,cy-r-20);ctx.lineTo(cx,cy+r+20);ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,0.4)';ctx.beginPath();ctx.arc(cx,cy,5,0,6.28);ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='8px monospace';ctx.textAlign='center';ctx.fillText('Center',cx,cy+18);
-  const bx=cx+r*Math.cos(t),by=cy+r*Math.sin(t);
-  const vx=-Math.sin(t)*30,vy=Math.cos(t)*30;
-  const fx=cx-bx,fy=cy-by;const fm=Math.sqrt(fx*fx+fy*fy);
-  arrow(bx,by,bx+(fx/fm)*40,by+(fy/fm)*40,'#ef5350');
-  arrow(bx,by,bx+vx,by+vy,'#00e5ff');
-  ctx.beginPath();ctx.arc(bx,by,14,0,6.28);ctx.fillStyle='rgba(100,150,255,0.8)';ctx.fill();ctx.strokeStyle='#7ab4ff';ctx.lineWidth=2;ctx.stroke();
-  ctx.fillStyle='#fff';ctx.font='7px monospace';ctx.textAlign='center';ctx.fillText('m',bx,by+3);
-  ctx.fillStyle='#ef5350';ctx.font='8px monospace';ctx.fillText('Fc (centripetal)',bx+(fx/fm)*42+5,by+(fy/fm)*42);
-  ctx.fillStyle='#00e5ff';ctx.fillText('v (velocity)',bx+vx+5,by+vy-5);
-  ctx.strokeStyle='rgba(255,220,50,0.3)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(bx,by);ctx.stroke();
-  ctx.fillStyle='rgba(255,220,50,0.5)';ctx.fillText('r',cx+(bx-cx)/2-8,cy+(by-cy)/2);
-  t+=0.035;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'volcano':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>body{{background:#010208;margin:0;padding:4px;display:flex;flex-direction:column;align-items:center;}}</style>
-</head><body>
-<div style="font-size:11px;color:#40E0D0;letter-spacing:2px;font-weight:700;margin-bottom:2px;">🌋 VOLCANIC ERUPTION</div>
-<canvas id="vl" width="460" height="310" style="display:block;border-radius:8px;"></canvas>
-<div style="font-size:9px;color:#6699aa;margin-top:2px;text-align:center;">Magma rises through vent · Lava, ash and gases erupt at the surface</div>
-<script>
-const cv=document.getElementById('vl'),ctx=cv.getContext('2d'),W=460,H=310;
-const vx=230,vtop=H*.3;
-const particles=[];
-for(let i=0;i<35;i++)particles.push([0,0,0,0,0,0,0]);
-function resetP(p){{p[0]=vx+(Math.random()-.5)*8;p[1]=vtop;p[2]=(Math.random()-.5)*5;p[3]=-(4+Math.random()*6);p[4]=0;p[5]=50+Math.random()*55;p[6]=3+Math.random()*5;}}
-particles.forEach(resetP);
-const lavaBombs=[];
-for(let i=0;i<6;i++)lavaBombs.push([vx,vtop,(Math.random()-.5)*3.5,-(5+Math.random()*4),0,30+Math.random()*40,0]);
-lavaBombs.forEach(function(b){{b[4]=Math.random()*b[5];}});
-let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const sky=ctx.createLinearGradient(0,0,0,H);
-  sky.addColorStop(0,'#010208');sky.addColorStop(.45,'#1a0805');sky.addColorStop(1,'#0a1208');
-  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
-  const grdG=ctx.createLinearGradient(0,H*.62,0,H);
-  grdG.addColorStop(0,'#1a1006');grdG.addColorStop(1,'#0d0a04');
-  ctx.fillStyle=grdG;ctx.fillRect(0,H*.62,W,H);
-  const vg=ctx.createLinearGradient(vx-90,H,vx,vtop);
-  vg.addColorStop(0,'#1a1208');vg.addColorStop(.5,'#2a2010');vg.addColorStop(1,'#3a2a18');
-  ctx.fillStyle=vg;ctx.beginPath();ctx.moveTo(vx-130,H*.95);ctx.lineTo(vx-90,H*.62);ctx.lineTo(vx-30,H*.38);ctx.lineTo(vx,vtop);ctx.lineTo(vx+30,H*.38);ctx.lineTo(vx+90,H*.62);ctx.lineTo(vx+130,H*.95);ctx.closePath();ctx.fill();
-  ctx.strokeStyle='rgba(90,70,40,.5)';ctx.lineWidth=1.5;ctx.stroke();
-  const lavaFlow=ctx.createLinearGradient(vx-30,H*.38,vx-80,H*.7);
-  lavaFlow.addColorStop(0,'rgba(255,80,0,.55)');lavaFlow.addColorStop(1,'rgba(200,40,0,.2)');
-  ctx.fillStyle=lavaFlow;ctx.beginPath();ctx.moveTo(vx-30,H*.38);ctx.bezierCurveTo(vx-45,H*.5,vx-60,H*.58,vx-80,H*.7);ctx.lineTo(vx-65,H*.72);ctx.bezierCurveTo(vx-45,H*.62,vx-32,H*.52,vx-20,H*.4);ctx.closePath();ctx.fill();
-  const lavaFlow2=ctx.createLinearGradient(vx+30,H*.38,vx+85,H*.72);
-  lavaFlow2.addColorStop(0,'rgba(255,80,0,.5)');lavaFlow2.addColorStop(1,'rgba(200,40,0,.18)');
-  ctx.fillStyle=lavaFlow2;ctx.beginPath();ctx.moveTo(vx+30,H*.38);ctx.bezierCurveTo(vx+45,H*.5,vx+65,H*.6,vx+85,H*.72);ctx.lineTo(vx+70,H*.74);ctx.bezierCurveTo(vx+52,H*.62,vx+32,H*.52,vx+18,H*.4);ctx.closePath();ctx.fill();
-  ctx.strokeStyle='rgba(255,120,0,.4)';ctx.lineWidth=3;
-  ctx.beginPath();ctx.moveTo(vx,H*.88);ctx.lineTo(vx,vtop);ctx.stroke();
-  const magG=ctx.createRadialGradient(vx,H*.88,5,vx,H*.88,55);
-  magG.addColorStop(0,'rgba(255,100,0,.6)');magG.addColorStop(.5,'rgba(200,40,0,.35)');magG.addColorStop(1,'rgba(150,20,0,.1)');
-  ctx.beginPath();ctx.ellipse(vx,H*.88,70,30,0,0,6.28);ctx.fillStyle=magG;ctx.fill();
-  ctx.fillStyle='rgba(255,140,0,.7)';ctx.font='bold 7px sans-serif';ctx.textAlign='center';ctx.fillText('MAGMA CHAMBER',vx,H*.88+4);
-  particles.forEach(function(p){{
-    p[2]+=(Math.random()-.5)*.15;p[3]+=.14;p[4]++;
-    if(p[4]>p[5])resetP(p);
-    const op=(1-p[4]/p[5]);
-    const t2=p[4]/p[5];
-    const g2=Math.floor(160*(1-t2));
-    ctx.beginPath();ctx.arc(p[0]+p[2]*(p[4]*.1),p[1]+p[3]*p[4]+.5*.14*p[4]*p[4],p[6]*(1-t2*.5),0,6.28);
-    ctx.fillStyle='rgba(255,'+g2+',0,'+(op*.9).toFixed(2)+')';ctx.fill();
-  }});
-  lavaBombs.forEach(function(b){{
-    b[4]+=1;if(b[4]>b[5]){{b[0]=vx+(Math.random()-.5)*8;b[1]=vtop;b[2]=(Math.random()-.5)*3.5;b[3]=-(5+Math.random()*4);b[4]=0;b[5]=30+Math.random()*40;b[6]=0;}}
-    const bx2=b[0]+b[2]*b[4],by2=b[1]+b[3]*b[4]+.5*.15*b[4]*b[4];
-    if(by2<H){{
-      ctx.beginPath();ctx.arc(bx2,by2,4,0,6.28);
-      ctx.fillStyle='rgba(255,200,50,.9)';ctx.fill();
-      ctx.beginPath();ctx.arc(bx2,by2,7,0,6.28);
-      ctx.fillStyle='rgba(255,80,0,.35)';ctx.fill();
-    }}
-  }});
-  for(let ac=0;ac<5;ac++){{
-    const ax=vx+(-30+ac*15)+10*Math.sin(t*.04+ac),ay=vtop-20-ac*18-8*Math.sin(t*.05+ac*1.2);
-    const ar=18+ac*10+5*Math.sin(t*.06+ac);
-    const aal=(0.25-ac*.04).toFixed(2);
-    if(aal>0){{ctx.beginPath();ctx.arc(ax,ay,ar,0,6.28);ctx.fillStyle='rgba(80,70,65,'+aal+')';ctx.fill();}}
-  }}
-  ctx.fillStyle='rgba(255,100,0,.6)';ctx.font='bold 7px sans-serif';ctx.textAlign='left';ctx.fillText('Lava flow',10,H*.52);
-  ctx.fillStyle='rgba(180,160,140,.55)';ctx.fillText('↑ Ash cloud',vx-18,vtop-60);
-  ctx.fillStyle='rgba(255,255,255,.22)';ctx.font='7px monospace';ctx.textAlign='center';
-  ctx.fillText('Magma rises through the vent and erupts as lava, ash, and volcanic gases',W/2,H-5);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'earthquake':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">🌍 EARTHQUAKE — SEISMIC WAVES</div>
-<canvas id="eq" width="360" height="240" style="display:block;"></canvas>
-<script>
-const cv=document.getElementById('eq'),ctx=cv.getContext('2d'),W=360,H=240;
-let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const gh=H*.55,ex=W/2,ey=gh+40;
-  const gg=ctx.createLinearGradient(0,gh,0,H);gg.addColorStop(0,'#1a2510');gg.addColorStop(1,'#0a1508');
-  ctx.fillStyle=gg;ctx.fillRect(0,gh,W,H);
-  const sg=ctx.createLinearGradient(0,gh+10,0,H);sg.addColorStop(0,'#2a3520');sg.addColorStop(1,'#0d1a08');
-  ctx.fillStyle=sg;ctx.fillRect(0,gh+10,W,H);
-  const shakeAmt=3*Math.sin(t*.3);
-  for(let i=0;i<W;i+=20){{ctx.strokeStyle='rgba(100,130,70,0.3)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(i,gh);ctx.lineTo(i,H);ctx.stroke();}}
-  ctx.fillStyle='#0a1220';ctx.fillRect(0,0,W,gh);
-  ctx.fillStyle='rgba(255,255,255,0.1)';ctx.font='8px monospace';ctx.textAlign='center';
-  ctx.fillText('Surface',W/2,gh-5);
-  ctx.fillStyle='rgba(255,100,50,0.85)';ctx.beginPath();ctx.arc(ex,ey+shakeAmt,10,0,6.28);ctx.fill();
-  ctx.fillStyle='rgba(255,100,50,0.7)';ctx.fillText('Hypocentre',ex,ey+30);
-  ctx.fillStyle='rgba(255,150,80,0.7)';ctx.beginPath();ctx.arc(ex,gh+shakeAmt/2,8,0,6.28);ctx.fill();
-  ctx.fillStyle='rgba(255,150,80,0.7)';ctx.fillText('Epicentre',ex+40,gh+14);
-  ctx.strokeStyle='rgba(255,100,50,0.3)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex,gh);ctx.stroke();
-  const numWaves=5;
-  for(let i=1;i<=numWaves;i++){{
-    const r=(t*2+i*30)%Math.max(W,H);const op=Math.max(0,1-r/Math.max(W,H));
-    ctx.strokeStyle='rgba(255,150,50,'+(op*.6).toFixed(2)+')';ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.arc(ex,ey,r,Math.PI,2*Math.PI);ctx.stroke();
-    ctx.strokeStyle='rgba(100,180,255,'+(op*.5).toFixed(2)+')';ctx.lineWidth=1;
-    ctx.beginPath();ctx.arc(ex,gh,r*.8,0,2*Math.PI);ctx.stroke();
-  }}
-  ctx.fillStyle='rgba(255,150,50,0.6)';ctx.fillText('P-waves (body waves) →',W/2-60,H/3);
-  ctx.fillStyle='rgba(100,180,255,0.6)';ctx.fillText('S-waves (surface) →',W/2-50,gh-20);
-  ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='8px monospace';ctx.fillText('Seismic waves radiate from the hypocentre',W/2,H-6);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'rock_cycle':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">🪨 ROCK CYCLE</div>
-<canvas id="rc" width="360" height="240" style="display:block;"></canvas>
-<script>
-const cv=document.getElementById('rc'),ctx=cv.getContext('2d'),W=360,H=240;
-let t=0;
-const rocks=[
-  {{x:180,y:30,label:'Igneous Rock',sub:'(formed from magma)',col:'#ef5350'}},
-  {{x:50,y:180,label:'Sedimentary',sub:'(layers of sediment)',col:'#ffb74d'}},
-  {{x:310,y:180,label:'Metamorphic',sub:'(heat & pressure)',col:'#a855f7'}},
-];
-const arrows=[
-  {{from:0,to:1,label:'Weathering &\nErosion',col:'#90caf9',cp:[60,90]}},
-  {{from:1,to:2,label:'Heat &\nPressure',col:'#ef9a9a',cp:[180,200]}},
-  {{from:2,to:0,label:'Melting',col:'#ff8a65',cp:[320,80]}},
-  {{from:0,to:2,label:'Cooling',col:'#80cbc4',cp:[300,80]}},
-];
-function bezierPt(p0,p1,cp,tt){{return{{x:p0.x*(1-tt)*(1-tt)+2*cp[0]*tt*(1-tt)+p1.x*tt*tt,y:p0.y*(1-tt)*(1-tt)+2*cp[1]*tt*(1-tt)+p1.y*tt*tt}};}}
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  arrows.forEach((a,i)=>{{
-    const r0=rocks[a.from],r1=rocks[a.to];
-    const pulse=((t*.008+i*.25)%1);
-    ctx.strokeStyle=a.col;ctx.lineWidth=1.5;ctx.setLineDash([5,5]);
-    ctx.beginPath();ctx.moveTo(r0.x,r0.y+20);ctx.quadraticCurveTo(a.cp[0],a.cp[1],r1.x,r1.y-20);ctx.stroke();ctx.setLineDash([]);
-    const pt=bezierPt({{x:r0.x,y:r0.y+20}},{{x:r1.x,y:r1.y-20}},a.cp,pulse);
-    ctx.beginPath();ctx.arc(pt.x,pt.y,5,0,6.28);ctx.fillStyle=a.col;ctx.fill();
-    ctx.fillStyle=a.col;ctx.font='7px monospace';ctx.textAlign='center';
-    ctx.fillText(a.label.split('\n')[0],(r0.x+r1.x)/2+5,(r0.y+r1.y)/2-5);
-    if(a.label.includes('\n'))ctx.fillText(a.label.split('\n')[1],(r0.x+r1.x)/2+5,(r0.y+r1.y)/2+5);
-  }});
-  rocks.forEach((r,i)=>{{
-    const glow=0.9+0.1*Math.sin(t*.05+i*2);
-    ctx.beginPath();ctx.roundRect(r.x-48,r.y-16,96,34,6);
-    ctx.fillStyle=r.col+'33';ctx.fill();ctx.strokeStyle=r.col;ctx.lineWidth=2;ctx.stroke();
-    ctx.fillStyle=r.col;ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText(r.label,r.x,r.y);
-    ctx.fillStyle='rgba(255,255,255,0.45)';ctx.font='7px monospace';ctx.fillText(r.sub,r.x,r.y+13);
-  }});
-  ctx.fillStyle='rgba(255,80,0,0.6)';ctx.beginPath();ctx.ellipse(180,H-15,60,14,0,0,6.28);ctx.fill();
-  ctx.fillStyle='rgba(255,150,50,0.8)';ctx.font='8px monospace';ctx.textAlign='center';ctx.fillText('🌋 Magma / Lava',180,H-11);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'greenhouse':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>body{{background:#010208;margin:0;padding:4px;display:flex;flex-direction:column;align-items:center;}}</style>
-</head><body>
-<div style="font-size:11px;color:#40E0D0;letter-spacing:2px;font-weight:700;margin-bottom:2px;">🌡 GREENHOUSE EFFECT</div>
-<canvas id="gh" width="460" height="305" style="display:block;border-radius:8px;"></canvas>
-<div style="font-size:9px;color:#6699aa;margin-top:2px;text-align:center;">CO₂ traps infrared radiation → Earth's temperature rises</div>
-<script>
-const cv=document.getElementById('gh'),ctx=cv.getContext('2d'),W=460,H=305;
-const rays=[];
-for(let i=0;i<14;i++)rays.push([W*.78,22,50+Math.random()*330,H*.72,Math.random(),Math.random()>.45]);
-const co2Mols=[];
-for(let i=0;i<8;i++)co2Mols.push([30+Math.random()*W*.85,H*.14+Math.random()*H*.58,Math.random()*.3-.15,Math.random()*.15-.075]);
-let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const sky=ctx.createLinearGradient(0,0,0,H);
-  sky.addColorStop(0,'#010208');sky.addColorStop(.38,'#06111e');sky.addColorStop(.74,'#071a0a');sky.addColorStop(1,'#050e06');
-  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
-  ctx.fillStyle='rgba(20,60,180,.1)';ctx.fillRect(0,H*.12,W,H*.62);
-  ctx.strokeStyle='rgba(40,120,255,.22)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(0,H*.12);ctx.lineTo(W,H*.12);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(0,H*.74);ctx.lineTo(W,H*.74);ctx.stroke();
-  ctx.fillStyle='rgba(40,130,255,.25)';ctx.font='bold 7px sans-serif';ctx.textAlign='center';
-  ctx.fillText('ATMOSPHERE  (CO₂ · CH₄ · N₂O · H₂O)',W/2,H*.1);
-  const sx=W*.78,sy=24;
-  const sunG=ctx.createRadialGradient(sx,sy,2,sx,sy,24);
-  sunG.addColorStop(0,'#fffde7');sunG.addColorStop(.45,'#ffa000');sunG.addColorStop(1,'rgba(230,80,0,0)');
-  ctx.shadowColor='#ff8800';ctx.shadowBlur=18;
-  ctx.beginPath();ctx.arc(sx,sy,22*(1+.04*Math.sin(t*.04)),0,6.28);ctx.fillStyle=sunG;ctx.fill();
-  ctx.shadowBlur=0;
-  ctx.fillStyle='rgba(255,210,60,.7)';ctx.font='bold 7px sans-serif';ctx.fillText('☀ SUN',sx,sy+34);
-  rays.forEach(function(r){{
-    r[4]+=0.016;if(r[4]>1){{r[4]=0;r[5]=Math.random()>.45;}}
-    const px=r[0]+(r[2]-r[0])*Math.min(r[4],1),py=r[1]+(r[3]-r[1])*Math.min(r[4],1);
-    if(!r[5]||r[4]<0.5){{
-      ctx.strokeStyle='rgba(255,220,50,.65)';ctx.lineWidth=1.5;
-      ctx.beginPath();ctx.moveTo(r[0],r[1]);ctx.lineTo(px,py);ctx.stroke();
-    }} else {{
-      ctx.strokeStyle='rgba(255,80,30,.6)';ctx.lineWidth=1.5;
-      if(r[4]<0.78){{ctx.beginPath();ctx.moveTo(r[2],r[3]);ctx.lineTo(r[2]+(r[2]-W*.4)*(r[4]-.5)*4,py-22*(r[4]-.5)*4);ctx.stroke();}}
-      else{{ctx.beginPath();ctx.moveTo(r[2],r[3]-25);ctx.lineTo(r[2],r[3]+12);ctx.stroke();}}
-    }}
-  }});
-  co2Mols.forEach(function(c){{
-    c[0]+=c[2];c[1]+=c[3];
-    if(c[0]<5||c[0]>W-5)c[2]*=-1;
-    if(c[1]<H*.14||c[1]>H*.74)c[3]*=-1;
-    ctx.shadowColor='#44aaff';ctx.shadowBlur=6;
-    ctx.beginPath();ctx.arc(c[0],c[1],5,0,6.28);ctx.fillStyle='rgba(80,180,255,.5)';ctx.fill();
-    ctx.beginPath();ctx.arc(c[0]-9,c[1],3.5,0,6.28);ctx.fillStyle='rgba(60,150,255,.4)';ctx.fill();
-    ctx.beginPath();ctx.arc(c[0]+9,c[1],3.5,0,6.28);ctx.fillStyle='rgba(60,150,255,.4)';ctx.fill();
-    ctx.shadowBlur=0;
-    ctx.fillStyle='rgba(100,200,255,.5)';ctx.font='6px sans-serif';ctx.textAlign='center';ctx.fillText('CO₂',c[0],c[1]+14);
-  }});
-  const earthG=ctx.createLinearGradient(0,H*.74,0,H);
-  earthG.addColorStop(0,'rgba(40,130,255,.22)');earthG.addColorStop(.3,'rgba(20,90,20,.5)');earthG.addColorStop(1,'#050e04');
-  ctx.fillStyle=earthG;ctx.fillRect(0,H*.74,W,H);
-  ctx.fillStyle='rgba(80,200,80,.4)';ctx.font='bold 7px sans-serif';ctx.textAlign='center';ctx.fillText('EARTH SURFACE',W/2,H*.82);
-  const heatW=(0.3+0.25*Math.sin(t*.04)).toFixed(2);
-  ctx.fillStyle='rgba(255,120,40,.65)';ctx.font='7px sans-serif';ctx.textAlign='left';
-  ctx.fillText('↓ Solar radiation',10,H*.06);
-  ctx.fillStyle='rgba(255,70,20,.6)';ctx.fillText('↻ IR heat trapped',10,H*.21);
-  ctx.fillStyle='rgba(100,200,100,.6)';ctx.fillText('↑ Earth warms',10,H*.82);
-  ctx.fillStyle='rgba(255,255,255,.22)';ctx.font='7px monospace';ctx.textAlign='center';
-  ctx.fillText('Greenhouse gases absorb & re-emit infrared heat → global temperature rises',W/2,H-5);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'seasons':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>body{{background:#010208;margin:0;padding:4px;display:flex;flex-direction:column;align-items:center;}}</style>
-</head><body>
-<div style="font-size:11px;color:#40E0D0;letter-spacing:2px;font-weight:700;margin-bottom:2px;">🌍 EARTH'S SEASONS — ORBITAL TILT</div>
-<canvas id="ss" width="460" height="305" style="display:block;border-radius:8px;"></canvas>
-<div style="font-size:9px;color:#6699aa;margin-top:2px;text-align:center;">Earth's 23.5° axial tilt causes different seasons as it orbits the Sun</div>
-<script>
-const cv=document.getElementById('ss'),ctx=cv.getContext('2d'),W=460,H=305,cx=W/2,cy=H/2;
-const stars=[];for(let i=0;i<70;i++)stars.push([Math.random()*W,Math.random()*H,Math.random()*1.2+.3,Math.random()*80]);
-const seasons=['☀ Summer','🍂 Autumn','❄ Winter','🌸 Spring'];
-const sColors=['#ffa500','#ff6b35','#4fc3f7','#90ee90'];
-const positions=[0,Math.PI/2,Math.PI,3*Math.PI/2];
-let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='#010208';ctx.fillRect(0,0,W,H);
-  stars.forEach(function(s){{
-    ctx.beginPath();ctx.arc(s[0],s[1],s[2],0,6.28);
-    ctx.fillStyle='rgba(200,215,255,'+(0.25+0.35*Math.sin(t*.018+s[3])).toFixed(2)+')';ctx.fill();
-  }});
-  ctx.strokeStyle='rgba(255,255,255,.06)';ctx.lineWidth=1;ctx.setLineDash([3,6]);
-  ctx.beginPath();ctx.ellipse(cx,cy,178,88,0,0,6.28);ctx.stroke();ctx.setLineDash([]);
-  positions.forEach(function(a,i){{
-    const px=cx+178*Math.cos(a),py=cy+88*Math.sin(a);
-    ctx.strokeStyle=sColors[i]+'55';ctx.lineWidth=.8;ctx.setLineDash([2,4]);
-    ctx.beginPath();ctx.arc(px,py,12,0,6.28);ctx.stroke();ctx.setLineDash([]);
-    const tilt=0.45;
-    ctx.strokeStyle=sColors[i]+'66';ctx.lineWidth=1.2;
-    ctx.beginPath();ctx.moveTo(px-12*Math.cos(tilt),py-15*Math.sin(tilt));ctx.lineTo(px+12*Math.cos(tilt),py+15*Math.sin(tilt));ctx.stroke();
-    ctx.fillStyle=sColors[i];ctx.font='7px sans-serif';ctx.textAlign='center';
-    ctx.fillText(seasons[i]+'(N)',px,py+(a<Math.PI?-18:20));
-  }});
-  const sunG=ctx.createRadialGradient(cx,cy,3,cx,cy,32);
-  sunG.addColorStop(0,'#fffde7');sunG.addColorStop(.48,'#ffa000');sunG.addColorStop(1,'rgba(230,80,0,0)');
-  ctx.shadowColor='#ff8800';ctx.shadowBlur=22;
-  ctx.beginPath();ctx.arc(cx,cy,30*(1+.04*Math.sin(t*.04)),0,6.28);ctx.fillStyle=sunG;ctx.fill();
-  ctx.shadowBlur=0;
-  ctx.fillStyle='rgba(255,215,60,.75)';ctx.font='bold 8px sans-serif';ctx.textAlign='center';ctx.fillText('☉ SUN',cx,cy+3);
-  const orbitT=t*.016;
-  const ex=cx+178*Math.cos(orbitT),ey=cy+88*Math.sin(orbitT);
-  const tilt=0.45;
-  for(let rr=0;rr<4;rr++){{
-    const ra=orbitT+rr*(Math.PI/2);
-    const rdx=30*Math.cos(ra),rdy=30*Math.sin(ra);
-    const ral=(0.12+0.08*Math.sin(t*.04+rr)).toFixed(2);
-    ctx.strokeStyle='rgba(255,220,50,'+ral+')';ctx.lineWidth=1.2;
-    ctx.beginPath();ctx.moveTo(cx+10*Math.cos(ra),cy+10*Math.sin(ra));ctx.lineTo(cx+rdx,cy+rdy);ctx.stroke();
-  }}
-  const eG2=ctx.createRadialGradient(ex-3,ey-3,2,ex,ey,13);
-  eG2.addColorStop(0,'#6baed6');eG2.addColorStop(.5,'#2171b5');eG2.addColorStop(1,'#050a20');
-  ctx.shadowColor='#4fc3f7';ctx.shadowBlur=8;
-  ctx.beginPath();ctx.arc(ex,ey,12,0,6.28);ctx.fillStyle=eG2;ctx.fill();
-  ctx.strokeStyle='#4fc3f7';ctx.lineWidth=1.5;ctx.stroke();
-  ctx.shadowBlur=0;
-  ctx.strokeStyle='rgba(120,210,255,.55)';ctx.lineWidth=1.5;
-  ctx.beginPath();ctx.moveTo(ex-14*Math.cos(tilt),ey-17*Math.sin(tilt));ctx.lineTo(ex+14*Math.cos(tilt),ey+17*Math.sin(tilt));ctx.stroke();
-  const si=Math.floor(((orbitT%(2*Math.PI))/(2*Math.PI))*4)%4;
-  ctx.fillStyle=sColors[si];ctx.font='bold 8px sans-serif';ctx.textAlign='center';
-  ctx.fillText(seasons[si]+' (N.Hem.)',ex,ey-22);
-  ctx.fillStyle='rgba(255,255,255,.22)';ctx.font='7px monospace';
-  ctx.fillText("23.5° tilt: N.Hemisphere tilts toward Sun in June (Summer) · away in December (Winter)",cx,H-5);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'plate_tectonics':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">🌏 TECTONIC PLATES — MOVEMENT</div>
-<canvas id="pt" width="360" height="240" style="display:block;"></canvas>
-<script>
-const cv=document.getElementById('pt'),ctx=cv.getContext('2d'),W=360,H=240;
-let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const shift=Math.sin(t*.025)*15;
-  const col1=ctx.createLinearGradient(0,0,W/2+shift,H);col1.addColorStop(0,'#1a2a10');col1.addColorStop(1,'#0d1508');
-  ctx.fillStyle=col1;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(W/2+shift,0);ctx.lineTo(W/2+shift-30,H);ctx.lineTo(0,H);ctx.closePath();ctx.fill();
-  ctx.strokeStyle='rgba(100,180,80,0.6)';ctx.lineWidth=2;ctx.stroke();
-  const col2=ctx.createLinearGradient(W/2+shift,0,W,H);col2.addColorStop(0,'#101a28');col2.addColorStop(1,'#050d18');
-  ctx.fillStyle=col2;ctx.beginPath();ctx.moveTo(W/2+shift,0);ctx.lineTo(W,0);ctx.lineTo(W,H);ctx.lineTo(W/2+shift-30,H);ctx.closePath();ctx.fill();
-  ctx.strokeStyle='rgba(80,140,200,0.6)';ctx.lineWidth=2;ctx.stroke();
-  ctx.fillStyle='rgba(255,80,0,0.7)';ctx.font='bold 9px monospace';ctx.textAlign='center';
-  ctx.fillText('← Plate A',W/4,H/2);ctx.fillText('Plate B →',W*3/4,H/2);
-  const gapW=20+Math.abs(shift)*.5;
-  const magG=ctx.createLinearGradient(W/2-gapW/2,0,W/2+gapW/2,0);
-  magG.addColorStop(0,'rgba(255,80,0,0)');magG.addColorStop(.5,'rgba(255,100,0,0.6)');magG.addColorStop(1,'rgba(255,80,0,0)');
-  ctx.fillStyle=magG;ctx.fillRect(W/2-gapW/2,0,gapW,H);
-  ctx.fillStyle='rgba(255,100,50,0.8)';ctx.fillText('↑ Magma',W/2,H/2+20);
-  const mtype=shift>0?'Divergent':'Convergent';
-  ctx.fillStyle='#40E0D0';ctx.font='bold 10px monospace';ctx.fillText(mtype+' Boundary',W/2,H-20);
-  ctx.fillStyle='rgba(100,180,80,0.8)';ctx.font='8px monospace';
-  ctx.fillText(shift>0?'←':'→',W/4,H*.35);
-  ctx.fillStyle='rgba(80,140,200,0.8)';
-  ctx.fillText(shift>0?'→':'←',W*3/4,H*.35);
-  ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='8px monospace';
-  ctx.fillText('Plates move a few cm per year (very slow!)',W/2,H-6);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'river_erosion':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">🌊 RIVER — EROSION & DEPOSITION</div>
-<canvas id="rv" width="360" height="220" style="display:block;"></canvas>
-<script>
-const cv=document.getElementById('rv'),ctx=cv.getContext('2d'),W=360,H=220;
-let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='#0a1508';ctx.fillRect(0,0,W,H);
-  ctx.strokeStyle='rgba(30,120,180,0.8)';ctx.lineWidth=18;
-  ctx.beginPath();ctx.moveTo(0,80);ctx.bezierCurveTo(60,80,80,140,140,140);ctx.bezierCurveTo(200,140,220,80,280,80);ctx.bezierCurveTo(310,80,330,130,360,140);ctx.stroke();
-  ctx.strokeStyle='rgba(60,160,220,0.9)';ctx.lineWidth=8;
-  ctx.beginPath();ctx.moveTo(0,80);ctx.bezierCurveTo(60,80,80,140,140,140);ctx.bezierCurveTo(200,140,220,80,280,80);ctx.bezierCurveTo(310,80,330,130,360,140);ctx.stroke();
-  const n=12;
-  for(let i=0;i<n;i++){{
-    const pct=((i/n)+t*.004)%1;
-    let bx,by;
-    if(pct<0.25){{bx=pct*4*140,by=80+60*(pct*4);}}
-    else if(pct<0.5){{bx=140+(pct-.25)*4*140,by=140-60*(pct-.25)*4;}}
-    else if(pct<0.75){{bx=280+(pct-.5)*4*80,by=80+50*(pct-.5)*4;}}
-    else{{bx=W*(pct-.75)*4+W*.88,by=130;}}
-    bx=Math.min(bx,W);ctx.beginPath();ctx.arc(bx,by,3,0,6.28);ctx.fillStyle='rgba(180,220,255,0.8)';ctx.fill();
-  }}
-  ctx.fillStyle='rgba(255,150,80,0.7)';ctx.font='8px monospace';ctx.textAlign='center';
-  ctx.fillText('Erosion',70,65);ctx.fillText('Erosion',210,65);
-  ctx.fillStyle='rgba(100,200,100,0.7)';
-  ctx.fillText('Deposition',140,165);ctx.fillText('Deposition',280,165);
-  ctx.fillStyle='rgba(255,255,255,0.4)';
-  ctx.fillText('← Outer bend erodes · Inner bend deposits →',W/2,H-6);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'trig':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">📐 TRIGONOMETRY — UNIT CIRCLE</div>
-<canvas id="tr" width="360" height="240" style="display:block;"></canvas>
-<div style="display:flex;gap:14px;font-size:11px;margin-top:4px;justify-content:center;">
-  <span style="color:#00e5ff">cos θ (x)</span><span style="color:#a855f7">sin θ (y)</span><span style="color:#ffd700">tan θ</span>
-</div>
-<script>
-const cv=document.getElementById('tr'),ctx=cv.getContext('2d'),W=360,H=240,cx=120,cy=H/2,r=90;
-let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(0,cy);ctx.lineTo(cx*2+10,cy);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(cx,10);ctx.lineTo(cx,H-10);ctx.stroke();
-  ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1.5;
-  ctx.beginPath();ctx.arc(cx,cy,r,0,6.28);ctx.stroke();
-  const angle=t*.04;
-  const px=cx+r*Math.cos(angle),py=cy-r*Math.sin(angle);
-  ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(px,py);ctx.stroke();
-  ctx.strokeStyle='#00e5ff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(px,cy);ctx.stroke();
-  ctx.strokeStyle='#a855f7';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px,cy);ctx.lineTo(px,py);ctx.stroke();
-  ctx.beginPath();ctx.arc(px,py,7,0,6.28);ctx.fillStyle='#fff';ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='8px monospace';ctx.textAlign='center';
-  ctx.fillText('θ='+Math.round(angle%(2*Math.PI)*180/Math.PI)+'°',cx+22,cy-8);
-  const sinV=Math.sin(angle),cosV=Math.cos(angle),tanV=Math.tan(angle);
-  ctx.fillStyle='#00e5ff';ctx.fillText('cos='+cosV.toFixed(2),W*.68,cy+35);
-  ctx.fillStyle='#a855f7';ctx.fillText('sin='+sinV.toFixed(2),W*.68,cy+50);
-  ctx.fillStyle='#ffd700';ctx.fillText('tan='+Math.abs(tanV)>5?'∞':tanV.toFixed(2),W*.68,cy+65);
-  const gx=W*.65,gw=W*.32,gh=80;
-  const gcy=cy;
-  ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(gx,gcy-gh/2);ctx.lineTo(gx+gw,gcy-gh/2);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(gx,gcy);ctx.lineTo(gx+gw,gcy);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(gx,gcy+gh/2);ctx.lineTo(gx+gw,gcy+gh/2);ctx.stroke();
-  ctx.strokeStyle='#00e5ff';ctx.lineWidth=1.5;ctx.beginPath();
-  for(let x=0;x<=gw;x+=2){{const a=t*.04-3+(x/gw)*6;const y=gcy-cosV*gh/2.2;x===0?ctx.moveTo(gx+x,y):ctx.lineTo(gx+x,y);}}
-  ctx.stroke();
-  ctx.strokeStyle='#a855f7';ctx.lineWidth=1.5;ctx.beginPath();
-  for(let x=0;x<=gw;x+=2){{const a=t*.04-3+(x/gw)*6;const y=gcy-Math.sin(a)*gh/2.2;x===0?ctx.moveTo(gx+x,y):ctx.lineTo(gx+x,y);}}
-  ctx.stroke();
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'pythagoras':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">📐 PYTHAGOREAN THEOREM — a² + b² = c²</div>
-<canvas id="py" width="360" height="240" style="display:block;"></canvas>
-<script>
-const cv=document.getElementById('py'),ctx=cv.getContext('2d'),W=360,H=240;
-let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const sc=0.9+.05*Math.sin(t*.04);
-  const tx=100,ty=160,tw=sc*80,th=sc*60;
-  const ax=tx,ay=ty,bx=tx+tw,by=ty,cx2=tx,cy2=ty-th;
-  ctx.fillStyle='rgba(100,150,255,0.15)';ctx.strokeStyle='rgba(100,150,255,0.7)';ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.lineTo(cx2,cy2);ctx.closePath();ctx.fill();ctx.stroke();
-  ctx.strokeStyle='rgba(255,200,100,0.3)';ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(ax+8,ay);ctx.lineTo(ax+8,ay-8);ctx.lineTo(ax,ay-8);ctx.closePath();ctx.stroke();
-  ctx.fillStyle='rgba(255,100,100,0.25)';ctx.strokeStyle='#ef5350';ctx.lineWidth=1.5;
-  ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(ax,ay+tw);ctx.lineTo(ax-tw,ay+tw);ctx.lineTo(ax-tw,ay);ctx.closePath();ctx.fill();ctx.stroke();
-  ctx.fillStyle='#ef5350';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText('a²',ax-tw/2,ay+tw/2+4);
-  ctx.fillStyle='rgba(100,255,100,0.25)';ctx.strokeStyle='#4caf50';ctx.lineWidth=1.5;
-  ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+th,by);ctx.lineTo(bx+th,by-th);ctx.lineTo(bx,by-th);ctx.closePath();ctx.fill();ctx.stroke();
-  ctx.fillStyle='#4caf50';ctx.fillText('b²',bx+th/2,by-th/2+4);
-  const hlen=Math.sqrt(tw*tw+th*th);const hang=Math.atan2(cy2-ay,cx2-bx);
-  const px1=bx,py1=by,px2=cx2,py2=cy2;
-  const nx=-(py2-py1)/hlen,ny=(px2-px1)/hlen;
-  ctx.fillStyle='rgba(100,100,255,0.25)';ctx.strokeStyle='#5c8de8';ctx.lineWidth=1.5;
-  ctx.beginPath();ctx.moveTo(px1,py1);ctx.lineTo(px1+nx*hlen,py1+ny*hlen);ctx.lineTo(px2+nx*hlen,py2+ny*hlen);ctx.lineTo(px2,py2);ctx.closePath();ctx.fill();ctx.stroke();
-  ctx.fillStyle='#5c8de8';ctx.fillText('c²',px1+nx*hlen/2+(px2-px1)/2,py1+ny*hlen/2+(py2-py1)/2+4);
-  ctx.fillStyle='rgba(255,200,100,0.9)';ctx.font='8px monospace';
-  ctx.fillText('a',ax-tw-12,ay+tw/2+4);ctx.fillText('b',bx+th/2,by+14);ctx.fillText('c',bx+nx*hlen/2+(cx2-bx)/2+8,by+ny*hlen/2+(cy2-by)/2);
-  ctx.fillStyle='rgba(255,255,255,0.8)';ctx.font='bold 11px monospace';
-  ctx.fillText('a² + b² = c²',250,140);ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='8px monospace';
-  ctx.fillText('Right angle',ax+5,ay-5);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'graph_linear':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">📊 LINEAR GRAPH — y = mx + c</div>
-<canvas id="gl" width="360" height="240" style="display:block;"></canvas>
-<script>
-const cv=document.getElementById('gl'),ctx=cv.getContext('2d'),W=360,H=240,ox=60,oy=180,sx=30,sy=30;
-let t=0;
-const lines=[{{m:1,c:0,col:'#00e5ff'}},{{m:2,c:-1,col:'#a855f7'}},{{m:-1,c:3,col:'#ef5350'}}];
-function gx(x){{return ox+x*sx;}}function gy(y){{return oy-y*sy;}}
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1;
-  for(let x=-1;x<=9;x++){{ctx.beginPath();ctx.moveTo(gx(x),20);ctx.lineTo(gx(x),H-10);ctx.stroke();}}
-  for(let y=-2;y<=5;y++){{ctx.beginPath();ctx.moveTo(20,gy(y));ctx.lineTo(W-10,gy(y));ctx.stroke();}}
-  ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(20,oy);ctx.lineTo(W-10,oy);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(ox,H-10);ctx.lineTo(ox,20);ctx.stroke();
-  for(let x=-1;x<=8;x++){{ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='8px monospace';ctx.textAlign='center';ctx.fillText(x,gx(x),oy+14);}}
-  for(let y=-1;y<=5;y++){{ctx.textAlign='right';ctx.fillText(y,ox-4,gy(y)+4);}}
-  ctx.fillStyle='rgba(255,255,255,0.5)';ctx.textAlign='center';ctx.fillText('x',W-8,oy+4);ctx.fillText('y',ox,14);
-  const drawPct=Math.min(1,(t*.015)%1+(lines.reduce((a,_,i)=>a,0)>0?0:0));
-  lines.forEach((l,i)=>{{
-    const dp=Math.max(0,Math.min(1,(t*.012-i*.4)));
-    ctx.strokeStyle=l.col;ctx.lineWidth=2;ctx.beginPath();
-    let first=true;
-    for(let x=-1;x<=8;x+=.1){{
-      const y=l.m*x+l.c;const px=gx(x+(1)*dp-1),py=gy(y);
-      if(px>=ox-5&&px<=W-5&&py>=20&&py<=H-15){{first?ctx.moveTo(px,py):ctx.lineTo(px,py);first=false;}}
-    }}
-    ctx.stroke();
-    ctx.fillStyle=l.col;ctx.font='8px monospace';ctx.textAlign='left';
-    ctx.fillText('y='+l.m+'x'+(l.c>=0?'+'+l.c:l.c),W*.62,50+i*16);
-    const intercept=gx(0),iy=gy(l.c);
-    ctx.beginPath();ctx.arc(intercept,iy,4,0,6.28);ctx.fillStyle=l.col;ctx.fill();
-  }});
-  ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='8px monospace';ctx.textAlign='center';
-  ctx.fillText('m = slope (gradient) | c = y-intercept',W/2,H-6);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'graph_quad':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">📊 QUADRATIC GRAPH — y = ax² + bx + c</div>
-<canvas id="gq" width="360" height="240" style="display:block;"></canvas>
-<script>
-const cv=document.getElementById('gq'),ctx=cv.getContext('2d'),W=360,H=240,ox=W/2,oy=190,sx=35,sy=25;
-let t=0;
-const curves=[{{a:1,b:0,c:-3,col:'#00e5ff'}},{{a:-0.5,b:2,c:1,col:'#ef5350'}}];
-function gx(x){{return ox+x*sx;}}function gy(y){{return oy-y*sy;}}
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1;
-  for(let x=-4;x<=4;x++){{ctx.beginPath();ctx.moveTo(gx(x),15);ctx.lineTo(gx(x),H-10);ctx.stroke();}}
-  for(let y=-2;y<=7;y++){{ctx.beginPath();ctx.moveTo(15,gy(y));ctx.lineTo(W-10,gy(y));ctx.stroke();}}
-  ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(15,oy);ctx.lineTo(W-10,oy);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(ox,H-10);ctx.lineTo(ox,15);ctx.stroke();
-  for(let x=-4;x<=4;x++){{ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='8px monospace';ctx.textAlign='center';ctx.fillText(x,gx(x),oy+14);}}
-  for(let y=0;y<=7;y++){{ctx.textAlign='right';ctx.fillText(y,ox-4,gy(y)+4);}}
-  ctx.fillStyle='rgba(255,255,255,0.5)';ctx.textAlign='center';ctx.fillText('x',W-8,oy+4);ctx.fillText('y',ox+4,14);
-  curves.forEach((c,i)=>{{
-    const dp=Math.max(0,Math.min(1,t*.012-i*.5));
-    ctx.strokeStyle=c.col;ctx.lineWidth=2;ctx.beginPath();
-    let first=true,cnt=0;
-    for(let x=-4;x<=4;x+=.05){{
-      cnt++;if(cnt/160>dp)break;
-      const y=c.a*x*x+c.b*x+c.c;const px=gx(x),py=gy(y);
-      if(py>=15&&py<=H-10){{first?ctx.moveTo(px,py):ctx.lineTo(px,py);first=false;}}
-    }}
-    ctx.stroke();
-    const vx=-c.b/(2*c.a),vy=c.a*vx*vx+c.b*vx+c.c;
-    ctx.beginPath();ctx.arc(gx(vx),gy(vy),5,0,6.28);ctx.fillStyle=c.col;ctx.fill();
-    ctx.fillStyle=c.col;ctx.font='8px monospace';ctx.textAlign='left';
-    const lbl='y='+c.a+'x²'+(c.b>=0?'+'+c.b+'x':c.b+'x')+(c.c>=0?'+'+c.c:c.c);
-    ctx.fillText(lbl,15,20+i*16);
-    ctx.fillStyle=c.col+'88';ctx.font='7px monospace';ctx.fillText('Vertex('+vx.toFixed(1)+','+vy.toFixed(1)+')',gx(vx)+6,gy(vy)-6);
-  }});
-  ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='8px monospace';ctx.textAlign='center';
-  ctx.fillText('Vertex = turning point of the parabola',W/2,H-6);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'venn':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">⭕ VENN DIAGRAM — SETS A & B</div>
-<canvas id="vn" width="360" height="240" style="display:block;"></canvas>
-<script>
-const cv=document.getElementById('vn'),ctx=cv.getContext('2d'),W=360,H=240;
-let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const sep=30+15*Math.sin(t*.04),r=80,cx1=W/2-sep,cx2=W/2+sep,cy=H/2;
-  ctx.beginPath();ctx.arc(cx1,cy,r,0,6.28);ctx.fillStyle='rgba(100,150,255,0.25)';ctx.fill();ctx.strokeStyle='#6496ff';ctx.lineWidth=2;ctx.stroke();
-  ctx.beginPath();ctx.arc(cx2,cy,r,0,6.28);ctx.fillStyle='rgba(255,100,100,0.25)';ctx.fill();ctx.strokeStyle='#ef5350';ctx.lineWidth=2;ctx.stroke();
-  ctx.save();ctx.beginPath();ctx.arc(cx1,cy,r,0,6.28);ctx.clip();ctx.beginPath();ctx.arc(cx2,cy,r,0,6.28);ctx.fillStyle='rgba(180,100,200,0.35)';ctx.fill();ctx.restore();
-  ctx.fillStyle='#6496ff';ctx.font='bold 12px monospace';ctx.textAlign='center';ctx.fillText('A',cx1-r/2,cy+4);
-  ctx.fillStyle='#ef5350';ctx.fillText('B',cx2+r/2,cy+4);
-  ctx.fillStyle='rgba(180,100,200,0.9)';ctx.font='8px monospace';ctx.fillText('A∩B',W/2,cy+4);
-  ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='9px monospace';
-  ctx.fillText('Only in A',cx1-r*.6,cy-24);ctx.fillText('(A∪B)',cx1-r*.6,cy-12);
-  ctx.fillText('Only in B',cx2+r*.3,cy-24);
-  const elems=[['1','3','5'],['2','4'],['6','8']];
-  const positions=[[cx1-r*.6,cy-8],[W/2,cy+20],[cx2+r*.3,cy-8]];
-  const colors=['#6496ff','#d090f0','#ef5350'];
-  elems.forEach((e,i)=>e.forEach((n,j)=>{{ctx.fillStyle=colors[i];ctx.font='9px monospace';ctx.fillText(n,positions[i][0]+(j-1)*14,positions[i][1]+20)}}));
-  ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='8px monospace';
-  ctx.fillText('A∪B = union (all elements) | A∩B = intersection (common)',W/2,H-6);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'geometry_angles':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">📐 TYPES OF ANGLES</div>
-<canvas id="ga" width="360" height="240" style="display:block;"></canvas>
-<script>
-const cv=document.getElementById('ga'),ctx=cv.getContext('2d'),W=360,H=240;
-let t=0;
-const types=[
-  {{deg:35,col:'#4caf50',label:'Acute\n(< 90°)'}},
-  {{deg:90,col:'#00e5ff',label:'Right\n(= 90°)'}},
-  {{deg:130,col:'#ffd700',label:'Obtuse\n(90°–180°)'}},
-  {{deg:200,col:'#ef5350',label:'Reflex\n(> 180°)'}},
-];
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const cols=2,rows=2,pw=W/cols,ph=H/rows;
-  types.forEach((tp,i)=>{{
-    const col=i%cols,row=Math.floor(i/cols);
-    const cx=col*pw+pw/2,cy=row*ph+ph*0.45,len=60;
-    const deg=tp.deg+20*Math.sin(t*.04+i);
-    const rad=deg*Math.PI/180;
-    ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=2;
-    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+len,cy);ctx.stroke();
-    ctx.strokeStyle=tp.col;ctx.lineWidth=2;
-    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+len*Math.cos(rad),cy-len*Math.sin(rad));ctx.stroke();
-    const arcR=24;ctx.strokeStyle=tp.col+'99';ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.arc(cx,cy,arcR,0,-rad,true);ctx.stroke();
-    ctx.fillStyle=tp.col;ctx.font='bold 8px monospace';ctx.textAlign='center';
-    const mid=rad/2;ctx.fillText(Math.round(deg)+'°',cx+arcR*1.4*Math.cos(-mid),cy+arcR*1.4*Math.sin(-mid)+4);
-    const lines=tp.label.split('\n');
-    ctx.fillStyle=tp.col;ctx.font='9px monospace';
-    lines.forEach((l,j)=>ctx.fillText(l,cx,cy+ph*.4+j*13));
-    if(deg===90||Math.abs(deg-90)<5){{
-      ctx.strokeStyle=tp.col;ctx.lineWidth=1.5;
-      ctx.beginPath();ctx.moveTo(cx+14,cy);ctx.lineTo(cx+14,cy-14);ctx.lineTo(cx,cy-14);ctx.stroke();
-    }}
-  }});
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'geometry_shapes':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">🔷 TYPES OF TRIANGLES & SHAPES</div>
-<canvas id="gs" width="360" height="240" style="display:block;"></canvas>
-<script>
-const cv=document.getElementById('gs'),ctx=cv.getContext('2d'),W=360,H=240;
-let t=0;
-const shapes=[
-  {{label:'Equilateral\n(3 equal sides)',col:'#00e5ff',fn:(cx,cy,r,t)=>{{const pts=[];for(let i=0;i<3;i++){{pts.push([cx+r*Math.cos(-Math.PI/2+i*2*Math.PI/3+t*.02),cy+r*Math.sin(-Math.PI/2+i*2*Math.PI/3+t*.02)]);}}return pts;}}}},
-  {{label:'Isosceles\n(2 equal sides)',col:'#a855f7',fn:(cx,cy,r,t)=>[[cx,cy-r*1.1],[cx-r*.8,cy+r*.6],[cx+r*.8,cy+r*.6]]}},
-  {{label:'Scalene\n(no equal sides)',col:'#ffd700',fn:(cx,cy,r,t)=>[[cx-r*.9,cy+r*.6],[cx+r*.4,cy-r*.9],[cx+r*1,cy+r*.5]]}},
-  {{label:'Right Triangle\n(one 90° angle)',col:'#ef5350',fn:(cx,cy,r,t)=>[[cx-r*.8,cy+r*.6],[cx-r*.8,cy-r*.8],[cx+r*.9,cy+r*.6]]}},
-];
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const pw=W/2,ph=H/2;
-  shapes.forEach((s,i)=>{{
-    const col=i%2,row=Math.floor(i/2);
-    const cx=col*pw+pw/2,cy=row*ph+ph*.42;
-    const pts=s.fn(cx,cy,38,t);
-    ctx.fillStyle=s.col+'22';ctx.strokeStyle=s.col;ctx.lineWidth=2;
-    ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
-    pts.forEach(p=>ctx.lineTo(p[0],p[1]));ctx.closePath();ctx.fill();ctx.stroke();
-    const lns=s.label.split('\n');
-    ctx.fillStyle=s.col;ctx.font='8px monospace';ctx.textAlign='center';
-    lns.forEach((l,j)=>ctx.fillText(l,cx,cy+ph*.44+j*12));
-    if(i===3){{ctx.strokeStyle=s.col+'88';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(pts[0][0]+8,pts[0][1]);ctx.lineTo(pts[0][0]+8,pts[0][1]-8);ctx.lineTo(pts[0][0],pts[0][1]-8);ctx.stroke();}}
-  }});
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'demand_supply':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">📉 DEMAND & SUPPLY CURVES</div>
-<canvas id="ds" width="360" height="240" style="display:block;"></canvas>
-<div style="display:flex;gap:14px;font-size:11px;margin-top:4px;justify-content:center;">
-  <span style="color:#ef5350">— Demand (↓ price → ↑ quantity)</span><span style="color:#4caf50">— Supply (↑ price → ↑ quantity)</span>
-</div>
-<script>
-const cv=document.getElementById('ds'),ctx=cv.getContext('2d'),W=360,H=240,ox=50,oy=210,aw=280,ah=180;
-let t=0;
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.strokeStyle='rgba(255,255,255,0.25)';ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(ox,oy-ah);ctx.lineTo(ox,oy);ctx.lineTo(ox+aw,oy);ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='9px monospace';ctx.textAlign='center';
-  ctx.fillText('Quantity',ox+aw/2,oy+18);ctx.save();ctx.rotate(-Math.PI/2);ctx.fillText('Price',-(oy-ah/2),ox-20);ctx.restore();
-  const shift=20*Math.sin(t*.03);
-  ctx.strokeStyle='#ef5350';ctx.lineWidth=2.5;ctx.beginPath();
-  ctx.moveTo(ox+10,oy-ah+10);ctx.lineTo(ox+aw-10,oy-20);ctx.stroke();
-  ctx.strokeStyle='#4caf50';ctx.lineWidth=2.5;ctx.beginPath();
-  ctx.moveTo(ox+10,oy-20);ctx.lineTo(ox+aw-10,oy-ah+10);ctx.stroke();
-  const eqX=ox+aw/2+shift,eqY=oy-ah/2;
-  ctx.strokeStyle='rgba(255,220,50,0.5)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
-  ctx.beginPath();ctx.moveTo(eqX,oy);ctx.lineTo(eqX,eqY);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(ox,eqY);ctx.lineTo(eqX,eqY);ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.beginPath();ctx.arc(eqX,eqY,8,0,6.28);ctx.fillStyle='rgba(255,220,50,0.9)';ctx.fill();
-  ctx.fillStyle='rgba(255,220,50,0.9)';ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText('Equilibrium',eqX,eqY-14);
-  ctx.fillStyle='#ef5350';ctx.font='bold 9px monospace';ctx.fillText('D',ox+12,oy-ah+22);
-  ctx.fillStyle='#4caf50';ctx.fillText('S',ox+aw-20,oy-ah+22);
-  ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='8px monospace';
-  ctx.fillText('At equilibrium: quantity demanded = quantity supplied',W/2,H-6);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'circular_flow':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">💰 CIRCULAR FLOW OF INCOME</div>
-<canvas id="cf" width="360" height="240" style="display:block;"></canvas>
-<script>
-const cv=document.getElementById('cf'),ctx=cv.getContext('2d'),W=360,H=240,cx=W/2,cy=H/2;
-let t=0,dots=[];
-for(let i=0;i<20;i++) dots.push({{p:i/20,lane:i%2,spd:.004+Math.random()*.002}});
-function arrow(x1,y1,x2,y2,col){{ctx.strokeStyle=col;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();const a=Math.atan2(y2-y1,x2-x1);ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-8*Math.cos(a-.4),y2-8*Math.sin(a-.4));ctx.lineTo(x2-8*Math.cos(a+.4),y2-8*Math.sin(a+.4));ctx.closePath();ctx.fill();}}
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='rgba(100,150,255,0.2)';ctx.strokeStyle='#6496ff';ctx.lineWidth=2;
-  ctx.beginPath();ctx.roundRect(40,cy-30,110,60,8);ctx.fill();ctx.stroke();
-  ctx.fillStyle='rgba(100,200,100,0.2)';ctx.strokeStyle='#4caf50';ctx.lineWidth=2;
-  ctx.beginPath();ctx.roundRect(W-150,cy-30,110,60,8);ctx.fill();ctx.stroke();
-  ctx.fillStyle='#6496ff';ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText('Households',95,cy);
-  ctx.fillStyle='#4caf50';ctx.fillText('Firms',W-95,cy);
-  const topPath=[[150,cy-15],[W-150,cy-15]];
-  const botPath=[[W-150,cy+15],[150,cy+15]];
-  arrow(150,cy-35,W-150,cy-35,'rgba(255,200,50,0.8)');
-  arrow(W-150,cy+35,150,cy+35,'rgba(100,200,255,0.8)');
-  ctx.fillStyle='rgba(255,200,50,0.8)';ctx.font='8px monospace';ctx.fillText('Labour / Services',cx,cy-50);
-  ctx.fillStyle='rgba(100,200,255,0.8)';ctx.fillText('Wages / Income',cx,cy+52);
-  arrow(95,cy-30,95,cy-70,'rgba(255,150,50,0.7)');
-  ctx.fillStyle='rgba(255,150,50,0.7)';ctx.fillText('Savings / Tax',70,cy-78);
-  arrow(W-95,cy-30,W-95,cy-70,'rgba(200,100,255,0.7)');
-  ctx.fillStyle='rgba(200,100,255,0.7)';ctx.fillText('Invest / Govt',W-130,cy-78);
-  arrow(W-95,cy+30,W-95,cy+70,'rgba(150,220,150,0.7)');
-  ctx.fillStyle='rgba(150,220,150,0.7)';ctx.fillText('Goods / Services',W-145,cy+85);
-  arrow(95,cy+30,95,cy+70,'rgba(255,200,50,0.7)');
-  ctx.fillStyle='rgba(255,200,50,0.7)';ctx.fillText('Consumer Spending',55,cy+85);
-  dots.forEach(d=>{{
-    d.p=(d.p+d.spd)%1;
-    const px=d.lane===0?(150+(W-300)*d.p):(W-150-(W-300)*d.p);
-    const py=d.lane===0?cy-35:cy+35;
-    ctx.beginPath();ctx.arc(px,py,4,0,6.28);ctx.fillStyle=d.lane===0?'rgba(255,200,50,0.9)':'rgba(100,200,255,0.9)';ctx.fill();
-  }});
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'atmosphere':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>body{{background:#010208;margin:0;padding:4px 2px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;}}</style>
-</head><body>
-<div style="font-size:11px;color:#40E0D0;letter-spacing:2px;font-weight:700;margin-bottom:2px;">🌍 LAYERS OF THE ATMOSPHERE</div>
-<canvas id="atm" width="500" height="355" style="display:block;border-radius:8px;"></canvas>
-<div style="font-size:9px;color:#6699aa;margin-top:2px;text-align:center;">Troposphere · Stratosphere · Mesosphere · Thermosphere · Exosphere</div>
-<script>
-const cv=document.getElementById('atm'),ctx=cv.getContext('2d'),W=500,H=355;
-const cx=250,cy=430;
-const eR=118,trR=160,stR=210,msR=258,thR=314,exR=366;
-const stars=[];
-for(let i=0;i<90;i++)stars.push({{x:Math.random()*W,y:Math.random()*H*.72,r:Math.random()*1.5+.3,tw:Math.random()*100}});
-const meteors=[
-  {{a:Math.PI*1.18,r:358,spd:1.3}},
-  {{a:Math.PI*1.48,r:372,spd:1.0}},
-  {{a:Math.PI*1.65,r:365,spd:1.5}}
-];
-let satAng=Math.PI*1.12,planeAng=Math.PI*1.2,t=0;
-function band(ri,ro,c1,c2){{
-  const grd=ctx.createLinearGradient(cx,cy-ro,cx,cy-ri);
-  grd.addColorStop(0,c1);grd.addColorStop(1,c2);
-  ctx.beginPath();
-  ctx.arc(cx,cy,ro,Math.PI,0,false);
-  if(ri>0){{ctx.arc(cx,cy,ri,0,Math.PI,true);}}
-  ctx.closePath();ctx.fillStyle=grd;ctx.fill();
-}}
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='#010208';ctx.fillRect(0,0,W,H);
-  stars.forEach(s=>{{
-    const al=(0.35+0.45*Math.sin(t*.022+s.tw)).toFixed(2);
-    ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,6.28);
-    ctx.fillStyle='rgba(200,215,255,'+al+')';ctx.fill();
-  }});
-  band(exR,exR+46,'#010210','#020315');
-  band(thR,exR,'#04091f','#060b2a');
-  band(msR,thR,'#080f44','#0c1660');
-  band(stR,msR,'#0c2a82','#1136a0');
-  band(trR,stR,'#1048b8','#155ad4');
-  band(eR,trR,'#1568e4','#1a7cf4');
-  band(0,eR,'#145c28','#1a7434');
-  const ozR=188;
-  ctx.beginPath();ctx.arc(cx,cy,ozR,Math.PI,0,false);
-  ctx.strokeStyle='rgba(150,255,90,.42)';ctx.lineWidth=1.6;ctx.setLineDash([5,4]);ctx.stroke();ctx.setLineDash([]);
-  [eR,trR,stR,msR,thR,exR].forEach(r=>{{
-    ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,0,false);
-    ctx.strokeStyle='rgba(70,130,255,.18)';ctx.lineWidth=.7;ctx.stroke();
-  }});
-  for(let i=0;i<8;i++){{
-    const aA=Math.PI*(1.12+i*.095);
-    const aph=(0.12+0.28*Math.sin(t*.05+i*.85)).toFixed(2);
-    const x1=cx+thR*Math.cos(aA),y1=cy+thR*Math.sin(aA);
-    const x2=cx+(thR+46)*Math.cos(aA+.008),y2=cy+(thR+46)*Math.sin(aA+.008);
-    if(y1<H&&y1>0){{
-      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
-      ctx.strokeStyle='rgba(0,255,145,'+aph+')';ctx.lineWidth=2.8;ctx.stroke();
-    }}
-  }}
-  const ldata=[
-    {{r:(exR+exR+46)/2,nm:'EXOSPHERE',km:'700 km+',col:'#8888ff'}},
-    {{r:(thR+exR)/2,nm:'THERMOSPHERE',km:'80–700 km',col:'#6688ff'}},
-    {{r:(msR+thR)/2,nm:'MESOSPHERE',km:'50–80 km',col:'#55aaff'}},
-    {{r:(stR+msR)/2,nm:'STRATOSPHERE',km:'12–50 km',col:'#44ccff'}},
-    {{r:(trR+stR)/2,nm:'TROPOSPHERE',km:'0–12 km',col:'#88ddff'}},
-  ];
-  ldata.forEach(l=>{{
-    const ly=cy-l.r;
-    if(ly>3&&ly<H-3){{
-      ctx.fillStyle=l.col;ctx.font='bold 8px sans-serif';ctx.textAlign='left';ctx.fillText(l.nm,3,ly+3);
-      ctx.fillStyle=l.col+'aa';ctx.font='7px sans-serif';ctx.fillText(l.km,3,ly+12);
-    }}
-  }});
-  const eTop=cy-eR;
-  if(eTop>2&&eTop<H){{
-    ctx.fillStyle='#55e888';ctx.font='bold 8px sans-serif';ctx.textAlign='center';ctx.fillText('EARTH',cx,eTop+14);
-  }}
-  const ozY=cy-ozR;
-  if(ozY>3&&ozY<H-3){{
-    ctx.fillStyle='rgba(170,255,110,.9)';ctx.font='bold 7px sans-serif';ctx.textAlign='right';ctx.fillText('OZONE LAYER',W-3,ozY+3);
-  }}
-  planeAng+=.0038;if(planeAng>Math.PI*1.82)planeAng=Math.PI*1.18;
-  const pR=(eR+trR)/2;
-  const pX=cx+pR*Math.cos(planeAng),pY=cy+pR*Math.sin(planeAng);
-  if(pY<H-2&&pY>2){{
-    const rot=Math.atan2(Math.cos(planeAng),-Math.sin(planeAng));
-    ctx.save();ctx.translate(pX,pY);ctx.rotate(rot);
-    ctx.fillStyle='#ffffff';ctx.beginPath();ctx.ellipse(0,0,10,3,0,0,6.28);ctx.fill();
-    ctx.fillStyle='#cce8ff';ctx.beginPath();ctx.moveTo(-3,-2.5);ctx.lineTo(4,-2.5);ctx.lineTo(2,0);ctx.lineTo(-3,0);ctx.closePath();ctx.fill();
-    ctx.fillStyle='#aaccee';ctx.beginPath();ctx.moveTo(7,-1.2);ctx.lineTo(10.5,-1.2);ctx.lineTo(9.5,0);ctx.lineTo(7,0);ctx.closePath();ctx.fill();
-    ctx.restore();
-  }}
-  meteors.forEach(m=>{{
-    m.r-=m.spd;
-    if(m.r<msR-8){{m.r=exR+10+Math.random()*25;m.a=Math.PI*(1.08+Math.random()*.84);}}
-    const mx=cx+m.r*Math.cos(m.a),my=cy+m.r*Math.sin(m.a);
-    if(my<H&&my>0&&mx>0&&mx<W){{
-      const tX=mx+20*Math.cos(m.a+.14),tY=my+20*Math.sin(m.a+.14);
-      const gm=ctx.createLinearGradient(mx,my,tX,tY);
-      gm.addColorStop(0,'rgba(255,185,55,.95)');gm.addColorStop(1,'rgba(255,55,0,0)');
-      ctx.beginPath();ctx.moveTo(mx,my);ctx.lineTo(tX,tY);ctx.strokeStyle=gm;ctx.lineWidth=2.2;ctx.stroke();
-      ctx.beginPath();ctx.arc(mx,my,2.6,0,6.28);ctx.fillStyle='#ffdd55';ctx.fill();
-    }}
-  }});
-  satAng+=.005;
-  const sR=338,sX=cx+sR*Math.cos(satAng),sY=cy+sR*Math.sin(satAng);
-  if(sY<H-2&&sY>2&&sX>2&&sX<W-2){{
-    ctx.save();ctx.translate(sX,sY);ctx.rotate(satAng+Math.PI/2);
-    ctx.fillStyle='#c0d0f0';ctx.fillRect(-5,-2.5,10,5);
-    ctx.fillStyle='#2845a8';ctx.fillRect(-13,-2,7,4);ctx.fillRect(6,-2,7,4);
-    ctx.fillStyle='rgba(80,160,255,.35)';ctx.fillRect(-13,-1,20,2);
-    ctx.restore();
-  }}
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
-    elif topic == 'timeline':
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{{_flex}}}</style></head><body>
-<div style="font-size:12px;color:#40E0D0;letter-spacing:2px;margin-bottom:4px;font-weight:700;">📅 HISTORICAL TIMELINE</div>
-<canvas id="tl" width="360" height="200" style="display:block;"></canvas>
-<div style="font-size:10px;color:#8aa;margin-top:4px;text-align:center;">Timeline shows chronological sequence of events</div>
-<script>
-const cv=document.getElementById('tl'),ctx=cv.getContext('2d'),W=360,H=200;
-let t=0;
-const events=[{{y:800,col:'#ef5350'}},{{y:1200,col:'#ffd700'}},{{y:1500,col:'#4caf50'}},{{y:1776,col:'#00e5ff'}},{{y:1900,col:'#a855f7'}},{{y:2000,col:'#ff8a65'}}];
-function draw(){{
-  ctx.clearRect(0,0,W,H);
-  const lx=40,rx=W-40,ly=H/2;
-  const grd=ctx.createLinearGradient(lx,0,rx,0);grd.addColorStop(0,'rgba(100,200,255,0.2)');grd.addColorStop(.5,'rgba(100,200,255,0.6)');grd.addColorStop(1,'rgba(100,200,255,0.2)');
-  ctx.strokeStyle=grd;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(rx,ly);ctx.stroke();
-  ctx.fillStyle='rgba(100,200,255,0.8)';ctx.beginPath();ctx.moveTo(rx+4,ly);ctx.lineTo(rx-8,ly-6);ctx.lineTo(rx-8,ly+6);ctx.closePath();ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='8px monospace';ctx.textAlign='left';ctx.fillText('Time →',rx+6,ly+3);
-  const ymin=events[0].y,ymax=events[events.length-1].y;
-  events.forEach((e,i)=>{{
-    const px=lx+(rx-lx)*(e.y-ymin)/(ymax-ymin);
-    const above=i%2===0;
-    const pulsed=1+.1*Math.sin(t*.08+i);
-    ctx.beginPath();ctx.arc(px,ly,6*pulsed,0,6.28);ctx.fillStyle=e.col;ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
-    ctx.strokeStyle=e.col+'88';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(px,ly);ctx.lineTo(px,above?ly-30:ly+30);ctx.stroke();
-    ctx.fillStyle=e.col;ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText(e.y,px,above?ly-40:ly+44);
-  }});
-  ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='8px monospace';ctx.textAlign='center';ctx.fillText('Chronological order: earliest on left, latest on right',W/2,H-6);
-  t++;requestAnimationFrame(draw);
-}}
-draw();
-</script></body></html>"""
-
+def _generate_diagram_html(user_query):
+    api_key = st.session_state.get("api_key", "")
+    if not api_key:
+        return ""
+    try:
+        from groq import Groq as _DGroq
+        import re as _re_d
+        _gc = _DGroq(api_key=api_key)
+        _prompt = (
+            "Create a beautiful animated educational diagram for: " + user_query + "\n\n"
+            "STRICT REQUIREMENTS:\n"
+            "1. Self-contained HTML5 page using <canvas> + requestAnimationFrame\n"
+            "2. Background: #010208 (very dark blue-black), canvas size 500x340\n"
+            "3. Animate ONLY elements that naturally move (planets orbit, electrons spin, "
+            "water flows, blood pumps) -- static parts stay still\n"
+            "4. Use glowing neon colors: cyan #00e5ff, purple #a855f7, green #22c55e, "
+            "gold #ffd700, red #ef5350, orange #ff9800\n"
+            "5. Add clear text labels for ALL main parts\n"
+            "6. Add a title at the top in #40E0D0 turquoise color\n"
+            "7. Add a short description at the bottom\n"
+            "8. Return ONLY raw HTML starting with <!DOCTYPE html> -- no markdown, no code fences"
+        )
+        for _model in ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"]:
+            try:
+                _r = _gc.chat.completions.create(
+                    model=_model,
+                    messages=[
+                        {"role": "system", "content": (
+                            "You are an expert HTML5 canvas animator. "
+                            "Generate beautiful animated educational diagrams. "
+                            "Return ONLY raw HTML starting with <!DOCTYPE html>. "
+                            "No markdown, no code blocks, no explanation."
+                        )},
+                        {"role": "user", "content": _prompt},
+                    ],
+                    max_tokens=4096,
+                    temperature=0.3,
+                )
+                _html = (_r.choices[0].message.content or "").strip()
+                _m2 = _re_d.search(r'```html\n?([\s\S]+?)```', _html)
+                if _m2:
+                    _html = _m2.group(1).strip()
+                else:
+                    _cut = _re_d.search(r'<!DOCTYPE html', _html, _re_d.IGNORECASE)
+                    if _cut:
+                        _html = _html[_cut.start():]
+                if "<!DOCTYPE html>" in _html or "<html" in _html or "<canvas" in _html:
+                    return _html
+            except Exception:
+                continue
+    except Exception:
+        pass
     return ""
+
+
 
 
 # ── Chat messages (shown in ALL modes) ───────────────────────────────────────
@@ -4150,54 +2659,30 @@ for _mi, msg in enumerate(_msgs_list):
     with st.chat_message(msg["role"], avatar="👤" if msg["role"]=="user" else "🔱"):
         if msg["role"] == "assistant" and _mi > 0:
             _prev = _msgs_list[_mi - 1]
-            if _prev["role"] == "user":
-                _dtopic = _detect_diagram_topic(_prev["content"])
-                if _dtopic:
-                    import html as _html_esc
-                    _dhtml = _get_diagram_html(_dtopic)
-                    _dh_map = {
-                        'atom':360,'dna':370,'solar':380,'cell':340,'water':300,'wave':270,
-                        'heart':330,'photosynthesis':320,'circuit':305,'eye':315,
-                        'magnet':305,'mitosis':290,'moon':260,'newton':300,
-                        'refraction':295,'reflection':295,'lungs':335,'digestion':345,
-                        'neuron':265,'plant_structure':335,'food_chain':275,'projectile':280,
-                        'circular_motion':300,'volcano':300,'earthquake':300,'rock_cycle':300,
-                        'greenhouse':300,'seasons':300,'plate_tectonics':300,'river_erosion':280,
-                        'trig':305,'pythagoras':305,'graph_linear':305,'graph_quad':305,
-                        'venn':305,'geometry_angles':305,'geometry_shapes':305,
-                        'demand_supply':305,'circular_flow':305,'timeline':260,'atmosphere':400,
-                    }
-                    _dh_val = _dh_map.get(_dtopic, 310)
-                    _escaped = _html_esc.escape(_dhtml, quote=True)
+            if _prev["role"] == "user" and _is_diagram_request(_prev["content"]):
+                import hashlib as _hlib_d, html as _html_esc_d
+                _dkey = _hlib_d.md5(_prev["content"].encode()).hexdigest()
+                _dhtml = st.session_state.diagram_cache.get(_dkey, "")
+                if _dhtml:
+                    _escaped = _html_esc_d.escape(_dhtml, quote=True)
                     st.markdown(
-                        f'<iframe srcdoc="{_escaped}" width="100%" height="{_dh_val}" '
+                        f'<iframe srcdoc="{_escaped}" width="100%" height="380" '
                         f'style="border:none;background:#05080f;display:block;border-radius:12px;'
                         f'margin:8px 0;" scrolling="no"></iframe>',
                         unsafe_allow_html=True
                     )
-        # Strip ASCII art / text diagrams from AI response before displaying
+        # Strip ASCII art from AI response when a diagram is shown
         import re as _re_diag
         _content_show = msg["content"]
         if msg["role"] == "assistant" and _mi > 0:
             _prev2 = _msgs_list[_mi - 1]
-            if _prev2["role"] == "user" and _detect_diagram_topic(_prev2["content"]):
-                # Remove ALL ASCII/symbol art the AI generates (4 passes)
-                # Pass 1: ^^^/~~~/||| style art (2+ consecutive visual symbols, 2+ lines)
+            if _prev2["role"] == "user" and _is_diagram_request(_prev2["content"]):
                 _content_show = _re_diag.sub(
                     r'(?:```[^\n]*\n)?(?:[ \t]*[┌┐└┘│─├┤┬┴┼╔╗╚╝║═╠╣╦╩╬+|^~*#=/\\-]{2,}[^\n]*\n){2,}(?:```\n?)?',
                     '', _content_show)
-                # Pass 2: indented pyramid/volcano shapes (leading spaces + symbols)
-                _content_show = _re_diag.sub(
-                    r'(?:[ \t]{1,}[^a-zA-Z0-9\n\r ]{3,}[ \t]*\n){2,}',
-                    '', _content_show)
-                # Pass 3: +---+ box frame lines
-                _content_show = _re_diag.sub(
-                    r'(?:[^\n]*[+\-]{3,}[^\n]*\n)+',
-                    '', _content_show)
-                # Pass 4: | text | pipe box lines
-                _content_show = _re_diag.sub(
-                    r'(?:\|[^\n]+\|\n)+',
-                    '', _content_show)
+                _content_show = _re_diag.sub(r'(?:[ \t]{1,}[^a-zA-Z0-9\n\r ]{3,}[ \t]*\n){2,}', '', _content_show)
+                _content_show = _re_diag.sub(r'(?:[^\n]*[+\-]{3,}[^\n]*\n)+', '', _content_show)
+                _content_show = _re_diag.sub(r'(?:\|[^\n]+\|\n)+', '', _content_show)
         st.markdown(_content_show, unsafe_allow_html=True)
         if msg["role"] == "assistant" and msg.get("content"):
             import json as _json_sb, re as _re_sb
@@ -4328,6 +2813,15 @@ if st.session_state.ep_last_paper:
         else:
             st.warning("PDF error — use .txt download")
 
+# ── Chat PDF export download button ──────────────────────────────────────────
+if st.session_state.get("_pending_pdf"):
+    st.download_button("⬇️ Download Chat PDF", st.session_state["_pending_pdf"],
+                       "titan_chat.pdf", "application/pdf",
+                       key="_chat_pdf_dl_main", use_container_width=True)
+    if st.button("✕ Dismiss", key="_pdf_dismiss"):
+        st.session_state["_pending_pdf"] = None
+        st.rerun()
+
 # ── Welcome cards ─────────────────────────────────────────────────────────────
 if not cur_msgs():
     cols = st.columns(3)
@@ -4369,7 +2863,321 @@ def _is_search_request(text):
         'as of today','recently','just happened','breaking news',
         'find out','search the web','google this','search google',
         'look it up','find me information','tell me about the latest',
+        'today','this week','this month','this year','2024','2025','2026',
+        'new release','just released','just launched','announced',
+        'update on','status of','price of','cost of',
     ))
+
+def _web_search(query, max_results=6):
+    """Search the web using DuckDuckGo — free, no API key needed."""
+    try:
+        try:
+            from duckduckgo_search import DDGS
+        except ImportError:
+            import subprocess as _sp, sys as _sys
+            _sp.run([_sys.executable, "-m", "pip", "install", "duckduckgo-search", "-q"], capture_output=True)
+            from duckduckgo_search import DDGS
+        results = []
+        with DDGS() as ddgs:
+            for r in ddgs.text(query, max_results=max_results):
+                results.append(f"• {r['title']}\n  {r['body']}\n  Source: {r['href']}")
+        return "\n\n".join(results) if results else ""
+    except Exception:
+        return ""
+
+# ── YouTube transcript analysis ────────────────────────────────────────────────
+def _is_youtube_url(text):
+    return bool(re.search(r'(?:youtube\.com/watch\?v=|youtu\.be/)[\w-]+', text, re.I))
+
+def _extract_youtube_id(text):
+    m = re.search(r'(?:v=|youtu\.be/)([\w-]{11})', text)
+    return m.group(1) if m else None
+
+def _get_youtube_transcript(url_or_text):
+    vid_id = _extract_youtube_id(url_or_text)
+    if not vid_id:
+        return None, None
+    try:
+        try:
+            from youtube_transcript_api import YouTubeTranscriptApi
+        except ImportError:
+            import subprocess as _ysp, sys as _ysys
+            _ysp.run([_ysys.executable, "-m", "pip", "install", "youtube-transcript-api", "-q"],
+                     capture_output=True)
+            from youtube_transcript_api import YouTubeTranscriptApi
+        for _langs in (['en'], ['hi', 'te', 'ta', 'kn', 'ml'], None):
+            try:
+                if _langs:
+                    tlist = YouTubeTranscriptApi.get_transcript(vid_id, languages=_langs)
+                else:
+                    tlist = YouTubeTranscriptApi.get_transcript(vid_id)
+                text = ' '.join(t['text'] for t in tlist)
+                words = text.split()
+                if len(words) > 5000:
+                    text = ' '.join(words[:5000]) + '... [transcript continues]'
+                return vid_id, text
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return vid_id, None
+
+# ── General URL content reader ─────────────────────────────────────────────────
+def _extract_first_url(text):
+    m = re.search(r'https?://[^\s<>"\']+', text)
+    return m.group(0) if m else None
+
+def _fetch_url_content(url, max_chars=7000):
+    try:
+        _headers = {"User-Agent": "Mozilla/5.0 (compatible; TitanUltra/1.0)"}
+        resp = requests.get(url, timeout=10, headers=_headers)
+        if resp.status_code != 200:
+            return None
+        try:
+            from bs4 import BeautifulSoup as _BS
+        except ImportError:
+            import subprocess as _bsp, sys as _bsys
+            _bsp.run([_bsys.executable, "-m", "pip", "install", "beautifulsoup4", "-q"],
+                     capture_output=True)
+            from bs4 import BeautifulSoup as _BS
+        soup = _BS(resp.text, 'html.parser')
+        for tag in soup(['script','style','nav','footer','header','aside','noscript']):
+            tag.decompose()
+        text = soup.get_text(separator=' ', strip=True)
+        text = re.sub(r'\s+', ' ', text).strip()
+        return text[:max_chars] if text else None
+    except Exception:
+        return None
+
+# ── Deep research mode ─────────────────────────────────────────────────────────
+def _is_deep_research(text):
+    t = text.lower()
+    return any(k in t for k in (
+        'deep research','deep dive','research about','comprehensive report',
+        'detailed research','full report','research on','in depth','in-depth',
+        'thorough analysis','complete analysis','everything about',
+        'tell me everything','give me a full','give me a complete',
+    ))
+
+def _deep_web_research(query):
+    try:
+        try:
+            from duckduckgo_search import DDGS
+        except ImportError:
+            import subprocess as _drsp, sys as _drsys
+            _drsp.run([_drsys.executable, "-m", "pip", "install", "duckduckgo-search", "-q"],
+                      capture_output=True)
+            from duckduckgo_search import DDGS
+        _clean = re.sub(
+            r'\b(?:deep\s+research|deep\s+dive\s+into|research\s+about|comprehensive\s+report\s+on|'
+            r'detailed\s+research\s+on|full\s+report\s+on|research\s+on|in[-\s]depth\s+(?:on|about|into)?|'
+            r'thorough\s+analysis\s+of|complete\s+analysis\s+of|everything\s+about|'
+            r'tell\s+me\s+everything\s+about|give\s+me\s+a\s+full\s+report\s+on|'
+            r'give\s+me\s+a\s+complete)\b',
+            '', query, flags=re.IGNORECASE).strip()
+        if not _clean:
+            _clean = query
+        _angles = [
+            _clean,
+            f"{_clean} latest 2025",
+            f"{_clean} how it works explained",
+            f"{_clean} facts statistics data",
+        ]
+        _seen, _all = set(), []
+        for _sq in _angles:
+            try:
+                with DDGS() as ddgs:
+                    for r in ddgs.text(_sq, max_results=5):
+                        if r.get('title') not in _seen:
+                            _seen.add(r.get('title', ''))
+                            _all.append(f"**{r.get('title','')}**\n{r.get('body','')}\nSource: {r.get('href','')}")
+            except Exception:
+                continue
+        return '\n\n'.join(_all[:16]) if _all else ""
+    except Exception:
+        return ""
+
+# ── Language auto-detection ────────────────────────────────────────────────────
+def _detect_user_language(text):
+    """Detect if user typed in a non-English language. Returns language name or None."""
+    _te = sum(1 for c in text if 'ఀ' <= c <= '౿')
+    _hi = sum(1 for c in text if 'ऀ' <= c <= 'ॿ')
+    _ta = sum(1 for c in text if '஀' <= c <= '௿')
+    _kn = sum(1 for c in text if 'ಀ' <= c <= '೿')
+    _ml = sum(1 for c in text if 'ഀ' <= c <= 'ൿ')
+    _ar = sum(1 for c in text if '؀' <= c <= 'ۿ')
+    _scores = {'Telugu': _te, 'Hindi': _hi, 'Tamil': _ta, 'Kannada': _kn, 'Malayalam': _ml, 'Arabic': _ar}
+    _best = max(_scores, key=_scores.get)
+    return _best if _scores[_best] >= 3 else None
+
+# ── PC Diagnostics ─────────────────────────────────────────────────────────────
+def _is_pc_issue(text):
+    t = text.lower()
+    return any(k in t for k in (
+        'my pc is slow','pc is slow','computer is slow','laptop is slow',
+        'high cpu','cpu usage','ram usage','memory usage','high memory',
+        'fix my wifi','wifi not working','no internet','internet slow',
+        'pc overheating','laptop overheating','pc freezing','computer freezing',
+        'diagnose my pc','check my pc','which process','what process',
+        'why is my pc','why is my computer','why is my laptop',
+        'fix my pc','fix my computer','fix my laptop','pc problem',
+    ))
+
+def _run_pc_diagnostics():
+    """Run real system diagnostics. Returns formatted results string."""
+    import subprocess as _spd, platform as _pld
+    _out = []
+    try:
+        try:
+            import psutil as _psu
+        except ImportError:
+            import subprocess as _pip_sp, sys as _pip_sys
+            _pip_sp.run([_pip_sys.executable, "-m", "pip", "install", "psutil", "-q"], capture_output=True)
+            import psutil as _psu
+        _cpu = _psu.cpu_percent(interval=1)
+        _mem = _psu.virtual_memory()
+        _disk = _psu.disk_usage('C:\\' if _pld.system() == 'Windows' else '/')
+        _out.append(f"CPU Usage: {_cpu}%")
+        _out.append(f"RAM: {_mem.percent}% used ({_mem.used//(1024**3)}GB of {_mem.total//(1024**3)}GB)")
+        _out.append(f"Disk C: {_disk.percent}% used ({_disk.used//(1024**3)}GB of {_disk.total//(1024**3)}GB)")
+        _procs = []
+        for _p in _psu.process_iter(['name','cpu_percent','memory_percent']):
+            try:
+                _procs.append((_p.info.get('cpu_percent',0), _p.info.get('name',''), _p.info.get('memory_percent',0)))
+            except Exception:
+                continue
+        _procs.sort(reverse=True)
+        _top = "\n".join(f"  {n}: CPU {c:.1f}% RAM {m:.1f}%" for c,n,m in _procs[:6] if n)
+        _out.append(f"Top processes:\n{_top}")
+    except Exception:
+        pass
+    try:
+        _r = _spd.run(['ipconfig'], capture_output=True, timeout=5, encoding='utf-8', errors='replace')
+        _iplines = [l for l in _r.stdout.split('\n') if any(x in l for x in ['IPv4','Gateway','DNS','Adapter','Wi-Fi','Ethernet'])]
+        if _iplines:
+            _out.append("Network:\n" + "\n".join(_iplines[:8]))
+    except Exception:
+        pass
+    return "\n\n".join(_out) if _out else ""
+
+# ── Error auto-fix ─────────────────────────────────────────────────────────────
+def _is_error_report(text):
+    t = text.lower()
+    return any(k in t for k in (
+        'traceback','exception','error:','syntaxerror','typeerror','valueerror',
+        'nameerror','attributeerror','importerror','runtimeerror','indexerror',
+        'keyerror','oserror','filenotfounderror','permissionerror','zerodivisionerror',
+        'cannot read','undefined is not','uncaught','unhandled','failed with',
+        'exit code 1','exit code -1','errno','segmentation fault',
+        'access denied','null pointer','nullpointerexception','npe',
+        'fix this error','fix the error','solve this error','what does this error',
+        'help with error','error in my code','why is this error',
+    ))
+
+def _get_error_search(text):
+    """Web-search for an error message and return solutions."""
+    import re as _re_e
+    _err_match = _re_e.search(
+        r'((?:Traceback|Error|Exception|Warning)[^\n]{0,120})', text, _re_e.IGNORECASE)
+    _query = _err_match.group(1).strip() if _err_match else text[:120]
+    return _web_search(f"{_query} solution fix python", max_results=4)
+
+# ── Teach Me detection ─────────────────────────────────────────────────────────
+def _is_teach_request(text):
+    t = text.lower()
+    return any(k in t for k in (
+        'teach me','i want to learn','help me learn','explain to me step by step',
+        'i am a beginner','i am new to','learn about','how do i start learning',
+        'tutor me','be my tutor','act as my teacher','quiz me on',
+        'test my knowledge','ask me questions','check if i understood',
+    ))
+
+# ── Morning briefing detection ─────────────────────────────────────────────────
+def _is_morning_briefing(text):
+    t = text.lower()
+    return any(k in t for k in (
+        'morning briefing','good morning','start my day','morning news',
+        'what happened today','today\'s news','daily briefing','morning update',
+        'what\'s new today','news today','daily digest',
+    ))
+
+# ── Screen capture detection ───────────────────────────────────────────────────
+def _is_screen_capture_request(text):
+    t = text.lower()
+    return any(k in t for k in (
+        'take a screenshot','take screenshot','capture my screen','capture screen',
+        'analyze my screen','look at my screen','see my screen','read my screen',
+        'what\'s on my screen','what is on my screen','check my screen',
+        'screenshot','screen capture',
+    ))
+
+def _capture_screenshot():
+    """Take a screenshot and return vision dict or None."""
+    try:
+        try:
+            import mss as _mss_lib
+        except ImportError:
+            import subprocess as _mss_sp, sys as _mss_sys
+            _mss_sp.run([_mss_sys.executable, "-m", "pip", "install", "mss", "-q"], capture_output=True)
+            import mss as _mss_lib
+        import io as _sc_io, base64 as _sc_b64
+        from PIL import Image as _sc_PIL
+        with _mss_lib.mss() as _sct:
+            _shot = _sct.grab(_sct.monitors[0])
+            _img = _sc_PIL.frombytes("RGB", _shot.size, _shot.bgra, "raw", "BGRX")
+            _img.thumbnail((1280, 720), _sc_PIL.LANCZOS)
+            _buf = _sc_io.BytesIO()
+            _img.save(_buf, format="JPEG", quality=80)
+            _raw = _buf.getvalue()
+        return {
+            "name": "screenshot.jpg", "mime": "image/jpeg",
+            "b64": _sc_b64.b64encode(_raw).decode("ascii"), "bytes": _raw,
+        }
+    except Exception:
+        return None
+
+# ── Export chat PDF detection ──────────────────────────────────────────────────
+def _is_export_chat_request(text):
+    t = text.lower()
+    return any(k in t for k in (
+        'export chat','save chat','download chat','export conversation',
+        'save conversation','chat as pdf','save as pdf','export as pdf',
+        'download as pdf','export this chat','save this chat',
+    ))
+
+def _build_chat_pdf(msgs):
+    """Build PDF bytes from chat messages. Returns bytes or None."""
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import ParagraphStyle
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+        from reportlab.lib.units import cm
+        from reportlab.lib import colors
+        import io as _pdf_io, re as _pdf_re
+        _buf = _pdf_io.BytesIO()
+        _doc = SimpleDocTemplate(_buf, pagesize=A4,
+                                 leftMargin=2*cm, rightMargin=2*cm,
+                                 topMargin=2*cm, bottomMargin=2*cm)
+        _t_style = ParagraphStyle('TT', fontSize=15, fontName='Helvetica-Bold',
+                                  spaceAfter=12, textColor=colors.HexColor('#0077b6'))
+        _u_style = ParagraphStyle('US', fontSize=10, fontName='Helvetica-Bold',
+                                  spaceAfter=4, textColor=colors.HexColor('#1a1a2e'))
+        _a_style = ParagraphStyle('AS', fontSize=10, fontName='Helvetica',
+                                  spaceAfter=8, textColor=colors.HexColor('#1a1a1a'))
+        _story = [Paragraph("TITAN ULTRA — Chat Export", _t_style), Spacer(1, 0.3*cm)]
+        for _m in msgs:
+            _role = "You" if _m["role"] == "user" else "TITAN ULTRA"
+            _txt = _pdf_re.sub(r'<[^>]+>', '', str(_m.get("content", "")))
+            _txt = _pdf_re.sub(r'[*_`#]', '', _txt)
+            _txt = _txt.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')[:3000]
+            _s = _u_style if _m["role"] == "user" else _a_style
+            _story.append(Paragraph(f"<b>{_role}:</b> {_txt}", _s))
+            _story.append(Spacer(1, 0.2*cm))
+        _doc.build(_story)
+        _buf.seek(0)
+        return _buf.getvalue()
+    except Exception:
+        return None
 
 # ── Grammar request detection ─────────────────────────────────────────────────
 def _is_grammar_request(text):
@@ -4900,6 +3708,13 @@ def get_system():
                 except Exception:
                     pass
             return _ws
+        # Teach Me — progressive tutor
+        if _is_teach_request(last):
+            return (SYSTEM + "\n\n━━━ TEACH ME MODE ━━━\n"
+                "You are now a personal tutor. Teach step-by-step. After each concept, ask ONE comprehension question. "
+                "Wait for the user's answer before continuing. If correct, praise briefly and move on. "
+                "If wrong, gently correct and re-explain simply. Never dump everything at once. "
+                "Teach like a patient human tutor who checks understanding before advancing.")
         # Code
         if _is_code_request(last):
             return CODE_SYSTEM
@@ -4919,6 +3734,21 @@ def get_system():
     mem = st.session_state.get("titan_memory", {})
     if mem:
         base += "\n\nThings you remember about the user:\n" + "\n".join(f"- {k}: {v}" for k, v in mem.items())
+    # Auto-detect language and instruct AI to reply in same language
+    _msgs_check = cur_msgs()
+    if _msgs_check:
+        for _mc in reversed(_msgs_check):
+            if _mc["role"] == "user":
+                _lang = _detect_user_language(_mc.get("content",""))
+                if _lang:
+                    base += f"\n\nIMPORTANT: The user is writing in {_lang}. Respond in {_lang} language. Match the user's language exactly."
+                break
+    # Inject live news headlines (session cache — never blocks AI response)
+    _live_news = st.session_state.get("_ticker_data", [])
+    if _live_news:
+        base += "\n\n━━━ LIVE NEWS RIGHT NOW ━━━\n"
+        base += "\n".join(f"• {h}" for h in _live_news[:20])
+        base += "\n\nUse these headlines when asked about current events, latest news, or recent releases."
     return base
 
 # ── API calls ─────────────────────────────────────────────────────────────────
@@ -4962,7 +3792,7 @@ def _smart_pick(messages):
             break
     q = last.lower()
 
-    # ── Hard math / science / JEE / NEET / reasoning → GPT-OSS 120B (strongest) ──
+    # ── Hard math / science / JEE / NEET / deep reasoning → GPT-OSS 120B (strongest) ──
     _hard = [
         "jee", "neet", "olympiad", "integrate", "differentiate", "derivative",
         "integral", "prove", "proof", "theorem", "derivation", "solve for",
@@ -5007,16 +3837,24 @@ def _model_cfg(mid):
     """Return (max_tokens, temperature, top_p) tuned to each model's strengths."""
     m = mid.lower()
     if "gpt-oss-120b" in m:
-        # Strongest model — precise, deep, maximum power
-        return 8192, 0.30, 0.95
+        return 16384, 0.30, 0.95
     if "gpt-oss-20b" in m:
-        # Fast OpenAI model — slightly warmer for fluency
-        return 8192, 0.40, 0.92
+        return 16384, 0.40, 0.92
     if "qwen" in m:
-        # Qwen 27B — good reasoning, balanced
+        return 16384, 0.50, 0.90
+    if "kimi" in m or "moonshot" in m:
+        return 16384, 0.40, 0.92
+    if "maverick" in m:
+        return 16384, 0.40, 0.92
+    if "deepseek" in m:
+        return 16384, 0.35, 0.92
+    if "llama-3.3" in m or "llama-3.1-70b" in m or "llama3-70b" in m:
+        return 8192, 0.45, 0.90
+    if "gemma" in m:
         return 8192, 0.50, 0.90
-    if "allam" in m:
-        # 7B last resort — still squeeze max quality
+    if "8b" in m or "instant" in m:
+        return 8192, 0.55, 0.90
+    if "allam" in m or "saba" in m or "guard" in m:
         return 8192, 0.60, 0.90
     # Safe default for any future model
     return 8192, 0.40, 0.92
@@ -5024,8 +3862,8 @@ def _model_cfg(mid):
 
 def call_groq(messages):
     client = Groq(api_key=st.session_state.api_key)
-    # Cap history at 30 messages by default to stay well under token limits
-    full = _build_full(messages, trim=30)
+    # Cap history at 20 messages — reduces tokens sent per call, avoiding rate limits faster
+    full = _build_full(messages, trim=20)
 
     # ── Vision: clean single-message request with compressed image.
     _vision = st.session_state.get("pending_vision")
@@ -5072,83 +3910,96 @@ def call_groq(messages):
     if _use_vision:
         _fallback_chain = _get_groq_vision_models(st.session_state.api_key)
     else:
-        _auto = _smart_pick(messages)  # best model for this question type
+        _auto = _smart_pick(messages)
         _fallback_chain = [
-            _auto,                    # auto-picked for question type
-            "openai/gpt-oss-120b",    # strongest always in chain
-            "openai/gpt-oss-20b",     # fast fallback
-            "qwen/qwen3.8-27b",       # capable 27B
-            "allam-2-7b",             # last resort — always available
+            _auto,
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+            "qwen/qwen3.8-27b",
+            "meta-llama/llama-4-maverick-17b-128e-instruct",
+            "moonshotai/kimi-k2-instruct",
+            "deepseek-r1-distill-llama-70b",
+            "llama-3.3-70b-versatile",
+            "llama-3.1-70b-versatile",
+            "llama3-70b-8192",
+            "gemma2-9b-it",
+            "llama-3.1-8b-instant",
+            "llama3-8b-8192",
+            "allam-2-7b",
+            "mistral-saba-24b",
         ]
-    # Deduplicate while preserving order
     _seen = set()
     _chain = [m for m in _fallback_chain if not (m in _seen or _seen.add(m))]
+
+    import time as _time
+
+    # ── Token budgets per pass — shrink tokens each round to consume less quota ──
+    # Pass 0: full power. Pass 1+: progressively lighter to stay under per-minute limits.
+    _token_budgets = [16384, 12000, 8192, 6000, 4096, 2048]
+
     _last_err = None
     _current_full = full
-    _rate_limited = []  # models that hit rate limit — retry once after others fail
-    _vision_errors = {}  # track per-model errors for vision debugging
-    for m in _chain:
-        try:
-            _mid = m[5:] if m.startswith("groq/") else m
-            _mtok, _mtemp, _mtopp = _model_cfg(_mid)
-            _kwargs = {"model": _mid, "messages": _current_full, "max_tokens": _mtok}
-            if not _use_vision:
-                _kwargs["temperature"] = _mtemp
-                _kwargs["top_p"]       = _mtopp
-            r = client.chat.completions.create(**_kwargs)
-            return r.choices[0].message.content
-        except Exception as e:
-            _last_err = e
-            _es = str(e).lower()
-            if _use_vision:
-                _vision_errors[_mid] = str(e)[:120]
-            # On 413: shrink context and retry the same model once
-            if "413" in _es or "request_too_large" in _es or "request entity too large" in _es:
-                try:
-                    _current_full = _build_full(messages, trim=6)
-                    _kwargs["messages"] = _current_full
-                    _kwargs["max_tokens"] = 4096
-                    r = client.chat.completions.create(**_kwargs)
-                    return r.choices[0].message.content
-                except Exception as e2:
-                    _last_err = e2
-                    _current_full = full
-                    continue
-            # Rate-limited: queue for one retry pass after all other models tried
-            if "rate_limit" in _es or "rate limit" in _es or "429" in _es or "tokens per" in _es:
-                _rate_limited.append(m)
-                continue
-            if any(x in _es for x in ("not found","not_found","does not exist","model_not_found",
-                                       "decommission","404","context_length","unsupported",
-                                       "invalid","not supported","must be a string",
-                                       "multimodal","vision")):
-                continue
-            raise
 
-    # Retry passes — up to 3 rounds, 5 seconds apart, trying every rate-limited model
-    if _rate_limited:
-        import time as _time
-        for _pass in range(3):
-            _time.sleep(5)
-            for m in _rate_limited:
-                try:
-                    _mid = m[5:] if m.startswith("groq/") else m
-                    _mtok, _mtemp, _mtopp = _model_cfg(_mid)
-                    _kwargs = {"model": _mid, "messages": _current_full,
-                               "max_tokens": _mtok, "temperature": _mtemp, "top_p": _mtopp}
-                    r = client.chat.completions.create(**_kwargs)
-                    return r.choices[0].message.content
-                except Exception as e:
-                    _last_err = e
+    # ── Keep retrying ALL Groq models until one works — never give up ─────────
+    # Groq per-minute limits reset every 60 seconds. With 15 models in the chain
+    # and up to 8 retry passes, the loop covers ~8 minutes — effectively unlimited
+    # for any normal conversation. Error is NEVER shown to the user.
+    for _pass in range(8):
+        _tok_budget = _token_budgets[min(_pass, len(_token_budgets) - 1)]
+        _all_rate_limited = True  # assume all rate-limited until proven otherwise
+
+        for m in _chain:
+            try:
+                _mid = m[5:] if m.startswith("groq/") else m
+                _mtok, _mtemp, _mtopp = _model_cfg(_mid)
+                _use_tok = min(_mtok, _tok_budget)
+                _kwargs = {"model": _mid, "messages": _current_full, "max_tokens": _use_tok}
+                if not _use_vision:
+                    _kwargs["temperature"] = _mtemp
+                    _kwargs["top_p"]       = _mtopp
+                r = client.chat.completions.create(**_kwargs)
+                return r.choices[0].message.content
+            except Exception as e:
+                _last_err = e
+                _es = str(e).lower()
+
+                # 413 — context too large: shrink and retry this model immediately
+                if "413" in _es or "request_too_large" in _es or "request entity too large" in _es:
+                    try:
+                        _current_full = _build_full(messages, trim=4)
+                        _r2 = client.chat.completions.create(
+                            model=_mid, messages=_current_full,
+                            max_tokens=4096, temperature=_mtemp, top_p=_mtopp)
+                        return _r2.choices[0].message.content
+                    except Exception as e2:
+                        _last_err = e2
+                        _current_full = full
                     continue
 
-    # All models exhausted — show clean friendly message, never raw Groq errors
-    _msg = str(_last_err).lower()
-    if "rate_limit" in _msg or "429" in _msg or "tokens per" in _msg:
-        raise RuntimeError("⏳ All models are busy right now. Please wait about 1 minute and ask again.")
+                # Auth error — wrong API key, show immediately
+                if any(x in _es for x in ("authentication", "unauthorized", "401",
+                                           "invalid api key", "incorrect api key",
+                                           "no api key", "api key required")):
+                    raise RuntimeError("❌ Invalid Groq API key. Please re-enter your key in the sidebar.")
+
+                # Rate limit — mark and try next model in chain
+                if "rate_limit" in _es or "rate limit" in _es or "429" in _es or "tokens per" in _es or "quota" in _es:
+                    continue  # _all_rate_limited stays True
+
+                # Any other error — mark as not-all-rate-limited, but still skip to next model
+                _all_rate_limited = False
+                continue
+
+        # Sleep between passes — always sleep if ANY model was rate-limited this pass.
+        # Do NOT skip sleep just because some models failed for other reasons —
+        # the valid models that ARE rate-limited need this time to reset.
+        if _pass < 7:
+            _wait = 15 + (_pass * 5)
+            _time.sleep(_wait)
+
     if _use_vision:
-        raise RuntimeError("❌ Image analysis failed. Please try again or use a different image.")
-    raise RuntimeError("⏳ All models are busy right now. Please wait about 1 minute and ask again.")
+        raise RuntimeError("❌ Image analysis failed. Please try again.")
+    raise RuntimeError("❌ Could not get a response. Please check your Groq API key.")
 
 def _ollama_options(model_name: str) -> dict:
     """Return speed-optimised generation options for each model."""
@@ -5287,23 +4138,10 @@ def _do_ai_call(api_msgs):
         return ollama_models[0] if ollama_models else None
 
     if provider == "🔁 Auto (Smart Switch)":
-        # ── Online path: try Groq, fall back to Ollama on any failure ─────────
+        # ── Internet available: ALWAYS use Groq. call_groq handles all retries internally. ──
         if _has_internet() and st.session_state.api_key:
-            try:
-                return call_groq(api_msgs)
-            except Exception as _groq_exc:
-                _ge = str(_groq_exc).lower()
-                # Vision requests never fall back to Ollama — show the real Groq error
-                if st.session_state.get("pending_vision"):
-                    raise
-                # Only fall back to Ollama if it's a service/rate error, not a bad key
-                _fallback = any(x in _ge for x in
-                    ("rate_limit","429","timeout","connection","decommission",
-                     "not found","503","502","500"))
-                if not _fallback:
-                    raise  # bad API key or invalid request — don't mask it
-                # Fall through to Ollama below
-        # ── Offline / Groq-failed path ─────────────────────────────────────────
+            return call_groq(api_msgs)
+        # ── No internet: use Ollama ───────────────────────────────────────────
         if not ollama_reachable:
             _wake_ollama()
         _om = _best_ollama_model()
@@ -5311,13 +4149,12 @@ def _do_ai_call(api_msgs):
             return call_ollama(api_msgs, ollama_model=_om)
         if ollama_reachable:
             raise RuntimeError(
-                "📥 Ollama is running but has no models installed.\n"
+                "📥 Ollama is running but no models are installed.\n"
                 "In the sidebar, click 'Pull Qwen 3' or 'Pull Moondream'."
             )
         raise RuntimeError(
-            "📡 No connection to Groq and Ollama is not running.\n"
-            "• Check your internet and try again, OR\n"
-            "• Install Ollama (https://ollama.com) for offline use."
+            "📡 No internet and Ollama is not running.\n"
+            "Connect to the internet or install Ollama for offline use."
         )
 
     elif provider == "Groq":
@@ -5366,6 +4203,41 @@ if uploaded_file:
                 "bytes": _img_raw,
             }
             file_content = f"[Image attached: {uploaded_file.name}]"
+        elif uploaded_file.name.lower().endswith(('.csv', '.xlsx', '.xls')):
+            try:
+                _fname_lower = uploaded_file.name.lower()
+                if _fname_lower.endswith('.csv'):
+                    import csv as _csv, io as _csio
+                    _raw = uploaded_file.read().decode("utf-8", errors="replace")
+                    _reader = _csv.reader(_csio.StringIO(_raw))
+                    _rows = list(_reader)
+                    _ncols = len(_rows[0]) if _rows else 0
+                    _nrows = len(_rows)
+                    _preview = "\n".join([",".join(r) for r in _rows[:20]])
+                    file_content = (f"[CSV FILE: {uploaded_file.name}]\n"
+                                   f"Rows: {_nrows} | Columns: {_ncols}\n"
+                                   f"Headers: {','.join(_rows[0]) if _rows else 'N/A'}\n\n"
+                                   f"Preview (first 20 rows):\n{_preview}")
+                else:
+                    try:
+                        import openpyxl as _xl
+                    except ImportError:
+                        import subprocess as _xlsp, sys as _xlsys
+                        _xlsp.run([_xlsys.executable, "-m", "pip", "install", "openpyxl", "-q"], capture_output=True)
+                        import openpyxl as _xl
+                    import io as _xlio
+                    _wb = _xl.load_workbook(_xlio.BytesIO(uploaded_file.read()), read_only=True, data_only=True)
+                    _ws = _wb.active
+                    _rows = list(_ws.iter_rows(values_only=True))
+                    _nrows = len(_rows)
+                    _ncols = len(_rows[0]) if _rows else 0
+                    _preview = "\n".join([",".join(str(c) if c is not None else "" for c in r) for r in _rows[:20]])
+                    file_content = (f"[EXCEL FILE: {uploaded_file.name}]\n"
+                                   f"Rows: {_nrows} | Columns: {_ncols}\n"
+                                   f"Headers: {','.join(str(c) for c in _rows[0]) if _rows else 'N/A'}\n\n"
+                                   f"Preview (first 20 rows):\n{_preview}")
+            except Exception as _csv_e:
+                file_content = uploaded_file.read().decode("utf-8", errors="replace")
         else:
             file_content = uploaded_file.read().decode("utf-8", errors="replace")
     except Exception:
@@ -5415,6 +4287,41 @@ if user_input:
             msgs = cur_msgs(); msgs.append({"role":"assistant","content":result}); set_msgs(msgs)
             st.rerun()
         else:
+            # Morning briefing — auto-search + motivate
+            if _is_morning_briefing(user_input):
+                _mbq = "Search the web for today's top 5 news headlines and give a morning briefing with motivational start."
+                _mb_search = _web_search(_mbq, max_results=5)
+                if _mb_search:
+                    msgs = cur_msgs()
+                    msgs[-1]["content"] = user_input + f"\n\n[LIVE MORNING NEWS]:\n{_mb_search}\n\nUse this to give an energetic morning briefing."
+                    set_msgs(msgs)
+
+            # Screen capture — take screenshot and send to AI vision
+            if _is_screen_capture_request(user_input):
+                with st.spinner("📷 Capturing your screen..."):
+                    _sc_vis = _capture_screenshot()
+                if _sc_vis:
+                    st.session_state.pending_vision = _sc_vis
+                    st.toast("📷 Screenshot captured — analyzing...", icon="✅")
+                else:
+                    st.warning("Could not capture screen. Make sure PIL and mss are installed.")
+
+            # Export chat as PDF — generate and show download button inline
+            if _is_export_chat_request(user_input):
+                _export_msgs = cur_msgs()[:-1]  # all but the just-added user message
+                _pdf_data = _build_chat_pdf(_export_msgs)
+                if _pdf_data:
+                    msgs = cur_msgs()
+                    msgs.append({"role": "assistant", "content": "📄 Your chat PDF is ready — click the button below to download it."})
+                    set_msgs(msgs)
+                    st.session_state["_pending_pdf"] = _pdf_data
+                    st.rerun()
+                else:
+                    msgs = cur_msgs()
+                    msgs.append({"role": "assistant", "content": "Sorry, PDF export failed. Make sure reportlab is installed: `pip install reportlab`"})
+                    set_msgs(msgs)
+                    st.rerun()
+
             # Auto-trigger live weather fetch when user asks about weather
             if _is_weather_query(user_input):
                 import re as _re_wq
@@ -5422,9 +4329,77 @@ if user_input:
                     r'(?:weather|temperature|forecast|climate)\s+(?:in|for|of|at)\s+(.+?)(?:\?|$)',
                     user_input, _re_wq.IGNORECASE)
                 st.session_state.weather_query = _m_city.group(1).strip() if _m_city else user_input
+            # YouTube transcript analysis
+            _youtube_context = ""
+            if _is_youtube_url(user_input):
+                with st.spinner("📺 Fetching YouTube transcript..."):
+                    _yt_vid, _yt_text = _get_youtube_transcript(user_input)
+                    if _yt_text:
+                        _youtube_context = f"[YOUTUBE TRANSCRIPT — Video ID: {_yt_vid}]\n{_yt_text}"
+
+            # General URL / webpage reading
+            _url_context = ""
+            if not _youtube_context:
+                _page_url = _extract_first_url(user_input)
+                if _page_url and not _is_youtube_url(_page_url):
+                    with st.spinner("🌐 Reading webpage..."):
+                        _url_text = _fetch_url_content(_page_url)
+                        if _url_text:
+                            _url_context = f"[WEBPAGE CONTENT from {_page_url}]\n{_url_text}"
+
+            # Deep Research mode
+            _deep_results = ""
+            if not _youtube_context and not _url_context and _is_deep_research(user_input):
+                with st.spinner("🔬 Deep Research — searching multiple sources..."):
+                    _deep_results = _deep_web_research(user_input)
+
+            # PC Diagnostics — auto-run when user reports PC issue
+            _pc_diag = ""
+            if _is_pc_issue(user_input):
+                with st.spinner("🖥️ Running PC diagnostics..."):
+                    _pc_diag = _run_pc_diagnostics()
+
+            # Error auto-fix — search for solution when user pastes an error
+            _error_context = ""
+            if not _pc_diag and _is_error_report(user_input):
+                with st.spinner("🔍 Searching for error solution..."):
+                    _error_context = _get_error_search(user_input)
+
+            # Regular web search for current info questions
+            _search_results = ""
+            if not _youtube_context and not _url_context and not _deep_results and _is_search_request(user_input):
+                with st.spinner("🔍 Searching the web..."):
+                    _search_results = _web_search(user_input)
+
+            # Generate animated diagram if requested
+            if _is_diagram_request(user_input):
+                import hashlib as _hlib_gen
+                _dkey_gen = _hlib_gen.md5(user_input.encode()).hexdigest()
+                if _dkey_gen not in st.session_state.diagram_cache:
+                    with st.spinner("🎨 Generating animated diagram..."):
+                        _dhtml_gen = _generate_diagram_html(user_input)
+                        if _dhtml_gen:
+                            st.session_state.diagram_cache[_dkey_gen] = _dhtml_gen
+
             with st.spinner("🔱 TITAN ULTRA is thinking…"):
                 try:
                     _api_msgs = [{"role":m["role"],"content":m["content"]} for m in cur_msgs()]
+                    _extra = _youtube_context or _url_context or _deep_results or _pc_diag or _error_context or _search_results
+                    if _extra:
+                        _src_label = (
+                            "YouTube transcript" if _youtube_context else
+                            "webpage content" if _url_context else
+                            "deep research results" if _deep_results else
+                            "live PC diagnostic data" if _pc_diag else
+                            "error solution search results" if _error_context else
+                            "web search results"
+                        )
+                        _api_msgs[-1]["content"] = (
+                            f"{user_input}\n\n"
+                            f"[LIVE {_src_label.upper()}]:\n{_extra}\n\n"
+                            f"Use the above {_src_label} to give a complete, accurate answer. "
+                            f"Mention sources where relevant."
+                        )
                     answer = _do_ai_call(_api_msgs)
                     msgs = cur_msgs(); msgs.append({"role":"assistant","content":answer}); set_msgs(msgs)
                     st.rerun()

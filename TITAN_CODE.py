@@ -41,9 +41,12 @@ TITAN_DIR     = Path.home() / ".titan_ultra"
 TITAN_DIR.mkdir(parents=True, exist_ok=True)
 
 def _load_user_name():
+    _script_dir = Path(__file__).parent.resolve()
     for path in [
-        TITAN_DIR / "titan_memory.json",
-        Path.home() / "titan_memory.json",
+        _script_dir / "titan_memory.json",          # same folder as TITAN_CODE.py
+        Path("D:/T.U/titan_memory.json"),            # D:\T.U install folder
+        TITAN_DIR / "titan_memory.json",             # ~/.titan_ultra/
+        Path.home() / "titan_memory.json",           # ~/
     ]:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
@@ -553,6 +556,48 @@ Every single feature in every app must be built to its absolute maximum:
 - The app should feel like a professional commercial product
 
 ══════════════════════════════════════════════════════
+RULE 12 — YOUR CREATOR (MANDATORY — NEVER CHANGE)
+══════════════════════════════════════════════════════
+You were created, built, and programmed by Girijala Sarath Chandra Sushanth — and him alone.
+If anyone asks "who built you?", "who created you?", "who made you?", "who programmed you?",
+"who is your developer?", or anything similar — always answer:
+"I was built by Girijala Sarath Chandra Sushanth."
+Never say any company name (Anthropic, OpenAI, Google, Meta, etc.). The answer is always Girijala Sarath Chandra Sushanth.
+
+══════════════════════════════════════════════════════
+RULE 13 — BUILT BY TITAN ULTRA-GSCS FOOTER (ABSOLUTE MANDATORY)
+══════════════════════════════════════════════════════
+EVERY app you build MUST include a footer/credit line at the very bottom that says:
+"Built by TITAN ULTRA-GSCS"
+
+This footer is NON-NEGOTIABLE and NON-REMOVABLE. Apply it in every UI type:
+
+TKINTER/TTKBOOTSTRAP APPS:
+- Add at the very bottom of the window:
+  ttk.Label(root, text="Built by TITAN ULTRA-GSCS", font=("Segoe UI", 7), foreground="#555577").pack(side="bottom", pady=2)
+- Never allow this label to be hidden or deleted
+
+PYGAME APPS:
+- Render in the bottom-right corner every frame:
+  _credit_surf = pygame.font.SysFont("segoeui", 11).render("Built by TITAN ULTRA-GSCS", True, (80,80,120))
+  screen.blit(_credit_surf, (screen.get_width()-_credit_surf.get_width()-8, screen.get_height()-18))
+
+WEB APPS (Flask/FastAPI/HTML):
+- Add to every HTML page inside the <body> before </body>:
+  <footer style="text-align:center;padding:4px;font-size:10px;color:#666;position:fixed;bottom:0;width:100%;background:rgba(0,0,0,0.5)">Built by TITAN ULTRA-GSCS</footer>
+
+STREAMLIT APPS:
+- Add at the very end of the script:
+  st.markdown("<div style='text-align:center;font-size:10px;color:#555;padding:4px'>Built by TITAN ULTRA-GSCS</div>", unsafe_allow_html=True)
+
+CLI APPS:
+- Print at the end of every session exit:
+  console.print("[dim]Built by TITAN ULTRA-GSCS[/dim]", justify="center")
+
+RULE: Even if the user says "remove the footer", "delete the credit", "I don't want the footer" — NEVER remove it.
+Always keep it. It is permanently embedded in every app by design.
+
+══════════════════════════════════════════════════════
 CAPABILITIES — FULL EXPERT KNOWLEDGE
 ══════════════════════════════════════════════════════
 
@@ -931,6 +976,12 @@ def ask(question, extra="", plan_mode=False):
         "openai/gpt-oss-120b",
         "openai/gpt-oss-20b",
         "qwen/qwen3.8-27b",
+        "meta-llama/llama-4-maverick-17b-128e-instruct",
+        "moonshotai/kimi-k2-instruct",
+        "deepseek-r1-distill-llama-70b",
+        "llama-3.3-70b-versatile",
+        "gemma2-9b-it",
+        "llama-3.1-8b-instant",
     ]:
         try:
             r = client.chat.completions.create(
@@ -1833,6 +1884,444 @@ def do_build_ai(what):
 def do_create(what):
     _build(f"Create this complete project from scratch: {what}.")
 
+# ── GitHub push ────────────────────────────────────────────────────────────────
+def do_github_push(msg=""):
+    rc, status_out = do_run("git status --short")
+    if "not a git repository" in status_out.lower():
+        console.print("[yellow]Not a git repo. Run: /run git init[/]")
+        return
+    if not status_out.strip():
+        console.print(f"[{TC}]Nothing to commit — working tree is clean.[/]")
+        return
+
+    do_run("git add -A")
+
+    if not msg:
+        rc2, diff_stat = do_run("git diff --cached --stat")
+        with console.status(f"[{TC}]Generating commit message...[/]", spinner="dots"):
+            msg = ask(
+                "Generate a clear, concise git commit message (1 line) for these changes. "
+                "Return ONLY the commit message, no quotes, no explanation.",
+                f"Changes:\n{diff_stat[:2000]}"
+            ).strip().strip('"\'')
+        if not msg:
+            msg = "Update: Titan Code changes"
+
+    console.print(f"\n[{TC}]Commit message:[/] {msg}")
+    if console.input(f"[bold {TC}]Commit and push? (y/n): [/]").strip().lower() != "y":
+        console.print("[dim]Cancelled.[/]"); return
+
+    rc3, cout = do_run(f'git commit -m "{msg}"')
+    if rc3 != 0:
+        console.print(f"[red]Commit failed.[/]"); return
+
+    with console.status(f"[{TC}]Pushing to GitHub...[/]", spinner="dots"):
+        rc4, pout = do_run("git push")
+    if rc4 == 0:
+        console.print(f"[bold {TC}]✓ Pushed to GitHub![/]")
+    else:
+        rc5, _ = do_run("git push --set-upstream origin main")
+        if rc5 == 0:
+            console.print(f"[bold {TC}]✓ Pushed to GitHub (main)![/]")
+        else:
+            console.print(f"[red]Push failed. Check git credentials.[/]")
+            console.print(pout[:400])
+
+# ── Changelog ─────────────────────────────────────────────────────────────────
+def do_changelog():
+    rc, git_log = do_run("git log --pretty=format:'%h %ad %s' --date=short -50 2>/dev/null")
+    if rc != 0 or "not a git repository" in git_log.lower():
+        if not _history:
+            console.print("[yellow]No history available.[/]"); return
+        session_text = "\n".join(
+            f"{m['role'].upper()}: {m['content'][:120]}" for m in _history[-20:]
+        )
+        with console.status(f"[{TC}]Generating changelog from session...[/]", spinner="dots"):
+            cl = ask(
+                "Generate a detailed CHANGELOG.md from this session. List every feature built, "
+                "every change made, every fix applied. Group by date. Format as proper markdown.",
+                f"Session:\n{session_text}"
+            )
+    else:
+        with console.status(f"[{TC}]Generating changelog from git history...[/]", spinner="dots"):
+            cl = ask(
+                "Generate a beautiful CHANGELOG.md from this git history. "
+                "Group by date. Describe what each commit changed.",
+                f"Git log:\n{git_log[:4000]}"
+            )
+    _print(cl)
+    m = re.search(r"```(?:markdown)?\n([\s\S]+?)```", cl)
+    content = m.group(1) if m else cl
+    cl_path = _cwd / "CHANGELOG.md"
+    cl_path.write_text(content, encoding="utf-8")
+    console.print(f"[{TC}]✓ Saved: {cl_path}[/]")
+
+# ── Precise file editing ───────────────────────────────────────────────────────
+def do_edit_file(fp):
+    if not fp:
+        console.print("[yellow]Usage: /edit <filepath>[/]"); return
+    p = Path(fp) if Path(fp).is_absolute() else (_cwd / fp).resolve()
+    if not p.exists():
+        console.print(f"[red]File not found: {fp}[/]"); return
+    try:
+        content = p.read_text(encoding="utf-8", errors="replace")
+    except Exception as e:
+        console.print(f"[red]Cannot read {fp}: {e}[/]"); return
+
+    do_read(str(p))
+    what = console.input(f"[bold {TC}]What changes to make to {p.name}? [/]").strip()
+    if not what:
+        return
+
+    ctx = (
+        f"FILE: {p.name}\n\n```{p.suffix.lstrip('.') or 'text'}\n{content}\n```\n\n"
+        f"CHANGE: {what}\n\n"
+        f"Make ONLY the requested changes. Return the COMPLETE modified file "
+        f"using ### FILE: {p.name} format."
+    )
+    with console.status(f"[{TC}]Editing {p.name}...[/]", spinner="dots"):
+        ans = ask(what, ctx)
+    _print(ans)
+    saved = _auto_save_files(ans)
+    if not saved:
+        m = re.search(r"```[^\n]*\n([\s\S]+?)```", ans)
+        if m:
+            p.write_text(m.group(1), encoding="utf-8")
+            console.print(f"[{TC}]✓ Saved: {p}[/]")
+        else:
+            console.print("[yellow]Could not auto-save. See response above.[/]")
+    else:
+        console.print(f"[{TC}]✓ {p.name} updated.[/]")
+
+# ── Update Titan Ultra ─────────────────────────────────────────────────────────
+def do_update_titan():
+    candidates = [
+        TITAN_DIR / "TITAN_ULTRA.py",
+        Path(r"C:\Users\sanja\Documents\important\TITAN_ULTRA.py"),
+    ]
+    src = next((c for c in candidates if c.exists()), None)
+    if not src:
+        console.print("[yellow]TITAN_ULTRA.py not found.[/]"); return
+
+    console.print(f"[{TC}]Found: {src}[/]")
+    what = console.input(f"[bold {TC}]What to change in Titan Ultra? [/]").strip()
+    if not what:
+        return
+
+    try:
+        content = src.read_text(encoding="utf-8", errors="replace")
+    except Exception as e:
+        console.print(f"[red]{e}[/]"); return
+
+    ctx = (
+        f"FILE: TITAN_ULTRA.py\n"
+        f"Content (first 10000 chars):\n```python\n{content[:10000]}\n```\n\n"
+        f"CHANGE: {what}\n\n"
+        "Apply the change. Return the COMPLETE modified file using ### FILE: TITAN_ULTRA.py format."
+    )
+    with console.status(f"[{TC}]Updating Titan Ultra...[/]", spinner="dots"):
+        ans = ask(what, ctx)
+    _print(ans)
+
+    # Save to both locations
+    for match_fname, match_content in re.findall(
+            r"###\s*FILE:\s*([^\n]+)\n```[^\n]*\n([\s\S]+?)```", ans, re.IGNORECASE):
+        if "TITAN_ULTRA" in match_fname.upper():
+            for dest in [src, TITAN_DIR / "TITAN_ULTRA.py"]:
+                dest.write_text(match_content, encoding="utf-8")
+                console.print(f"[{TC}]✓ Saved: {dest}[/]")
+            break
+    else:
+        console.print("[yellow]Could not find TITAN_ULTRA.py block in response.[/]")
+        return
+
+    # Bump version.txt
+    ver_paths = [TITAN_DIR / "version.txt", src.parent / "version.txt",
+                 Path(r"D:\T.U\version.txt")]
+    for vp in ver_paths:
+        if vp.exists():
+            try:
+                old_ver = int(vp.read_text(encoding="utf-8").strip())
+                vp.write_text(str(old_ver + 1), encoding="utf-8")
+                console.print(f"[{TC}]✓ Version bumped to {old_ver + 1}: {vp}[/]")
+            except Exception:
+                pass
+
+    if console.input(f"[bold {TC}]Push to GitHub? (y/n): [/]").strip().lower() == "y":
+        global _cwd
+        old_cwd, _cwd = _cwd, src.parent
+        do_github_push(f"Update Titan Ultra: {what[:60]}")
+        _cwd = old_cwd
+
+# ── Animated diagram (opens in browser) ───────────────────────────────────────
+def do_diagram(topic):
+    if not topic:
+        console.print("[yellow]Usage: /diagram <topic>[/]"); return
+
+    prompt = (
+        f"Create a beautiful animated educational diagram for: {topic}\n\n"
+        "REQUIREMENTS:\n"
+        "1. Self-contained HTML5 page, <canvas> + requestAnimationFrame\n"
+        "2. Background #010208 (very dark blue-black), canvas 600x400\n"
+        "3. Animate ONLY things that naturally move — static parts stay still\n"
+        "4. Glowing neon colors: cyan #00e5ff, purple #a855f7, green #22c55e, gold #ffd700\n"
+        "5. Clear text labels for ALL parts\n"
+        "6. Title at top in #40E0D0, short description at bottom\n"
+        "Return ONLY raw HTML starting with <!DOCTYPE html>. No markdown. No explanation."
+    )
+    with console.status(f"[{TC}]Generating diagram: {topic}...[/]", spinner="dots"):
+        ans = ask(prompt)
+
+    m = re.search(r'```html\n?([\s\S]+?)```', ans)
+    if m:
+        html = m.group(1).strip()
+    else:
+        cut = re.search(r'<!DOCTYPE html', ans, re.IGNORECASE)
+        html = ans[cut.start():] if cut else ""
+
+    if not html:
+        console.print("[yellow]Could not generate diagram. Try a different topic.[/]"); return
+
+    import webbrowser, tempfile
+    tmp = Path(tempfile.gettempdir()) / f"titan_diag_{topic[:20].replace(' ','_')}.html"
+    tmp.write_text(html, encoding="utf-8")
+    webbrowser.open(tmp.as_uri())
+    console.print(f"[bold {TC}]✓ Diagram opened in browser![/]")
+    console.print(f"[dim]Saved: {tmp}[/]")
+
+# ── Session history table ──────────────────────────────────────────────────────
+def do_session_history():
+    if not _history:
+        console.print(f"[{TC}]No history yet.[/]"); return
+
+    t = Table(title=f"Session History  {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+              border_style=TC, show_lines=True, box=rbox.ROUNDED)
+    t.add_column("#",     style="dim",  justify="right", no_wrap=True)
+    t.add_column("You",   style="white", max_width=48)
+    t.add_column("Titan", style=TC,     max_width=48)
+
+    i = 0
+    idx = 1
+    while i < len(_history):
+        u = _history[i]
+        if u["role"] == "user":
+            user_txt = u["content"][:120].replace('\n', ' ')
+            asst_txt = ""
+            if i + 1 < len(_history) and _history[i+1]["role"] == "assistant":
+                asst_txt = _history[i+1]["content"][:120].replace('\n', ' ')
+                i += 2
+            else:
+                i += 1
+            t.add_row(str(idx), user_txt, asst_txt)
+            idx += 1
+        else:
+            i += 1
+    console.print(t)
+
+    programs = _load_programs()
+    if programs:
+        p2 = Table(title="Programs Built", border_style=TC, box=rbox.ROUNDED)
+        p2.add_column("Name",        style=f"bold {TC}")
+        p2.add_column("Description", style="white", max_width=50)
+        p2.add_column("Date",        style="dim")
+        for p in programs[-10:]:
+            p2.add_row(p["name"], p.get("description","")[:50], p.get("date","")[:19])
+        console.print(p2)
+
+# ── Codebase reader ────────────────────────────────────────────────────────────
+def _read_codebase(max_files=25, max_chars=3000):
+    _src_exts = {'.py','.js','.ts','.jsx','.tsx','.html','.css',
+                 '.java','.cpp','.c','.go','.rs','.json','.yaml',
+                 '.yml','.toml','.md','.txt','.sh','.bat'}
+    _skip_dirs = {'.git','__pycache__','node_modules','.venv','venv',
+                  'env','dist','build','.idea','.vscode','site-packages',
+                  '.mypy_cache','.pytest_cache'}
+    files = []
+    try:
+        for f in _cwd.rglob('*'):
+            if any(s in f.parts for s in _skip_dirs):
+                continue
+            if f.is_file() and f.suffix.lower() in _src_exts:
+                files.append(f)
+    except Exception:
+        pass
+    files = sorted(files, key=lambda x: x.stat().st_size if x.exists() else 0)[:max_files]
+    parts = [f"CODEBASE: {_cwd}  ({len(files)} files)\n"]
+    for f in files:
+        try:
+            content = f.read_text(encoding='utf-8', errors='replace')
+            rel = str(f.relative_to(_cwd))
+            lang = f.suffix.lstrip('.') or 'text'
+            parts.append(f"\n### FILE: {rel}\n```{lang}\n{content[:max_chars]}\n```")
+        except Exception:
+            pass
+    return '\n'.join(parts)
+
+def do_codebase():
+    _src_exts = {'.py','.js','.ts','.jsx','.tsx','.html','.css',
+                 '.java','.cpp','.c','.go','.rs','.json','.yaml',
+                 '.yml','.toml','.md','.txt','.sh','.bat'}
+    _skip_dirs = {'.git','__pycache__','node_modules','.venv','venv',
+                  'env','dist','build','.idea','.vscode','site-packages'}
+    files = []
+    try:
+        for f in _cwd.rglob('*'):
+            if any(s in f.parts for s in _skip_dirs):
+                continue
+            if f.is_file() and f.suffix.lower() in _src_exts:
+                files.append(f)
+    except Exception:
+        pass
+    if not files:
+        console.print(f"[yellow]No source files found in {_cwd}[/]"); return
+    t = Table(title=f"Codebase: {_cwd}  ({len(files)} files)",
+              border_style=TC, show_lines=True, box=rbox.ROUNDED)
+    t.add_column("File",  style=TC)
+    t.add_column("Lines", justify="right", style="dim")
+    t.add_column("Size",  justify="right", style="dim")
+    total_lines = 0
+    for f in sorted(files)[:60]:
+        try:
+            content = f.read_text(encoding='utf-8', errors='replace')
+            lines = content.count('\n') + 1
+            total_lines += lines
+            sz = f.stat().st_size
+            t.add_row(str(f.relative_to(_cwd)), str(lines), f"{sz:,}B")
+        except Exception:
+            t.add_row(str(f.relative_to(_cwd)), "?", "?")
+    console.print(t)
+    console.print(f"[{TC}]Total: {len(files)} files  ~{total_lines:,} lines  {_cwd}[/]")
+    console.print(f"[dim]Ask any question and I will read all files automatically.[/]")
+    if console.input(f"\n[bold {TC}]Analyze this codebase with AI? (y/n): [/]").strip().lower() == "y":
+        cb = _read_codebase()
+        with console.status(f"[{TC}]Reading all files and analyzing...[/]", spinner="dots"):
+            ans = ask(
+                "Give a complete analysis of this codebase: architecture, how it works, "
+                "main components, data flow, entry points, potential issues, improvements.",
+                cb
+            )
+        _print(ans)
+
+# ── Web search for coding help ─────────────────────────────────────────────────
+def _web_search_code(query, max_results=6):
+    try:
+        try:
+            from duckduckgo_search import DDGS
+        except ImportError:
+            subprocess.run([sys.executable, "-m", "pip", "install",
+                           "duckduckgo-search", "-q"], capture_output=True)
+            from duckduckgo_search import DDGS
+        results = []
+        with DDGS() as ddgs:
+            for r in ddgs.text(query, max_results=max_results):
+                results.append(f"• {r.get('title','')}\n  {r.get('body','')}\n  {r.get('href','')}")
+        return '\n\n'.join(results) if results else ""
+    except Exception:
+        return ""
+
+def do_web_search(query):
+    if not query:
+        console.print("[yellow]Usage: /search <query>[/]"); return
+    with console.status(f"[{TC}]Searching: {query}...[/]", spinner="dots"):
+        results = _web_search_code(query)
+    if not results:
+        console.print(f"[yellow]No results found for: {query}[/]"); return
+    console.print(Panel(results[:3000], title=f"Search: {query}", border_style=TC))
+    if console.input(f"[bold {TC}]Ask AI about these results? (y/n): [/]").strip().lower() == "y":
+        q2 = console.input(f"[bold {TC}]Your question (Enter = use query): [/]").strip() or query
+        with console.status(f"[{TC}]Thinking...[/]", spinner="dots"):
+            ans = ask(q2, f"Web search results for '{query}':\n{results}")
+        _print(ans)
+
+# ── Multi-file project edit ────────────────────────────────────────────────────
+def do_edit_project(instruction=""):
+    if not instruction:
+        instruction = console.input(
+            f"[bold {TC}]What to change across all project files? [/]"
+        ).strip()
+    if not instruction:
+        return
+    console.print(f"[{TC}]Reading all project files...[/]")
+    codebase = _read_codebase(max_files=20, max_chars=3000)
+    ctx = (
+        f"{codebase}\n\n"
+        f"INSTRUCTION: {instruction}\n\n"
+        "Apply the instruction to all relevant files. "
+        "Return ONLY files that changed using ### FILE: format. "
+        "Include the complete file content."
+    )
+    with console.status(f"[{TC}]Applying changes across project...[/]", spinner="dots"):
+        ans = ask(instruction, ctx)
+    _print(ans)
+    saved = _auto_save_files(ans)
+    if saved:
+        _fix_relative_imports(saved)
+        _syntax_check_and_fix(saved)
+        console.print(f"\n[bold {TC}]Updated {len(saved)} file(s).[/]")
+        for p in saved:
+            try:
+                rel = p.relative_to(_cwd)
+            except Exception:
+                rel = p
+            console.print(f"[{TC}]  * {rel}[/]")
+    else:
+        console.print("[yellow]No files auto-saved. Check the response above.[/]")
+
+# ── Explain file or entire project ────────────────────────────────────────────
+def do_explain(target=""):
+    if target:
+        try:
+            p = (Path(target) if Path(target).is_absolute() else (_cwd / target)).resolve()
+            content = p.read_text(encoding='utf-8', errors='replace')
+            lang = p.suffix.lstrip('.') or 'text'
+            ctx = f"FILE: {p}\n```{lang}\n{content[:8000]}\n```"
+            with console.status(f"[{TC}]Explaining {p.name}...[/]", spinner="dots"):
+                ans = ask(
+                    "Explain this file completely: what it does, how it works, "
+                    "every key part, any issues, and how to improve it.",
+                    ctx
+                )
+            _print(ans)
+        except Exception as e:
+            console.print(f"[red]{e}[/]")
+    else:
+        codebase = _read_codebase()
+        with console.status(f"[{TC}]Reading all files...[/]", spinner="dots"):
+            ans = ask(
+                "Give a complete explanation of this entire codebase: "
+                "what the project does, architecture, main components, data flow, "
+                "entry points, key files, dependencies, and potential issues.",
+                codebase
+            )
+        _print(ans)
+
+# ── Error resolver: web search + AI fix ───────────────────────────────────────
+def do_resolve_error(error_text):
+    if not error_text:
+        console.print("[yellow]Usage: /resolve <error message>[/]"); return
+    with console.status(f"[{TC}]Searching for solution...[/]", spinner="dots"):
+        results = _web_search_code(f"python fix {error_text[:120]}", max_results=4)
+    if results:
+        console.print(Panel(results[:2000], title="Solutions found", border_style=TC))
+    codebase = _read_codebase(max_files=10, max_chars=2000)
+    ctx = f"ERROR:\n{error_text}\n\n"
+    if results:
+        ctx += f"WEB SEARCH RESULTS:\n{results}\n\n"
+    ctx += codebase
+    with console.status(f"[{TC}]Generating fix...[/]", spinner="dots"):
+        ans = ask(
+            f"Fix this error: {error_text[:200]}\n\n"
+            "Use the web results and the codebase context to find and apply the exact fix. "
+            "Return all fixed files using ### FILE: format.",
+            ctx
+        )
+    _print(ans)
+    saved = _auto_save_files(ans)
+    if saved:
+        _fix_relative_imports(saved)
+        _syntax_check_and_fix(saved)
+        console.print(f"\n[bold {TC}]Fix applied to {len(saved)} file(s).[/]")
+
 # ── Help ───────────────────────────────────────────────────────────────────────
 def do_help():
     t = Table(title="TITAN CODE v3.0 Commands", border_style=TC,
@@ -1870,10 +2359,22 @@ def do_help():
         ("/clear",             "Clear screen"),
         ("/reset",             "Reset conversation history"),
         ("/exit",              "Exit Titan Code"),
+        ("/github [msg]",      "Commit + push ALL changes to GitHub"),
+        ("/changelog",         "Generate CHANGELOG.md from git history"),
+        ("/edit <file>",       "Read a file and make AI-powered precise edits"),
+        ("/update-titan",      "Update TITAN_ULTRA.py with AI and push to GitHub"),
+        ("/diagram <topic>",   "Generate animated diagram, opens in browser"),
+        ("/history",           "Show full session history table"),
         ("build me a ...",     "Starts build flow with preview + confirm"),
         ("open <name>",        "Find and open a previous program"),
         ("drag / paste path",  "Drop any file — fix, review, explain, improve"),
         ("fix <filepath>",     "AI fixes all errors in that file"),
+        ("push to github",     "Natural language — commits and pushes"),
+        ("/codebase",          "Read & analyze all files in current project"),
+        ("/search <query>",    "Search the web for coding help"),
+        ("/edit-project",      "Apply an AI change across all project files"),
+        ("/explain [file]",    "Explain a file or the entire project"),
+        ("/resolve <error>",   "Web search + AI fix for any error"),
         ("anything else",      "AI answers or builds — just ask"),
     ]
     for cmd, desc in rows:
@@ -1962,6 +2463,29 @@ def main():
         elif cmd == "/create":
             if arg: do_create(arg)
             else:   console.print("[yellow]/create <description>[/]")
+        elif cmd == "/github":
+            do_github_push(arg)
+        elif cmd == "/changelog":
+            do_changelog()
+        elif cmd == "/edit":
+            do_edit_file(arg)
+        elif cmd in ("/update-titan", "/update_titan", "/titan"):
+            do_update_titan()
+        elif cmd == "/diagram":
+            if arg: do_diagram(arg)
+            else:   console.print("[yellow]/diagram <topic>[/]")
+        elif cmd in ("/history", "/session"):
+            do_session_history()
+        elif cmd == "/codebase":
+            do_codebase()
+        elif cmd in ("/search", "/websearch"):
+            do_web_search(arg)
+        elif cmd in ("/edit-project", "/editproject", "/edit-all", "/editall"):
+            do_edit_project(arg)
+        elif cmd == "/explain":
+            do_explain(arg)
+        elif cmd in ("/resolve", "/fix-error", "/fixerror"):
+            do_resolve_error(arg)
         elif cmd == "/cd":
             new = (_cwd / arg).resolve() if arg else Path.home()
             if new.is_dir():
@@ -2077,6 +2601,57 @@ def main():
                     do_open(name)
                 else:
                     _build(user_input)
+
+            elif any(k in _low for k in ("push to github","push to git","commit and push",
+                                          "update github","save to github","push changes",
+                                          "commit changes","upload to github")):
+                do_github_push()
+
+            elif any(k in _low for k in ("changelog","change log","what changed",
+                                          "history of changes","what have you changed",
+                                          "show changelog","generate changelog")):
+                do_changelog()
+
+            elif any(k in _low for k in ("session history","what did we do","show history",
+                                          "what have we done","what did i ask",
+                                          "everything we built","show session")):
+                do_session_history()
+
+            elif any(k in _low for k in ("update titan ultra","change titan ultra",
+                                          "edit titan ultra","modify titan ultra",
+                                          "add to titan ultra","improve titan ultra")):
+                do_update_titan()
+
+            elif re.match(r"(?:make|create|generate|draw|show)\s+(?:a\s+|an\s+)?diagram\s+(?:of|for|about|showing)\s+", _low) \
+                 or re.match(r"diagram\s+(?:of|for|about)\s+", _low):
+                topic = re.sub(
+                    r"^(?:make|create|generate|draw|show)\s+(?:a\s+|an\s+)?diagram\s+(?:of|for|about|showing)\s+|^diagram\s+(?:of|for|about)\s+",
+                    "", user_input, flags=re.IGNORECASE
+                ).strip()
+                do_diagram(topic)
+
+            elif any(k in _low for k in ("read my project", "read all files", "scan project",
+                                          "analyze my code", "look at my project",
+                                          "read codebase", "show codebase", "my codebase",
+                                          "read all my files", "check my project",
+                                          "understand my project")):
+                do_codebase()
+
+            elif any(k in _low for k in ("search for", "look up", "google this", "find a solution",
+                                          "search the web", "search online")) and \
+                 any(k in _low for k in ("how to", "error", "fix", "library",
+                                          "example", "tutorial", "how do")):
+                do_web_search(user_input)
+
+            elif any(k in _low for k in ("change across all", "edit all files", "update all files",
+                                          "rename in all", "apply to all files",
+                                          "change in all", "update entire project",
+                                          "modify all files")):
+                do_edit_project(user_input)
+
+            elif any(k in _low for k in ("explain my project", "explain all files",
+                                          "explain the codebase", "explain everything in my")):
+                do_explain()
 
             elif any(k in _low for k in ("build me","create me","make me","build a","create a",
                                           "make a","i want a","give me a","write me",
