@@ -20,6 +20,7 @@ GITHUB_BRANCH   = "main"
 
 GITHUB_RAW      = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPO}/{GITHUB_BRANCH}"
 TITAN_PY_URL    = f"{GITHUB_RAW}/TITAN_ULTRA.py"
+TITAN_CODE_URL  = f"{GITHUB_RAW}/TITAN_CODE.py"
 VERSION_URL     = f"{GITHUB_RAW}/version.txt"
 SETUP_URL       = f"{GITHUB_RAW}/titan_setup.py"
 
@@ -30,6 +31,7 @@ API_KEY         = "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"
 # ══════════════════════════════════════════════════════════════════
 TITAN_DIR    = Path.home() / ".titan_ultra"
 TITAN_PY     = TITAN_DIR / "TITAN_ULTRA.py"
+TITAN_CODE   = TITAN_DIR / "TITAN_CODE.py"
 TITAN_KEY    = TITAN_DIR / ".titan_key"
 TITAN_MEM    = TITAN_DIR / "titan_memory.json"
 TITAN_CHATS  = TITAN_DIR / "titan_chats.json"
@@ -102,6 +104,12 @@ def download_titan():
         else:
             err(f"Download failed: {e}")
             sys.exit(1)
+
+    # Also download TITAN_CODE.py
+    try:
+        urllib.request.urlretrieve(TITAN_CODE_URL, TITAN_CODE)
+    except Exception:
+        pass
 
     # Also save the latest setup script to local folder
     try:

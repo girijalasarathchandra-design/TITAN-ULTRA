@@ -995,10 +995,19 @@ with st.sidebar:
     if st.button("🖥️ Launch TITAN CODE", use_container_width=True,
                  help="Open Titan Code — AI terminal coding assistant"):
         import subprocess as _sp, sys as _sys
-        _tc_path = r"C:\Users\sanja\Documents\important\TITAN_CODE.py"
-        _bat = r"C:\Users\sanja\Documents\important\launch_titan_code.bat"
-        _sp.Popen(f'start "TITAN CODE" "{_bat}"', shell=True)
-        st.toast("🖥️ Titan Code launched in a new terminal!", icon="⚡")
+        from pathlib import Path as _Path
+        _titan_dir = _Path.home() / ".titan_ultra"
+        _tc_path   = _titan_dir / "TITAN_CODE.py"
+        if _tc_path.exists():
+            _bat = _titan_dir / "launch_titan_code.bat"
+            _bat.write_text(
+                f'@echo off\ntitle TITAN CODE\ncolor 0B\npython "{_tc_path}"\npause\n',
+                encoding="utf-8"
+            )
+            _sp.Popen(f'start "TITAN CODE" "{_bat}"', shell=True)
+            st.toast("🖥️ Titan Code launched in a new terminal!", icon="⚡")
+        else:
+            st.error("TITAN CODE not found. Please re-run the setup command.")
 
     # ── Chat History ──────────────────────────────────────────────────────────
     _hist_all = _load_history()
