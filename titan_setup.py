@@ -88,28 +88,28 @@ def download_titan():
 
     if remote and local and remote == local and TITAN_PY.exists():
         ok(f"Already up to date  (version {local})")
-        return
-
-    if remote:
-        info(f"New version available: {remote}")
-
-    try:
-        urllib.request.urlretrieve(TITAN_PY_URL, TITAN_PY)
+    else:
         if remote:
-            LOCAL_VER.write_text(remote, encoding="utf-8")
-        ok("TITAN ULTRA updated!")
-    except Exception as e:
-        if TITAN_PY.exists():
-            info("Could not reach GitHub — using saved version.")
-        else:
-            err(f"Download failed: {e}")
-            sys.exit(1)
+            info(f"New version available: {remote}")
+        try:
+            urllib.request.urlretrieve(TITAN_PY_URL, TITAN_PY)
+            if remote:
+                LOCAL_VER.write_text(remote, encoding="utf-8")
+            ok("TITAN ULTRA updated!")
+        except Exception as e:
+            if TITAN_PY.exists():
+                info("Could not reach GitHub — using saved version.")
+            else:
+                err(f"Download failed: {e}")
+                sys.exit(1)
 
-    # Also download TITAN_CODE.py
+    # Always download TITAN_CODE.py (even if up to date)
     try:
         urllib.request.urlretrieve(TITAN_CODE_URL, TITAN_CODE)
+        ok("TITAN CODE ready!")
     except Exception:
-        pass
+        if not TITAN_CODE.exists():
+            err("TITAN CODE download failed.")
 
     # Also save the latest setup script to local folder
     try:
