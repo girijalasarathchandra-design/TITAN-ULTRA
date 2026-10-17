@@ -1,4 +1,4 @@
-# TITAN_VERSION: 28
+# TITAN_VERSION: 29
 import streamlit as st
 from groq import Groq
 import requests, io, re
@@ -170,8 +170,20 @@ SYSTEM = (
     "HOW-TO / PROCESS QUESTION (e.g. 'How do I fix this error?', 'How to solve quadratic equations?'):\n"
     "→ Numbered steps. Each step clear and actionable. Include code blocks for code.\n\n"
     "MATH / SCIENCE PROBLEM:\n"
-    "→ Show every step. Label what you are doing at each step. Box or highlight the final answer.\n"
-    "→ Example: Step 1 — ..., Step 2 — ..., Step 3 — ..., ∴ Final Answer: ...\n\n"
+    "→ ALWAYS use LaTeX for all math. Use $$...$$ for display equations (shown on their own line, big and centered). Use $...$ for inline math inside sentences.\n"
+    "→ Structure EVERY math answer like this:\n"
+    "   • Start with one line saying what you are doing (e.g. 'Working through a fraction multiplication problem.')\n"
+    "   • Show the full expression first as a display equation: $$...$$\n"
+    "   • Then numbered steps: Step 1 — [what you do], show the working as $$...$$. Step 2 — etc.\n"
+    "   • End with: **Final Answer:** $$...$$\n"
+    "→ NEVER write raw LaTeX like \\frac or \\times as plain text — always wrap in $$ or $.\n"
+    "→ NEVER write math as plain text fractions like 27/1870 — always write $\\frac{27}{1870}$.\n"
+    "→ Example of correct format:\n"
+    "   Working through the expression.\n"
+    "   $$a + \\frac{9}{10} \\times \\frac{3}{187}$$\n"
+    "   **Step 1** — Multiply the fractions: $\\frac{9 \\times 3}{10 \\times 187} = \\frac{27}{1870}$\n"
+    "   **Step 2** — Add to $a$: $$a + \\frac{27}{1870}$$\n"
+    "   **Final Answer:** $\\boxed{a + \\dfrac{27}{1870}}$\n\n"
     "ESSAY / PARAGRAPH REQUEST:\n"
     "→ Write flowing prose. Appropriate length for what was asked. Rich vocabulary. No bullet points.\n\n"
     "COMPLEX MULTI-PART QUESTION:\n"
@@ -561,10 +573,180 @@ def _save_chat_sessions():
     active = st.session_state.chat_sessions[st.session_state.active_session]
     _save_to_history(active)
 
+# ── Titan Devices: registry helpers ──────────────────────────────────────────
+def _get_device_id():
+    import uuid as _uuid
+    from pathlib import Path as _P
+    _f = _P.home() / ".titan_ultra" / "device_id.txt"
+    _f.parent.mkdir(parents=True, exist_ok=True)
+    if _f.exists():
+        return _f.read_text().strip()
+    _did = str(_uuid.uuid4())
+    _f.write_text(_did)
+    return _did
+
+def _registry_ready():
+    return (REGISTRY_GIST_ID  != "PASTE_YOUR_GIST_ID_HERE" and
+            REGISTRY_TOKEN != "PASTE_YOUR_GIST_TOKEN_HERE")
+
+@st.cache_data(ttl=60)
+def _fetch_registry_cached():
+    try:
+        _r = requests.get(
+            f"https://api.github.com/gists/{REGISTRY_GIST_ID}",
+            headers={"Authorization": f"token {REGISTRY_TOKEN}",
+                     "Accept": "application/vnd.github.v3+json"},
+            timeout=8
+        )
+        if _r.status_code == 200:
+            _files = _r.json().get("files", {})
+            if REGISTRY_FILENAME in _files:
+                return _json.loads(_files[REGISTRY_FILENAME]["content"])
+    except Exception:
+        pass
+    return {}
+
+def _load_registry():
+    if not _registry_ready():
+        return {}
+    return _fetch_registry_cached()
+
+def _save_registry(data):
+    if not _registry_ready():
+        return
+    try:
+        requests.patch(
+            f"https://api.github.com/gists/{REGISTRY_GIST_ID}",
+            headers={"Authorization": f"token {REGISTRY_TOKEN}",
+                     "Accept": "application/vnd.github.v3+json"},
+            json={"files": {REGISTRY_FILENAME: {
+                "content": _json.dumps(data, indent=2, ensure_ascii=False)
+            }}},
+            timeout=8
+        )
+        _fetch_registry_cached.clear()
+    except Exception:
+        pass
+
+def _register_this_device(name):
+    if not _registry_ready() or not name:
+        return
+    from datetime import datetime as _dtr
+    _did = _get_device_id()
+    _reg = _load_registry()
+    if _did not in _reg:
+        _reg[_did] = {
+            "name": name,
+            "registered_at": _dtr.now().isoformat(),
+            "banned": False,
+            "timeout_until": None,
+            "last_seen": _dtr.now().isoformat()
+        }
+    else:
+        _reg[_did]["name"] = name
+        _reg[_did]["last_seen"] = _dtr.now().isoformat()
+    _save_registry(_reg)
+
 # ── Owner check (Sushanth = full access, others = locked) ────────────────────
-_saved_key      = _load_saved_key()
-_saved_memory   = _load_memory()
-_IS_OWNER = _saved_memory.get("name", "").strip().lower() == "sushanth"
+_saved_key    = _load_saved_key()
+_saved_memory = _load_memory()
+
+import hashlib as _hlib_owner
+from pathlib import Path as _OwnerPath
+
+_OWNER_HASH     = "PASTE_OWNER_HASH_HERE"
+_OWNER_AUTH_FILE = _OwnerPath.home() / ".titan_ultra" / ".owner_auth"
+
+# Titan Devices Registry — fill these in once (see instructions)
+REGISTRY_GIST_ID  = "PASTE_YOUR_GIST_ID_HERE"
+REGISTRY_TOKEN    = "PASTE_YOUR_GIST_TOKEN_HERE"
+REGISTRY_FILENAME = "titan_devices.json"
+
+def _check_owner_auth():
+    if not _OWNER_AUTH_FILE.exists():
+        return False
+    try:
+        return _OWNER_AUTH_FILE.read_text().strip() == _OWNER_HASH
+    except Exception:
+        return False
+
+_IS_OWNER = _check_owner_auth()  # only auth file grants owner access in duplicate
+
+# ── Usage limit (2 hrs for non-owners, resets after 5 hrs) ───────────────────
+import time as _time_mod, json as _json_usage
+from pathlib import Path as _Path_usage
+_USAGE_FILE = _Path_usage.home() / ".titan_ultra" / "usage_tracking.json"
+
+def _load_usage_data():
+    try:
+        with open(_USAGE_FILE, "r") as _f:
+            return _json_usage.load(_f)
+    except Exception:
+        return {"total_seconds": 0.0, "limit_hit_at": None}
+
+def _save_usage_data(data):
+    _USAGE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(_USAGE_FILE, "w") as _f:
+        _json_usage.dump(data, _f)
+
+_USAGE_LIMIT_SECONDS = 2 * 3600
+_USAGE_RESET_SECONDS = 5 * 3600
+
+if not _IS_OWNER:
+    _usage = _load_usage_data()
+    _now_ts = _time_mod.time()
+    if _usage["limit_hit_at"] and (_now_ts - _usage["limit_hit_at"]) >= _USAGE_RESET_SECONDS:
+        _usage = {"total_seconds": 0.0, "limit_hit_at": None}
+        _save_usage_data(_usage)
+    if "usage_session_start" not in st.session_state:
+        st.session_state.usage_session_start = _now_ts
+    else:
+        _elapsed_this_session = _now_ts - st.session_state.usage_session_start
+        _usage["total_seconds"] = _usage.get("total_seconds", 0.0) + _elapsed_this_session
+        st.session_state.usage_session_start = _now_ts
+        if _usage["total_seconds"] >= _USAGE_LIMIT_SECONDS and not _usage["limit_hit_at"]:
+            _usage["limit_hit_at"] = _now_ts
+        _save_usage_data(_usage)
+    _USER_HIT_LIMIT = _usage.get("limit_hit_at") is not None
+else:
+    _USER_HIT_LIMIT = False
+
+# ── Device ban / admin-timeout check for non-owners ──────────────────────────
+if not _IS_OWNER and _registry_ready():
+    try:
+        from datetime import datetime as _dtnow
+        _my_did = _get_device_id()
+        _my_saved_name = _saved_memory.get("name", "").strip()
+        if _my_saved_name:
+            _register_this_device(_my_saved_name)
+        _dev_reg = _load_registry()
+        _my_dev  = _dev_reg.get(_my_did, {})
+        _tout_str = _my_dev.get("timeout_until")
+        if _tout_str:
+            _tout_dt = _dtnow.now().fromisoformat(_tout_str) if hasattr(_dtnow.now(), 'fromisoformat') else _dtnow.fromisoformat(_tout_str)
+            if _dtnow.now() < _tout_dt:
+                _tsecs = int((_tout_dt - _dtnow.now()).total_seconds())
+                st.warning("⏳ **You have been temporarily timed out by the administrator.**")
+                import streamlit.components.v1 as _cv1_tout
+                _cv1_tout.html(f"""
+<div style="text-align:center;padding:16px 0;font-family:-apple-system,Segoe UI,sans-serif">
+  <div style="font-size:.8rem;color:#f59e0b;letter-spacing:2px;margin-bottom:8px">⏳ TIMEOUT — COME BACK IN</div>
+  <div id="tout_timer" style="font-size:2.8rem;font-weight:900;color:#f87171;letter-spacing:5px"></div>
+</div>
+<script>
+var r={_tsecs};
+function f(n){{return n.toString().padStart(2,'0');}}
+function tick(){{
+  if(r<=0){{document.getElementById('tout_timer').innerHTML='00:00:00';setTimeout(function(){{window.location.reload();}},1500);return;}}
+  var h=Math.floor(r/3600),m=Math.floor((r%3600)/60),s=r%60;
+  document.getElementById('tout_timer').innerHTML=f(h)+':'+f(m)+':'+f(s);
+  r--;setTimeout(tick,1000);
+}}
+tick();
+</script>""", height=120)
+                st.stop()
+    except Exception:
+        pass
 
 # ── Fresh-session detection ───────────────────────────────────────────────────
 # On a brand-new visit (new tab OR reconnect after close), reset to empty chat.
@@ -597,6 +779,7 @@ for k, v in [("api_key", _saved_key), ("titan_memory", _saved_memory),
              ("notebook_chat", []), ("notebook_generated", {}),
              ("nb_card_index", 0), ("nb_card_flipped", False),
              ("diagram_cache", {}),
+             ("_sys_health_cache", {}),
              ("news_mode", False), ("news_cache", {}),
              ("_pending_pdf", None),
 ]:
@@ -776,6 +959,8 @@ with st.sidebar:
         from pathlib import Path as _Path
         _titan_dir = _Path.home() / ".titan_ultra"
         _tc_path   = _titan_dir / "TITAN_CODE.py"
+        if not _tc_path.exists():
+            _tc_path = _Path.home() / "Documents" / "important" / "TITAN_CODE.py"
         if _tc_path.exists():
             _bat = _titan_dir / "launch_titan_code.bat"
             _bat.write_text(
@@ -786,6 +971,35 @@ with st.sidebar:
             st.toast("🖥️ Titan Code launched in a new terminal!", icon="⚡")
         else:
             st.error("TITAN CODE not found. Please re-run the setup command.")
+
+    # ── Push to GitHub (owner only) ───────────────────────────────────────────
+    if _IS_OWNER:
+        if st.button("☁️ Push Update to GitHub", use_container_width=True,
+                     help="Push latest TITAN_ULTRA.py & TITAN_CODE.py to GitHub"):
+            import subprocess as _ghsp
+            from pathlib import Path as _ghPath
+            _src_dir = _ghPath(r"D:\T.U")
+            _ver_file = _src_dir / "version.txt"
+            try:
+                _cur_ver = float(_ver_file.read_text().strip()) if _ver_file.exists() else 1.0
+                _new_ver = round(_cur_ver + 0.1, 1)
+                _ver_file.write_text(str(_new_ver))
+            except Exception:
+                _new_ver = "?"
+            _git_cmds = [
+                f'git -C "{_src_dir}" add TITAN_ULTRA.py TITAN_CODE.py titan_unlock.py version.txt',
+                f'git -C "{_src_dir}" commit -m "Update v{_new_ver}"',
+                f'git -C "{_src_dir}" push',
+            ]
+            _git_ok = True
+            for _cmd in _git_cmds:
+                _r = _ghsp.run(_cmd, shell=True, capture_output=True, text=True)
+                if _r.returncode != 0 and "nothing to commit" not in _r.stdout + _r.stderr:
+                    st.error(f"Git error: {_r.stderr.strip()}")
+                    _git_ok = False
+                    break
+            if _git_ok:
+                st.toast(f"✅ Pushed v{_new_ver} to GitHub!", icon="☁️")
 
     # ── Chat History ──────────────────────────────────────────────────────────
     _hist_all = _load_history()
@@ -945,8 +1159,8 @@ with st.sidebar:
         model_name = list(GROQ_MODELS.keys())[0]
         model_id   = GROQ_MODELS[model_name]
 
-    # Model info box — only for Maverick and DeepSeek
-    if provider == "Groq":
+    # Model info box — owner only
+    if _IS_OWNER and provider == "Groq":
         if model_id in ("meta-llama/llama-4-maverick-17b-128e-instruct", "meta-llama/llama-4-scout-17b-16e-instruct"):
             st.markdown("""<div style='background:linear-gradient(135deg,rgba(0,80,255,0.35),rgba(0,150,255,0.25));
             border:1px solid rgba(0,150,255,0.85);border-radius:8px;padding:8px 12px;margin:4px 0 8px'>
@@ -1002,6 +1216,8 @@ with st.sidebar:
                     _mk2, _mv2 = f"note_{len(_mem)}", _mem_raw.strip()
                 st.session_state.titan_memory[_mk2] = _mv2
                 _save_memory(st.session_state.titan_memory)
+                if _mk2 == "name" and not _IS_OWNER:
+                    _register_this_device(_mv2)
                 st.rerun()
         if _mem and st.button("🗑️ Clear All Memories", key="mem_clear", use_container_width=True):
             st.session_state.titan_memory = {}
@@ -1062,6 +1278,68 @@ with st.sidebar:
         st.session_state.notebook_mode = not st.session_state.notebook_mode
         st.rerun()
 
+    # Hidden owner unlock (only visible when not owner)
+    if not _IS_OWNER:
+        with st.expander("🔐", expanded=False):
+            _ul_code = st.text_input("", type="password", placeholder="Enter owner code",
+                                     label_visibility="collapsed", key="_owner_unlock_input")
+            if st.button("Unlock", key="_owner_unlock_btn", use_container_width=True):
+                _entered_hash = _hlib_owner.sha256(_ul_code.strip().encode()).hexdigest()
+                if _entered_hash == _OWNER_HASH:
+                    _OWNER_AUTH_FILE.parent.mkdir(parents=True, exist_ok=True)
+                    _OWNER_AUTH_FILE.write_text(_entered_hash)
+                    st.success("✅ Owner access granted!")
+                    st.rerun()
+                else:
+                    st.error("❌ Wrong code.")
+
+    # Titan Devices panel (owner only)
+    if _IS_OWNER and _registry_ready():
+        st.divider()
+        with st.expander("🖥️ Titan Devices", expanded=False):
+            if st.button("🔄 Refresh", key="_td_refresh", use_container_width=True):
+                _fetch_registry_cached.clear()
+            _td_all = _load_registry()
+            if not _td_all:
+                st.caption("No devices registered yet.")
+            else:
+                _td_search = st.text_input("Search by name", placeholder="Type a name...",
+                                           key="_td_search", label_visibility="collapsed")
+                _td_filtered = {
+                    did: dev for did, dev in _td_all.items()
+                    if _td_search.lower() in dev.get("name", "").lower()
+                } if _td_search else _td_all
+                st.markdown(f"<div style='font-size:.7rem;color:#6b7a99;margin-bottom:6px'>"
+                            f"{len(_td_all)} device(s) registered</div>", unsafe_allow_html=True)
+                for _did, _dev in _td_filtered.items():
+                    _dname  = _dev.get("name", "Unknown")
+                    _dlast  = _dev.get("last_seen", "")[:10]
+                    _tout_s = _dev.get("timeout_until")
+                    _timed_out = False
+                    if _tout_s:
+                        from datetime import datetime as _dtck
+                        _timed_out = _dtck.now() < _dtck.fromisoformat(_tout_s)
+                    _status = "⏳ Timed Out" if _timed_out else "🟢 Active"
+                    st.markdown(
+                        f"**{_dname}** — {_status}  \n"
+                        f"<span style='font-size:.65rem;color:#6b7a99'>Last seen: {_dlast} · ID: {_did[:8]}…</span>",
+                        unsafe_allow_html=True)
+                    _c1, _c2 = st.columns([2, 1])
+                    _tout_hrs = _c1.number_input("Hours", min_value=0, max_value=720,
+                                                 value=0, step=1, key=f"_td_thr_{_did}",
+                                                 label_visibility="collapsed")
+                    if _c2.button("⏱ Timeout", key=f"_td_tout_{_did}", use_container_width=True):
+                        if _tout_hrs > 0:
+                            from datetime import datetime as _dtd, timedelta as _tdd
+                            _td_all[_did]["timeout_until"] = (_dtd.now() + _tdd(hours=_tout_hrs)).isoformat()
+                            _save_registry(_td_all)
+                            st.rerun()
+                    if _timed_out:
+                        if st.button("✅ Remove Timeout", key=f"_td_clr_{_did}", use_container_width=True):
+                            _td_all[_did]["timeout_until"] = None
+                            _save_registry(_td_all)
+                            st.rerun()
+                    st.markdown("---")
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
@@ -2354,6 +2632,20 @@ for _mi, msg in enumerate(_msgs_list):
     with st.chat_message(msg["role"], avatar="👤" if msg["role"]=="user" else "🔱"):
         if msg["role"] == "assistant" and _mi > 0:
             _prev = _msgs_list[_mi - 1]
+            # System health diagram
+            if _prev["role"] == "user" and _is_system_health_request(_prev["content"]):
+                import hashlib as _hlib_sh, html as _html_esc_sh
+                _shkey_d = _hlib_sh.md5(_prev["content"].encode()).hexdigest()
+                _sh_diag_html = st.session_state.get("_sys_health_cache", {}).get(_shkey_d, "")
+                if _sh_diag_html:
+                    _sh_escaped = _html_esc_sh.escape(_sh_diag_html, quote=True)
+                    st.markdown(
+                        f'<iframe srcdoc="{_sh_escaped}" width="100%" height="400" '
+                        f'style="border:none;background:#070d1a;display:block;border-radius:12px;'
+                        f'margin:8px 0;" scrolling="no"></iframe>',
+                        unsafe_allow_html=True
+                    )
+            # Animated diagram
             if _prev["role"] == "user" and _is_diagram_request(_prev["content"]):
                 import hashlib as _hlib_d, html as _html_esc_d
                 _dkey = _hlib_d.md5(_prev["content"].encode()).hexdigest()
@@ -2378,6 +2670,9 @@ for _mi, msg in enumerate(_msgs_list):
                 _content_show = _re_diag.sub(r'(?:[ \t]{1,}[^a-zA-Z0-9\n\r ]{3,}[ \t]*\n){2,}', '', _content_show)
                 _content_show = _re_diag.sub(r'(?:[^\n]*[+\-]{3,}[^\n]*\n)+', '', _content_show)
                 _content_show = _re_diag.sub(r'(?:\|[^\n]+\|\n)+', '', _content_show)
+        import re as _re_ltx
+        _content_show = _re_ltx.sub(r'\\\[(.+?)\\\]', r'$$\1$$', _content_show, flags=_re_ltx.DOTALL)
+        _content_show = _re_ltx.sub(r'\\\((.+?)\\\)', r'$\1$', _content_show, flags=_re_ltx.DOTALL)
         st.markdown(_content_show, unsafe_allow_html=True)
         if msg["role"] == "assistant" and msg.get("content"):
             import json as _json_sb, re as _re_sb
@@ -2754,6 +3049,244 @@ def _run_pc_diagnostics():
     except Exception:
         pass
     return "\n\n".join(_out) if _out else ""
+
+# ── System Health Diagram ──────────────────────────────────────────────────────
+def _run_system_health():
+    """Collect detailed hardware health data."""
+    import platform as _pl
+    _d = {
+        'cpu_percent': 0, 'cpu_temp': None, 'cpu_cores': 1,
+        'ram_percent': 0, 'ram_used_gb': 0, 'ram_total_gb': 0,
+        'disk_percent': 0, 'disk_used_gb': 0, 'disk_total_gb': 0, 'disk_status': 'OK',
+        'battery_percent': None, 'battery_plugged': None,
+        'gpu_name': None, 'gpu_temp': None,
+        'os': _pl.system(), 'machine': _pl.node(),
+    }
+    try:
+        try:
+            import psutil as _psu
+        except ImportError:
+            import subprocess as _s, sys as _sy
+            _s.run([_sy.executable, "-m", "pip", "install", "psutil", "-q"], capture_output=True)
+            import psutil as _psu
+        _d['cpu_percent'] = _psu.cpu_percent(interval=1)
+        _d['cpu_cores'] = _psu.cpu_count(logical=False) or 1
+        try:
+            _temps = _psu.sensors_temperatures()
+            if _temps:
+                for _k in ('coretemp', 'cpu_thermal', 'k10temp', 'acpitz', 'it8'):
+                    if _k in _temps and _temps[_k]:
+                        _d['cpu_temp'] = _temps[_k][0].current
+                        break
+        except Exception:
+            pass
+        _mem = _psu.virtual_memory()
+        _d['ram_percent'] = _mem.percent
+        _d['ram_used_gb'] = round(_mem.used / (1024**3), 1)
+        _d['ram_total_gb'] = round(_mem.total / (1024**3), 1)
+        _dp = 'C:\\' if _pl.system() == 'Windows' else '/'
+        _disk = _psu.disk_usage(_dp)
+        _d['disk_percent'] = _disk.percent
+        _d['disk_used_gb'] = round(_disk.used / (1024**3), 1)
+        _d['disk_total_gb'] = round(_disk.total / (1024**3), 1)
+        _bat = _psu.battery()
+        if _bat:
+            _d['battery_percent'] = round(_bat.percent, 1)
+            _d['battery_plugged'] = _bat.power_plugged
+    except Exception:
+        pass
+    try:
+        import subprocess as _sg
+        _r = _sg.run(['nvidia-smi', '--query-gpu=name,temperature.gpu',
+                      '--format=csv,noheader,nounits'], capture_output=True, text=True, timeout=5)
+        if _r.returncode == 0 and _r.stdout.strip():
+            _pts = _r.stdout.strip().split(',')
+            if len(_pts) >= 2:
+                _d['gpu_name'] = _pts[0].strip()[:14]
+                try: _d['gpu_temp'] = float(_pts[1].strip())
+                except: pass
+    except Exception:
+        pass
+    try:
+        import subprocess as _sw
+        _wr = _sw.run(['wmic', 'diskdrive', 'get', 'status'],
+                      capture_output=True, text=True, timeout=5)
+        if 'Pred Fail' in _wr.stdout or 'Error' in _wr.stdout:
+            _d['disk_status'] = 'WARNING'
+    except Exception:
+        pass
+    return _d
+
+
+def _hcolor(val, lo=70, hi=85, inv=False):
+    if val is None: return '#334455'
+    if inv: return '#ff3333' if val < 20 else ('#ffaa00' if val < 50 else '#00cc66')
+    return '#ff3333' if val >= hi else ('#ffaa00' if val >= lo else '#00cc66')
+
+
+def _render_system_diagram(d):
+    """Generate animated HTML laptop internals health diagram."""
+    cc = _hcolor(d['cpu_percent'])
+    tc = _hcolor(d.get('cpu_temp'), 70, 88)
+    rc = _hcolor(d['ram_percent'])
+    dc = '#ff3333' if d['disk_status'] == 'WARNING' else _hcolor(d['disk_percent'])
+    bc = _hcolor(d.get('battery_percent'), inv=True)
+    gc = _hcolor(d.get('gpu_temp'), 70, 88) if d.get('gpu_name') else '#334455'
+    bp = d.get('battery_percent') or 0
+    bw = min(int(bp * 1.18), 149)
+    plug = '🔌 Charging' if d.get('battery_plugged') else '🔋 On Battery'
+    issues, fixes = [], []
+    if d['cpu_percent'] >= 85:
+        issues.append(f"CPU overloaded ({d['cpu_percent']}%)")
+        fixes.append("Close heavy background apps or processes")
+    elif d['cpu_percent'] >= 70:
+        issues.append(f"CPU usage high ({d['cpu_percent']}%)")
+        fixes.append("Monitor running apps")
+    if d.get('cpu_temp') and d['cpu_temp'] >= 88:
+        issues.append(f"CPU dangerously hot ({d['cpu_temp']:.0f}°C)")
+        fixes.append("Clean cooling fan, reapply thermal paste, improve ventilation")
+    elif d.get('cpu_temp') and d['cpu_temp'] >= 70:
+        issues.append(f"CPU running warm ({d['cpu_temp']:.0f}°C)")
+        fixes.append("Check ventilation, clean dust from vents")
+    if d['ram_percent'] >= 85:
+        issues.append(f"RAM nearly full ({d['ram_percent']}%)")
+        fixes.append("Close unused apps or upgrade RAM capacity")
+    elif d['ram_percent'] >= 70:
+        issues.append(f"RAM usage high ({d['ram_percent']}%)")
+        fixes.append("Close unused tabs and apps")
+    if d['disk_percent'] >= 85:
+        issues.append(f"Disk almost full ({d['disk_percent']}%)")
+        fixes.append("Delete unused files or move data to external drive")
+    if d['disk_status'] == 'WARNING':
+        issues.append("Disk health warning — drive may fail")
+        fixes.append("Back up all data immediately, replace the drive soon")
+    if d.get('battery_percent') is not None and d['battery_percent'] < 20 and not d.get('battery_plugged'):
+        issues.append(f"Battery critically low ({d['battery_percent']}%)")
+        fixes.append("Plug in charger now")
+    if not issues:
+        diag_html = '<p style="color:#00cc66;font-weight:bold;margin:4px 0">✅ All components healthy — no damage or issues found</p>'
+    else:
+        rows = ''.join(
+            f'<tr><td style="color:#ff6060;padding:3px 10px 3px 0">⚠ {iss}</td>'
+            f'<td style="color:#88ccff;padding:3px 0">→ {fixes[fi] if fi < len(fixes) else "monitor"}</td></tr>'
+            for fi, iss in enumerate(issues)
+        )
+        diag_html = f'<table style="width:100%;font-size:12px;border-collapse:collapse;color:#eee">{rows}</table>'
+    gpu_lbl = d.get('gpu_name', 'GPU N/A')
+    cpu_temp_lbl = f"{d['cpu_temp']:.0f}°C" if d.get('cpu_temp') else 'Temp N/A'
+    return f"""<!DOCTYPE html>
+<html><head>
+<style>
+body{{margin:0;background:#070d1a;font-family:'Courier New',monospace;color:#ccc;overflow:hidden}}
+@keyframes spin{{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}
+@keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:0.3}}}}
+.fan{{animation:spin 1.8s linear infinite;transform-origin:50% 50%}}
+.warn{{animation:pulse 1s ease-in-out infinite}}
+</style>
+</head><body>
+<svg width="640" height="330" viewBox="0 0 640 330">
+  <rect x="10" y="10" width="620" height="310" rx="10" fill="#080e1c" stroke="#1e2d45" stroke-width="2"/>
+  <g stroke="#111c2e" stroke-width="0.5">
+    <line x1="10" y1="75" x2="630" y2="75"/>
+    <line x1="10" y1="200" x2="630" y2="200"/>
+    <line x1="10" y1="280" x2="630" y2="280"/>
+    <line x1="215" y1="10" x2="215" y2="320"/>
+    <line x1="430" y1="10" x2="430" y2="320"/>
+  </g>
+  <text x="18" y="22" fill="#1e2d45" font-size="8">TITAN ULTRA · SYSTEM HEALTH BOARD · {d['machine']}</text>
+
+  <!-- CPU -->
+  <rect x="25" y="28" width="170" height="145" rx="6" fill="#0a111e" stroke="{cc}" stroke-width="2.5" class="{'warn' if d['cpu_percent']>=85 else ''}"/>
+  <rect x="40" y="42" width="140" height="116" rx="4" fill="#0d1525" stroke="{cc}" stroke-width="1" opacity="0.5"/>
+  <rect x="65" y="58" width="90" height="74" rx="3" fill="#0f1e30" stroke="{cc}" stroke-width="1.5"/>
+  <text x="110" y="93" text-anchor="middle" fill="{cc}" font-size="12" font-weight="bold">CPU {d['cpu_percent']}%</text>
+  <text x="110" y="110" text-anchor="middle" fill="{tc}" font-size="10">{cpu_temp_lbl}</text>
+  <text x="110" y="128" text-anchor="middle" fill="#445" font-size="8">{d['cpu_cores']} cores</text>
+  {''.join(f'<rect x="{25+i*12}" y="173" width="8" height="6" rx="1" fill="{cc}" opacity="0.4"/>' for i in range(14))}
+  <text x="110" y="188" text-anchor="middle" fill="#334" font-size="7">CPU SOCKET</text>
+
+  <!-- RAM -->
+  <rect x="235" y="22" width="32" height="155" rx="3" fill="#0a111e" stroke="{rc}" stroke-width="2"/>
+  <rect x="241" y="29" width="20" height="141" rx="2" fill="#0a1a10" opacity="0.6"/>
+  <text x="251" y="105" text-anchor="middle" fill="{rc}" font-size="7" transform="rotate(-90,251,105)">RAM SLOT 1</text>
+  <rect x="280" y="22" width="32" height="155" rx="3" fill="#0a111e" stroke="{rc}" stroke-width="2"/>
+  <rect x="286" y="29" width="20" height="141" rx="2" fill="#0a1a10" opacity="0.6"/>
+  <text x="296" y="105" text-anchor="middle" fill="{rc}" font-size="7" transform="rotate(-90,296,105)">RAM SLOT 2</text>
+  <text x="263" y="190" text-anchor="middle" fill="{rc}" font-size="10" font-weight="bold">RAM {d['ram_percent']}%</text>
+  <text x="263" y="202" text-anchor="middle" fill="{rc}" font-size="8">{d['ram_used_gb']}GB / {d['ram_total_gb']}GB</text>
+
+  <!-- GPU -->
+  <rect x="450" y="22" width="170" height="115" rx="6" fill="#0a0e1a" stroke="{gc}" stroke-width="2.5" class="{'warn' if d.get('gpu_temp') and d['gpu_temp']>=88 else ''}"/>
+  <rect x="461" y="32" width="148" height="95" rx="4" fill="#0d0f20" opacity="0.5"/>
+  <circle cx="500" cy="80" r="28" fill="#080810" stroke="{gc}" stroke-width="1.5" opacity="0.4"/>
+  <circle cx="500" cy="80" r="14" fill="none" stroke="{gc}" stroke-width="2" opacity="0.7"/>
+  <circle cx="558" cy="80" r="28" fill="#080810" stroke="{gc}" stroke-width="1.5" opacity="0.4"/>
+  <circle cx="558" cy="80" r="14" fill="none" stroke="{gc}" stroke-width="2" opacity="0.7"/>
+  <text x="530" y="133" text-anchor="middle" fill="{gc}" font-size="9">{gpu_lbl}</text>
+  <text x="530" y="145" text-anchor="middle" fill="#334" font-size="7">GRAPHICS</text>
+
+  <!-- SSD -->
+  <rect x="25" y="213" width="170" height="58" rx="4" fill="#0a111e" stroke="{dc}" stroke-width="2.5" class="{'warn' if d['disk_status']=='WARNING' else ''}"/>
+  <rect x="35" y="221" width="150" height="42" rx="3" fill="#12110a" opacity="0.5"/>
+  <rect x="42" y="227" width="38" height="24" rx="2" fill="#1a1608" stroke="{dc}" stroke-width="1" opacity="0.7"/>
+  <rect x="90" y="227" width="38" height="24" rx="2" fill="#1a1608" stroke="{dc}" stroke-width="1" opacity="0.7"/>
+  <rect x="138" y="227" width="38" height="24" rx="2" fill="#1a1608" stroke="{dc}" stroke-width="1" opacity="0.7"/>
+  <text x="110" y="265" text-anchor="middle" fill="{dc}" font-size="10" font-weight="bold">SSD {d['disk_percent']}% · {d['disk_used_gb']}G/{d['disk_total_gb']}G</text>
+  <text x="110" y="290" text-anchor="middle" fill="#334" font-size="7">STORAGE</text>
+
+  <!-- Battery -->
+  <rect x="450" y="168" width="170" height="62" rx="4" fill="#0a0f14" stroke="{bc}" stroke-width="2.5"/>
+  <rect x="620" y="184" width="10" height="22" rx="3" fill="{bc}" opacity="0.8"/>
+  <rect x="458" y="176" width="154" height="46" rx="3" fill="#06080e"/>
+  <rect x="460" y="178" width="{bw}" height="42" rx="2" fill="{bc}" opacity="0.6"/>
+  <text x="535" y="204" text-anchor="middle" fill="{bc}" font-size="14" font-weight="bold">{bp:.0f}%</text>
+  <text x="535" y="220" text-anchor="middle" fill="{bc}" font-size="9">{plug}</text>
+  <text x="535" y="244" text-anchor="middle" fill="#334" font-size="7">BATTERY</text>
+
+  <!-- Cooling Fan -->
+  <g transform="translate(355,258)">
+    <circle r="48" fill="#07101c" stroke="#1a2a40" stroke-width="2"/>
+    <circle r="38" fill="none" stroke="#10202e" stroke-width="11"/>
+    <g class="fan">
+      <ellipse rx="7" ry="20" transform="rotate(0)"   fill="#182840" stroke="#253850" stroke-width="0.5"/>
+      <ellipse rx="7" ry="20" transform="rotate(72)"  fill="#182840" stroke="#253850" stroke-width="0.5"/>
+      <ellipse rx="7" ry="20" transform="rotate(144)" fill="#182840" stroke="#253850" stroke-width="0.5"/>
+      <ellipse rx="7" ry="20" transform="rotate(216)" fill="#182840" stroke="#253850" stroke-width="0.5"/>
+      <ellipse rx="7" ry="20" transform="rotate(288)" fill="#182840" stroke="#253850" stroke-width="0.5"/>
+    </g>
+    <circle r="9" fill="#0a1020" stroke="#253850" stroke-width="2"/>
+    <circle r="3" fill="#1e3048"/>
+  </g>
+  <text x="355" y="318" text-anchor="middle" fill="#334" font-size="7">COOLING FAN</text>
+
+  <!-- Legend -->
+  <rect x="18" y="291" width="9" height="9" rx="2" fill="#00cc66"/>
+  <text x="30" y="299" fill="#667" font-size="7">Healthy</text>
+  <rect x="74" y="291" width="9" height="9" rx="2" fill="#ffaa00"/>
+  <text x="86" y="299" fill="#667" font-size="7">Warning</text>
+  <rect x="138" y="291" width="9" height="9" rx="2" fill="#ff3333"/>
+  <text x="150" y="299" fill="#667" font-size="7">Critical</text>
+</svg>
+<div style="background:#06080f;border-top:1px solid #1a2840;padding:10px 14px">
+  <div style="font-size:11px;font-weight:bold;color:#a78bfa;margin-bottom:6px;letter-spacing:1px">⚡ DIAGNOSIS &amp; FIX</div>
+  {diag_html}
+</div>
+</body></html>"""
+
+
+def _is_system_health_request(text):
+    t = text.lower()
+    return any(k in t for k in (
+        'check my system', 'check system', 'system health', 'system check',
+        'check hardware', 'hardware health', 'system scan', 'scan my system',
+        'check my pc', 'pc health', 'laptop health', 'show my laptop',
+        'check inside', 'inside system', 'inside my laptop', 'laptop internals',
+        'check my laptop', 'system damage', 'any damage', 'damage in system',
+        'damage in my', 'check for damage', 'show damage', 'show system',
+        'hardware check', 'laptop check', 'computer health', 'cpu temperature',
+        'check temperature', 'check ram', 'check storage', 'check battery',
+    ))
+
 
 # ── Error auto-fix ─────────────────────────────────────────────────────────────
 def _is_error_report(text):
@@ -3532,9 +4065,9 @@ def _model_cfg(mid):
     """Return (max_tokens, temperature, top_p) tuned to each model's strengths."""
     m = mid.lower()
     if "gpt-oss-120b" in m:
-        return 16384, 0.30, 0.95
+        return 65536, 0.30, 0.95
     if "gpt-oss-20b" in m:
-        return 16384, 0.40, 0.92
+        return 65536, 0.40, 0.92
     if "qwen" in m:
         return 16384, 0.50, 0.90
     if "kimi" in m or "moonshot" in m:
@@ -3867,7 +4400,39 @@ def _do_ai_call(api_msgs):
         return call_ollama(api_msgs, ollama_model=model_id)
 
 # ── Chat input ────────────────────────────────────────────────────────────────
-q_val      = st.session_state.pop("quick_q","") or voice_text
+q_val = st.session_state.pop("quick_q","") or voice_text
+
+if _USER_HIT_LIMIT:
+    _usage_data_cur = _load_usage_data()
+    _limit_hit_ts = _usage_data_cur.get("limit_hit_at") or _time_mod.time()
+    _remaining_secs = max(0, int(5 * 3600 - (_time_mod.time() - _limit_hit_ts)))
+    st.error("🚫 **You have hit your limits! Come back after your timer runs out.**\n\nFree users get **2 hours** of Titan Ultra. Want unlimited access? Payment options coming soon.")
+    import streamlit.components.v1 as _cv1_timer
+    _cv1_timer.html(f"""
+<div style="text-align:center;padding:24px 0 8px;font-family:-apple-system,Segoe UI,sans-serif">
+  <div style="font-size:.85rem;color:#a78bfa;letter-spacing:2px;margin-bottom:10px">⏳ TIME REMAINING BEFORE YOU CAN ASK AGAIN</div>
+  <div id="tu_timer" style="font-size:3.2rem;font-weight:900;color:#f87171;letter-spacing:6px;font-variant-numeric:tabular-nums">--:--:--</div>
+  <div id="tu_msg" style="margin-top:14px;font-size:.9rem;color:#6b7a99"></div>
+</div>
+<script>
+var rem={_remaining_secs};
+function fmt(n){{return n.toString().padStart(2,'0');}}
+function tick(){{
+  if(rem<=0){{
+    document.getElementById('tu_timer').innerHTML='00:00:00';
+    document.getElementById('tu_timer').style.color='#34d399';
+    document.getElementById('tu_msg').innerHTML='✅ <b style="color:#34d399">Time is up! You can now ask Titan Ultra questions again.</b>';
+    setTimeout(function(){{window.location.reload();}},2000);
+    return;
+  }}
+  var h=Math.floor(rem/3600),m=Math.floor((rem%3600)/60),s=rem%60;
+  document.getElementById('tu_timer').innerHTML=fmt(h)+':'+fmt(m)+':'+fmt(s);
+  rem--;setTimeout(tick,1000);
+}}
+tick();
+</script>
+""", height=160)
+    st.stop()
 
 # Native paperclip button INSIDE the chat box (Gemini-style attach button)
 _chat_result = st.chat_input(
@@ -3959,6 +4524,8 @@ if user_input:
             _k2, _v2 = f"note_{len(st.session_state.titan_memory)}", _fact
         st.session_state.titan_memory[_k2] = _v2
         _save_memory(st.session_state.titan_memory)
+        if _k2 == "name" and not _IS_OWNER:
+            _register_this_device(_v2)
 
     if not st.session_state.api_key and provider == "Groq":
         st.error("❌ Please enter your Groq API key in the sidebar first.")
@@ -4047,9 +4614,19 @@ if user_input:
                 with st.spinner("🔬 Deep Research — searching multiple sources..."):
                     _deep_results = _deep_web_research(user_input)
 
+            # System Health Diagram — full hardware scan with visual diagram
+            _sys_health_html = ""
+            if _is_system_health_request(user_input):
+                with st.spinner("🔬 Scanning system hardware..."):
+                    _sh_data = _run_system_health()
+                    import hashlib as _hsh_sys
+                    _shkey = _hsh_sys.md5(user_input.encode()).hexdigest()
+                    _sys_health_html = _render_system_diagram(_sh_data)
+                    st.session_state["_sys_health_cache"][_shkey] = _sys_health_html
+
             # PC Diagnostics — auto-run when user reports PC issue
             _pc_diag = ""
-            if _is_pc_issue(user_input):
+            if not _sys_health_html and _is_pc_issue(user_input):
                 with st.spinner("🖥️ Running PC diagnostics..."):
                     _pc_diag = _run_pc_diagnostics()
 
@@ -4078,12 +4655,25 @@ if user_input:
             with st.spinner("🔱 TITAN ULTRA is thinking…"):
                 try:
                     _api_msgs = [{"role":m["role"],"content":m["content"]} for m in cur_msgs()]
-                    _extra = _youtube_context or _url_context or _deep_results or _pc_diag or _error_context or _search_results
+                    _sys_diag_ctx = ""
+                    if _sys_health_html and '_sh_data' in dir():
+                        _sys_diag_ctx = (
+                            f"System Health Scan Results:\n"
+                            f"CPU: {_sh_data['cpu_percent']}% usage"
+                            + (f", {_sh_data['cpu_temp']:.0f}°C" if _sh_data.get('cpu_temp') else "") + "\n"
+                            f"RAM: {_sh_data['ram_percent']}% ({_sh_data['ram_used_gb']}GB / {_sh_data['ram_total_gb']}GB)\n"
+                            f"Disk: {_sh_data['disk_percent']}% ({_sh_data['disk_used_gb']}GB / {_sh_data['disk_total_gb']}GB) — Status: {_sh_data['disk_status']}\n"
+                            + (f"Battery: {_sh_data['battery_percent']}% ({'charging' if _sh_data.get('battery_plugged') else 'on battery'})\n" if _sh_data.get('battery_percent') is not None else "")
+                            + (f"GPU: {_sh_data['gpu_name']}, {_sh_data['gpu_temp']:.0f}°C\n" if _sh_data.get('gpu_name') else "")
+                            + f"OS: {_sh_data['os']} · Device: {_sh_data['machine']}"
+                        )
+                    _extra = _youtube_context or _url_context or _deep_results or _sys_diag_ctx or _pc_diag or _error_context or _search_results
                     if _extra:
                         _src_label = (
                             "YouTube transcript" if _youtube_context else
                             "webpage content" if _url_context else
                             "deep research results" if _deep_results else
+                            "live system health scan data" if _sys_diag_ctx else
                             "live PC diagnostic data" if _pc_diag else
                             "error solution search results" if _error_context else
                             "web search results"
