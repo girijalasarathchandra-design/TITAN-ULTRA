@@ -2625,6 +2625,19 @@ def _generate_diagram_html(user_query):
 
 
 # ── Chat messages (shown in ALL modes) ───────────────────────────────────────
+def _is_system_health_request(text):
+    t = text.lower()
+    return any(k in t for k in (
+        'check my system', 'check system', 'system health', 'system check',
+        'check hardware', 'hardware health', 'system scan', 'scan my system',
+        'check my pc', 'pc health', 'laptop health', 'show my laptop',
+        'check inside', 'inside system', 'inside my laptop', 'laptop internals',
+        'check my laptop', 'system damage', 'any damage', 'damage in system',
+        'damage in my', 'check for damage', 'show damage', 'show system',
+        'hardware check', 'laptop check', 'computer health', 'cpu temperature',
+        'check temperature', 'check ram', 'check storage', 'check battery',
+    ))
+
 _msgs_list = cur_msgs()
 _last_asst_content = ""
 for _mi, msg in enumerate(_msgs_list):
