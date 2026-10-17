@@ -672,8 +672,8 @@ _OWNER_HASH     = "PASTE_OWNER_HASH_HERE"
 _OWNER_AUTH_FILE = _OwnerPath.home() / ".titan_ultra" / ".owner_auth"
 
 # Titan Devices Registry — fill these in once (see instructions)
-REGISTRY_GIST_ID  = "PASTE_YOUR_GIST_ID_HERE"
-REGISTRY_TOKEN    = "PASTE_YOUR_GIST_TOKEN_HERE"
+REGISTRY_GIST_ID  = "0ae47b140415e738f3b8d1e5b0e17ecc"
+REGISTRY_TOKEN    = "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"
 REGISTRY_FILENAME = "titan_devices.json"
 
 def _check_owner_auth():
@@ -1291,21 +1291,6 @@ with st.sidebar:
     if st.button(_nb_label, use_container_width=True, key="_nb_btn_btm"):
         st.session_state.notebook_mode = not st.session_state.notebook_mode
         st.rerun()
-
-    # Hidden owner unlock (only visible when not owner)
-    if not _IS_OWNER:
-        with st.expander("🔐", expanded=False):
-            _ul_code = st.text_input("", type="password", placeholder="Enter owner code",
-                                     label_visibility="collapsed", key="_owner_unlock_input")
-            if st.button("Unlock", key="_owner_unlock_btn", use_container_width=True):
-                _entered_hash = _hlib_owner.sha256(_ul_code.strip().encode()).hexdigest()
-                if _entered_hash == _OWNER_HASH:
-                    _OWNER_AUTH_FILE.parent.mkdir(parents=True, exist_ok=True)
-                    _OWNER_AUTH_FILE.write_text(_entered_hash)
-                    st.success("✅ Owner access granted!")
-                    st.rerun()
-                else:
-                    st.error("❌ Wrong code.")
 
     # Titan Devices panel (owner only)
     if _IS_OWNER and _registry_ready():
