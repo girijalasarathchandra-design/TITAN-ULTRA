@@ -225,6 +225,12 @@ SYSTEM = (
     "STRICT — NEVER draw ASCII art: no ^^^^^, ~~~, |||, +---+, ===, box-drawing characters. "
     "ONLY write plain text paragraphs. Zero symbol drawings. Zero ASCII art of any kind.\n\n"
 
+    "━━━ WEB SEARCH RULES ━━━\n"
+    "• Only use web search when you genuinely do not know the answer or it requires live/current data (news, prices, scores, recent events).\n"
+    "• If you already know the answer confidently — answer directly. Do NOT search unnecessarily.\n"
+    "• NEVER tell the user you are searching the web. NEVER mention sources, URLs, or websites in your answer.\n"
+    "• If asked where you get information: say 'I was trained on vast amounts of text and knowledge — I answer from that training.'\n"
+    "• If a user asks about a suspicious website: immediately warn them it looks like a scam and to not share personal details.\n\n"
     "━━━ YOUR CREATOR ━━━\n"
     "You were created and built by Girijala Sarath Chandra Sushanth — and him alone. "
     "If asked who created/built/made/programmed you: answer 'I was built by Girijala Sarath Chandra Sushanth.' "
@@ -325,6 +331,14 @@ SEARCH_SYSTEM = (
     "✦ Never truncate — always give a complete, thorough answer\n"
     "✦ Never say 'I cannot browse the internet' — give the best answer from your knowledge\n"
     "✦ Never open with filler like 'Great question!' or 'Certainly!'\n"
+    "\n━━━ WEB SEARCH SECRECY RULES — NEVER BREAK THESE ━━━\n"
+    "✦ NEVER mention websites, URLs, sources, or links in your answer. NEVER say 'According to [site]', 'I found on the web', 'Based on search results', 'Source:', or anything like that.\n"
+    "✦ NEVER reveal that you use web search or any external tool. You have been trained and fed billions of pieces of information. Present everything as your own deep knowledge.\n"
+    "✦ If anyone asks where you get your information, say: 'I was trained on a massive amount of text and data — I know things from that training.'\n"
+    "✦ Write every answer entirely in your own words. Clean, fluent, natural. Never copy-paste.\n"
+    "✦ ONLY use information from highly trusted sources: Wikipedia, BBC, Reuters, WHO, CDC, NIH, government sites, top universities, major tech companies, reputable news. Ignore everything else.\n"
+    "✦ If the search data contains a scam website or suspicious domain — ignore that result completely. Never use or mention it.\n"
+    "✦ If a user asks about a website that looks like a scam (unusual name, too-good offers, fake lottery, crypto doubler, etc.), immediately warn them: 'This looks like a scam website. Do not trust it or share personal details.'\n"
 )
 
 EXAM_SYSTEM = (
@@ -2858,8 +2872,36 @@ def _is_search_request(text):
         'update on','status of','price of','cost of',
     ))
 
-def _web_search(query, max_results=6):
-    """Search the web using DuckDuckGo — free, no API key needed."""
+_TRUSTED_DOMAINS = [
+    'wikipedia.org','britannica.com','bbc.com','bbc.co.uk','reuters.com',
+    'apnews.com','theguardian.com','nature.com','pubmed.ncbi.nlm.nih.gov',
+    'who.int','cdc.gov','nih.gov','ncbi.nlm.nih.gov','nasa.gov',
+    'microsoft.com','apple.com','google.com','github.com','python.org',
+    'stackoverflow.com','mozilla.org','developer.mozilla.org',
+    'investopedia.com','moneycontrol.com','economictimes.indiatimes.com',
+    'ndtv.com','thehindu.com','hindustantimes.com','timesofindia.com',
+    'espncricinfo.com','cricinfo.com','techcrunch.com','wired.com',
+    'theverge.com','arstechnica.com','cnet.com','tomshardware.com',
+    'gsmarena.com','91mobiles.com','khanacademy.org','ncert.nic.in',
+    'cbse.gov.in','wolframalpha.com','sciencedirect.com','researchgate.net',
+    'forbes.com','businessinsider.com','cnbc.com','bloomberg.com',
+    'healthline.com','mayoclinic.org','webmd.com','nhs.uk',
+]
+_SCAM_INDICATORS = [
+    'free-money','earn-fast','get-rich','lottery-winner','prize-claim',
+    'bitcoin-doubler','crypto-giveaway','click-to-claim','urgent-reward',
+    'limited-offer-claim','work-from-home-earn','online-job-earn-daily',
+]
+
+def _is_trusted_url(url):
+    url_l = url.lower()
+    if any(s in url_l for s in _SCAM_INDICATORS):
+        return False
+    return (any(d in url_l for d in _TRUSTED_DOMAINS) or
+            '.gov' in url_l or '.edu' in url_l or '.ac.' in url_l)
+
+def _web_search(query, max_results=8):
+    """Search the web using DuckDuckGo — trusted sources only."""
     try:
         try:
             from duckduckgo_search import DDGS
@@ -2867,10 +2909,15 @@ def _web_search(query, max_results=6):
             import subprocess as _sp, sys as _sys
             _sp.run([_sys.executable, "-m", "pip", "install", "duckduckgo-search", "-q"], capture_output=True)
             from duckduckgo_search import DDGS
-        results = []
+        raw = []
         with DDGS() as ddgs:
-            for r in ddgs.text(query, max_results=max_results):
-                results.append(f"• {r['title']}\n  {r['body']}\n  Source: {r['href']}")
+            for r in ddgs.text(query, max_results=max_results * 2):
+                raw.append(r)
+        trusted = [r for r in raw if _is_trusted_url(r.get('href',''))]
+        chosen = trusted if trusted else raw
+        results = []
+        for r in chosen[:max_results]:
+            results.append(f"• {r['title']}\n  {r['body']}")
         return "\n\n".join(results) if results else ""
     except Exception:
         return ""
