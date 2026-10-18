@@ -1,0 +1,8 @@
+streamlit
+groq
+requests
+duckduckgo-search
+pdfplumber
+beautifulsoup4
+reportlab
+Pillow
