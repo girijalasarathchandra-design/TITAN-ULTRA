@@ -1029,10 +1029,9 @@ with st.sidebar:
     # Model
     if _IS_OWNER:
         st.markdown("<div style='font-size:.7rem;color:#4a6a8f;letter-spacing:2px;margin:8px 0 4px'>AI MODEL</div>", unsafe_allow_html=True)
-        if provider in ("Groq", "🔁 Auto (Smart Switch)"):
-            model_name = st.selectbox("Model", list(GROQ_MODELS.keys()), label_visibility="collapsed")
-            model_id   = GROQ_MODELS[model_name]
-        else:
+        model_name = st.selectbox("Model", list(GROQ_MODELS.keys()), label_visibility="collapsed")
+        model_id   = GROQ_MODELS[model_name]
+    else:
         model_name = list(GROQ_MODELS.keys())[0]
         model_id   = GROQ_MODELS[model_name]
 
