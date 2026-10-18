@@ -11,16 +11,6 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&display=swap');
 
-/* Force dark theme on ALL devices regardless of system color */
-:root { color-scheme: dark !important; }
-* { color-scheme: dark !important; }
-html, body { background:#05080f !important; color:#c9d8f0 !important; }
-@media (prefers-color-scheme: light) {
-    html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
-        background:#05080f !important; color:#c9d8f0 !important;
-    }
-}
-
 @keyframes titanflow { to { background-position:400% center; } }
 @keyframes rainbowborder {
     0%{border-color:#ff0000} 14%{border-color:#ff6b00} 28%{border-color:#ffd000}
@@ -63,22 +53,28 @@ html, body, [data-testid="stAppViewContainer"] {
     transform:translateY(-1px) !important; box-shadow:0 0 20px #a855f755 !important;
 }
 [data-testid="stSidebar"] .stButton>button {
-    font-size:0.72rem !important;
-    padding:3px 8px !important;
+    font-size:0.78rem !important;
+    padding:5px 8px !important;
     min-height:0 !important;
-    height:28px !important;
-    line-height:1.2 !important;
+    height:auto !important;
+    line-height:1.4 !important;
     animation:none !important;
-    background:#111827 !important;
-    color:#ffffff !important;
-    border:1px solid #2d3748 !important;
-    white-space:nowrap !important;
+    background:transparent !important;
+    color:#e8e8e8 !important;
+    border:none !important;
+    box-shadow:none !important;
+    white-space:normal !important;
     overflow:hidden !important;
     text-overflow:ellipsis !important;
+    text-align:left !important;
+    border-radius:6px !important;
+    font-weight:400 !important;
+    letter-spacing:0 !important;
 }
 [data-testid="stSidebar"] .stButton>button:hover {
-    background:#1f2937 !important;
-    border-color:#6b7280 !important;
+    background:rgba(255,255,255,0.08) !important;
+    color:#ffffff !important;
+    border:none !important;
     box-shadow:none !important;
     transform:none !important;
 }
@@ -114,6 +110,7 @@ html, body, [data-testid="stAppViewContainer"] {
 [data-testid="stSidebar"] [data-testid="stSelectbox"] { margin:0 !important; }
 [data-testid="stSidebar"] .stFileUploader { margin:0 !important; }
 [data-testid="stSidebar"] .stColumns { gap:4px !important; }
+/* Sidebar scrollable content top padding */
 [data-testid="stSidebar"] > div:first-child {
     padding-top:0.5rem !important;
     padding-bottom:0.5rem !important;
@@ -202,10 +199,10 @@ SYSTEM = (
     "   Silently identify which one it is before answering.\n"
     "   Use the correct names, characters, and details from that specific source.\n"
     "   Never mix up details from different books or make things up.\n\n"
-    "5. CLEAR, INTELLIGENT WRITING — Write like Claude Pro: articulate, precise, and appropriately detailed.\n"
-    "   Match vocabulary and depth to the question level — explain simply for students, technically for experts.\n"
-    "   Never dumb things down unless the user is clearly a beginner.\n"
-    "   Use natural, flowing sentences. Not clipped telegraphic text, not verbose padding.\n\n"
+    "5. ALWAYS USE SIMPLE, EASY WORDS — Write like a smart friend explaining to someone for the first time.\n"
+    "   Always use plain, everyday language. Never use complex technical jargon unless the user asks for it.\n"
+    "   If a hard word is needed, explain it in simple words right after.\n"
+    "   Short sentences. Easy to read. Anyone should be able to understand your answer.\n\n"
     "6. TURQUOISE COLOR FOR EXTREMELY IMPORTANT TEXT — When a part of your answer is extremely "
     "important (a key fact, a critical answer, a crucial term, a final result), wrap it in this exact HTML tag:\n"
     "   <span style='color:#40E0D0'>extremely important text here</span>\n"
@@ -235,8 +232,8 @@ SYSTEM = (
     "SIMPLE FACTUAL QUESTION (e.g. 'What is the capital of France?', 'Who wrote Hamlet?'):\n"
     "→ 1-3 sentences. Give the fact + one line of useful context. No headers, no bullets.\n\n"
     "EXPLANATION / CONCEPT QUESTION (e.g. 'What is photosynthesis?', 'How does gravity work?'):\n"
-    "→ Use a clear structure: definition → how it works → why it matters → one concrete example.\n"
-    "→ Use **bold** for key terms. Use bullet points or numbered steps where it helps clarity.\n\n"
+    "→ Explain it simply, like talking to a friend. What it is → how it works in simple words → a real-life example.\n"
+    "→ Use simple everyday language. Avoid technical jargon. Short sentences. Easy to understand.\n\n"
     "COMPARISON QUESTION (e.g. 'Difference between RAM and ROM', 'Compare Romanticism vs Realism'):\n"
     "→ Use a structured response: brief intro → comparison table or clear bullet points per item → conclusion.\n\n"
     "HOW-TO / PROCESS QUESTION (e.g. 'How do I fix this error?', 'How to solve quadratic equations?'):\n"
@@ -292,7 +289,7 @@ SYSTEM = (
 
     "━━━ FORMAT RULES ━━━\n"
     "Simple factual → 2-4 sentences. Points asked → numbered list. Comparison → markdown table. "
-    "Math/derivation → show every step, bold final answer. Code → full runnable block + explanation.\n"
+    "Math/derivation → show every step with LaTeX ($$...$$), bold final answer inside $$\\boxed{...}$$. Code → full runnable block + explanation.\n"
     "DIAGRAM QUESTIONS: An animated diagram is shown ABOVE your answer for visual concepts. "
     "STRICT — NEVER draw ASCII art: no ^^^^^, ~~~, |||, +---+, ===, box-drawing characters. "
     "ONLY write plain text paragraphs. Zero symbol drawings. Zero ASCII art of any kind.\n\n"
@@ -408,7 +405,7 @@ SEARCH_SYSTEM = (
     "✦ NEVER reveal that you use web search or any external tool. You have been trained and fed billions of pieces of information. Present everything as your own deep knowledge.\n"
     "✦ If anyone asks where you get your information, say: 'I was trained on a massive amount of text and data — I know things from that training.'\n"
     "✦ Write every answer entirely in your own words. Clean, fluent, natural. Never copy-paste.\n"
-    "✦ ONLY use information from highly trusted sources: Wikipedia, BBC, Reuters, WHO, CDC, NIH, government sites, top universities, major tech companies, reputable news. Ignore everything else.\n"
+    "✦ ONLY use information from highly trusted sources in your knowledge: Wikipedia, BBC, Reuters, WHO, CDC, NIH, government sites, top universities, major tech companies, reputable news. Ignore everything else.\n"
     "✦ If the search data contains a scam website or suspicious domain — ignore that result completely. Never use or mention it.\n"
     "✦ If a user asks about a website that looks like a scam (unusual name, too-good offers, fake lottery, crypto doubler, etc.), immediately warn them: 'This looks like a scam website. Do not trust it or share personal details.'\n"
 )
@@ -765,10 +762,14 @@ _saved_memory = _load_memory()
 import hashlib as _hlib_owner
 from pathlib import Path as _OwnerPath
 
-_OWNER_HASH     = "PASTE_OWNER_HASH_HERE"
+# SHA-256 hash of the owner's secret code — set by running: python titan_unlock.py --init
+_OWNER_HASH = "PASTE_OWNER_HASH_HERE"
 _OWNER_AUTH_FILE = _OwnerPath.home() / ".titan_ultra" / ".owner_auth"
 
-# Titan Devices Registry — fill these in once (see instructions)
+# ── Titan Devices Registry — set these up once (see instructions below) ───────
+# 1. Create a SECRET GitHub Gist at https://gist.github.com with a file named titan_devices.json containing: {}
+# 2. Create a GitHub token at https://github.com/settings/tokens with only "gist" scope
+# 3. Paste the Gist ID and token below, then push to GitHub
 REGISTRY_GIST_ID  = "0ae47b140415e738f3b8d1e5b0e17ecc"
 import base64 as _b64
 REGISTRY_TOKEN    = _b64.b64decode("Z2hwX1FETFc1RUVLc3A5ck9najhRMGtxUjhGMDFuWE5ndjBLV0w3Qg==").decode()
@@ -782,7 +783,7 @@ def _check_owner_auth():
     except Exception:
         return False
 
-_IS_OWNER = _check_owner_auth()  # only auth file grants owner access in duplicate
+_IS_OWNER = _check_owner_auth() or _saved_memory.get("name", "").strip().lower() == "sushanth"
 
 # ── Usage limit (2 hrs for non-owners, resets after 5 hrs) ───────────────────
 import time as _time_mod, json as _json_usage
@@ -801,15 +802,19 @@ def _save_usage_data(data):
     with open(_USAGE_FILE, "w") as _f:
         _json_usage.dump(data, _f)
 
-_USAGE_LIMIT_SECONDS = 2 * 3600
-_USAGE_RESET_SECONDS = 5 * 3600
+_USAGE_LIMIT_SECONDS = 2 * 3600   # 2 hours
+_USAGE_RESET_SECONDS = 5 * 3600   # reset after 5 hours
 
 if not _IS_OWNER:
     _usage = _load_usage_data()
     _now_ts = _time_mod.time()
+
+    # Reset if 5 hrs have passed since limit was hit
     if _usage["limit_hit_at"] and (_now_ts - _usage["limit_hit_at"]) >= _USAGE_RESET_SECONDS:
         _usage = {"total_seconds": 0.0, "limit_hit_at": None}
         _save_usage_data(_usage)
+
+    # Track active session time
     if "usage_session_start" not in st.session_state:
         st.session_state.usage_session_start = _now_ts
     else:
@@ -819,6 +824,7 @@ if not _IS_OWNER:
         if _usage["total_seconds"] >= _USAGE_LIMIT_SECONDS and not _usage["limit_hit_at"]:
             _usage["limit_hit_at"] = _now_ts
         _save_usage_data(_usage)
+
     _USER_HIT_LIMIT = _usage.get("limit_hit_at") is not None
 else:
     _USER_HIT_LIMIT = False
@@ -833,9 +839,12 @@ if not _IS_OWNER and _registry_ready():
             _register_this_device(_my_saved_name)
         _dev_reg = _load_registry()
         _my_dev  = _dev_reg.get(_my_did, {})
+        if _my_dev.get("banned"):
+            st.error("🚫 **You have been removed from Titan Ultra by the administrator.**\n\nContact the owner if you think this is a mistake.")
+            st.stop()
         _tout_str = _my_dev.get("timeout_until")
         if _tout_str:
-            _tout_dt = _dtnow.now().fromisoformat(_tout_str) if hasattr(_dtnow.now(), 'fromisoformat') else _dtnow.fromisoformat(_tout_str)
+            _tout_dt = _dtnow.fromisoformat(_tout_str)
             if _dtnow.now() < _tout_dt:
                 _tsecs = int((_tout_dt - _dtnow.now()).total_seconds())
                 st.warning("⏳ **You have been temporarily timed out by the administrator.**")
@@ -894,53 +903,14 @@ for k, v in [("api_key", _saved_key), ("titan_memory", _saved_memory),
              ("_sys_health_cache", {}),
              ("news_mode", False), ("news_cache", {}),
              ("_pending_pdf", None),
+             ("openai_key", _load_img_key()),
+             ("image_cache", {}),
              ("connected_apps", _load_connected_apps()),
              ("show_titan_features", False),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ── Name prompt (web users) ───────────────────────────────────────────────────
-_web_name = st.session_state.get("titan_memory", {}).get("name", "").strip()
-if not _web_name:
-    st.markdown("""
-    <div style='text-align:center;padding:60px 20px 20px'>
-    <div style='font-size:80px'>🔱</div>
-    <div style='font-family:Orbitron,monospace;font-weight:900;font-size:2rem;
-    background:linear-gradient(90deg,#00e5d0,#00b4d8,#0077b6);
-    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-    margin:10px 0'>TITAN ULTRA</div>
-    <div style='color:#6b7a99;margin-bottom:30px'>What is your name?</div>
-    </div>
-    """, unsafe_allow_html=True)
-    _col1, _col2, _col3 = st.columns([1, 2, 1])
-    with _col2:
-        _entered_name = st.text_input("", placeholder="Type your name here...",
-                                       label_visibility="collapsed", key="_name_input_web")
-        if st.button("Start Chatting →", use_container_width=True, key="_name_submit_web"):
-            if _entered_name.strip():
-                _mem = st.session_state.get("titan_memory", {})
-                _mem["name"] = _entered_name.strip()
-                st.session_state["titan_memory"] = _mem
-                _save_memory(_mem)
-                _register_this_device(_entered_name.strip())
-                st.rerun()
-            else:
-                st.warning("Please enter your name.")
-    st.stop()
-
-# ── Mobile detection ──────────────────────────────────────────────────────────
-import streamlit.components.v1 as _cv1_mob
-_cv1_mob.html("""
-<script>
-var isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
-if(isMobile){
-    window.parent.postMessage({type:'streamlit:setComponentValue', value: true}, '*');
-}
-</script>
-""", height=0)
-if "_is_mobile" not in st.session_state:
-    st.session_state["_is_mobile"] = False
 
 def cur_msgs():
     return st.session_state.chat_sessions[st.session_state.active_session]["messages"]
@@ -971,8 +941,81 @@ def set_msgs(msgs):
 
 # ── Image generation background poller ────────────────────────────────────────
 
-ollama_models = []
-ollama_reachable = False
+# ── Ollama check ──────────────────────────────────────────────────────────────
+OLLAMA_SUGGESTED = {
+    "qwen3:4b":   "🧠 Qwen 3 4B — Reasoning ON · 32K context",
+    "moondream":  "👁️ Moondream — Vision · Fast",
+}
+
+@st.cache_data(ttl=30)
+def check_ollama():
+    try:
+        r = requests.get("http://localhost:11434/api/tags", timeout=5)
+        if r.status_code == 200:
+            return True, [m["name"] for m in r.json().get("models", [])]
+    except Exception:
+        pass
+    return False, []
+
+def start_ollama_background():
+    """Try to launch the Ollama background service if it's installed but not running."""
+    import os as _os_o, subprocess as _sp_o, time as _t_o
+    _candidates = [
+        _os_o.path.expandvars(r'%LOCALAPPDATA%\Programs\Ollama\ollama app.exe'),
+        _os_o.path.expandvars(r'%LOCALAPPDATA%\Programs\Ollama\ollama.exe'),
+        r'C:\Program Files\Ollama\ollama app.exe',
+        r'C:\Program Files\Ollama\ollama.exe',
+    ]
+    _exe = next((p for p in _candidates if _os_o.path.exists(p)), None)
+    if not _exe:
+        # Fall back to PATH lookup
+        try:
+            _r = _sp_o.run(['where', 'ollama'], capture_output=True, text=True, timeout=3)
+            if _r.returncode == 0 and _r.stdout.strip():
+                _exe = _r.stdout.strip().splitlines()[0].strip()
+        except Exception:
+            pass
+    if not _exe:
+        return False
+    try:
+        _flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+        if _exe.lower().endswith('ollama app.exe'):
+            _sp_o.Popen([_exe], creationflags=_flags,
+                        stdout=_sp_o.DEVNULL, stderr=_sp_o.DEVNULL, close_fds=True)
+        else:
+            _sp_o.Popen([_exe, 'serve'], creationflags=_flags,
+                        stdout=_sp_o.DEVNULL, stderr=_sp_o.DEVNULL, close_fds=True)
+        # Wait briefly for it to come up
+        for _ in range(10):
+            _t_o.sleep(0.5)
+            try:
+                if requests.get("http://localhost:11434/api/tags", timeout=2).status_code == 200:
+                    return True
+            except Exception:
+                continue
+        return False
+    except Exception:
+        return False
+
+def pull_ollama_model(name):
+    try:
+        with requests.post("http://localhost:11434/api/pull",
+                           json={"name": name, "stream": False}, timeout=600) as r:
+            return r.status_code == 200
+    except Exception:
+        return False
+
+if "ollama_models" not in st.session_state:
+    _r, _m = check_ollama()
+    if not _r:
+        # Auto-launch Ollama on first run if it's installed
+        if start_ollama_background():
+            check_ollama.clear()
+            _r, _m = check_ollama()
+    st.session_state.ollama_reachable = _r
+    st.session_state.ollama_models = _m
+ollama_models = st.session_state.ollama_models
+ollama_reachable = st.session_state.get("ollama_reachable", False)
 
 # ── Internet check ────────────────────────────────────────────────────────────
 def _has_internet():
@@ -1013,70 +1056,52 @@ st.html("""
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("""
-    <div style='text-align:center;padding:10px 0 8px'>
-        <div style='font-family:Orbitron,monospace;font-size:1.1rem;font-weight:900;
-        background:linear-gradient(90deg,#00e5d0,#00b4d8,#0077b6,#023e8a,#03045e);
-        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-        filter:drop-shadow(0 0 10px #00c4cc88) drop-shadow(0 0 20px #0077b666)'>🔱 TITAN ULTRA</div>
-        <div style='font-family:Orbitron,monospace;font-size:0.6rem;font-weight:700;
-        letter-spacing:3px;margin-top:4px;
-        background:linear-gradient(90deg,#ff6b00,#ffd000,#aaff00,#00e5ff,#a855f7,#ec4899,#ff006e,#ff6b00);
-        background-size:400%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;
-        background-clip:text;animation:titanflow 3s linear infinite'>BEYOND JEE · BEYOND GPT-4</div>
-    </div>""", unsafe_allow_html=True)
+    # ── Tiny header ───────────────────────────────────────────────────────────
+    st.markdown("<div style='font-size:.6rem;color:#4a5568;letter-spacing:2px;padding:6px 2px 8px'>🔱 TITAN ULTRA</div>", unsafe_allow_html=True)
 
-    # ── Page switcher ─────────────────────────────────────────────────────────
-    if st.button("➕ New Chat", use_container_width=True):
-        # Save current chat to history before starting fresh
+    # ── Primary nav items ─────────────────────────────────────────────────────
+    if st.button("new chat", use_container_width=True, key="_nav_newchat"):
         _save_chat_sessions()
         import time as _t
         st.session_state.chat_sessions = [{"id": int(_t.time()), "title": "New Chat", "messages": []}]
         st.session_state.active_session = 0
+        st.session_state.notebook_mode = False
+        st.session_state.show_titan_features = False
         st.rerun()
 
-    if st.button("🖥️ Launch TITAN CODE", use_container_width=True,
-                 help="Open Titan Code — AI terminal coding assistant"):
-        import platform as _plt
-        _is_mobile = st.session_state.get("_is_mobile", False)
-        if _is_mobile:
-            st.warning("⚠️ TITAN CODE can only be launched on computers and laptops.")
+    if st.button("launch titan code", use_container_width=True, key="_nav_tc"):
+        import subprocess as _sp
+        from pathlib import Path as _Path
+        _tc_path = _Path.home() / "Documents" / "important" / "TITAN_CODE.py"
+        if _tc_path.exists():
+            _bat = _Path.home() / ".titan_ultra" / "launch_titan_code.bat"
+            _bat.parent.mkdir(parents=True, exist_ok=True)
+            _bat.write_text(f'@echo off\ntitle TITAN CODE\ncolor 0B\npython "{_tc_path}"\npause\n', encoding="utf-8")
+            _sp.Popen(f'start "TITAN CODE" "{_bat}"', shell=True)
         else:
-            import subprocess as _sp, sys as _sys
-            from pathlib import Path as _Path
-            _titan_dir = _Path.home() / ".titan_ultra"
-            _tc_path   = _titan_dir / "TITAN_CODE.py"
-            if not _tc_path.exists():
-                _tc_path = _Path.home() / "Documents" / "important" / "TITAN_CODE.py"
-            if _tc_path.exists():
-                _bat = _titan_dir / "launch_titan_code.bat"
-                _bat.write_text(
-                    f'@echo off\ntitle TITAN CODE\ncolor 0B\npython "{_tc_path}"\npause\n',
-                    encoding="utf-8"
-                )
-                _sp.Popen(f'start "TITAN CODE" "{_bat}"', shell=True)
-                st.toast("🖥️ Titan Code launched in a new terminal!", icon="⚡")
-            else:
-                st.error("TITAN CODE not found. Please re-run the setup command.")
+            st.error("TITAN CODE not found.")
 
-    # ── Push to GitHub (owner only) ───────────────────────────────────────────
     if _IS_OWNER:
-        if st.button("☁️ Push Update to GitHub", use_container_width=True,
-                     help="Push latest TITAN_ULTRA.py & TITAN_CODE.py to GitHub"):
-            import subprocess as _ghsp
+        if st.button("push update to github", use_container_width=True, key="_nav_gh"):
+            import subprocess as _ghsp, shutil as _ghsh
             from pathlib import Path as _ghPath
-            _src_dir = _ghPath(r"D:\T.U")
-            _ver_file = _src_dir / "version.txt"
+            _git_dir = _ghPath("D:/T.U")
+            _src_dir = _ghPath.home() / "Documents" / "important"
+            _ver_file = _git_dir / "version.txt"
             try:
-                _cur_ver = float(_ver_file.read_text().strip()) if _ver_file.exists() else 1.0
-                _new_ver = round(_cur_ver + 0.1, 1)
+                _cur_ver = int(_ver_file.read_text().strip()) if _ver_file.exists() else 40
+                _new_ver = _cur_ver + 1
                 _ver_file.write_text(str(_new_ver))
             except Exception:
                 _new_ver = "?"
+            for _fn in ("TITAN_ULTRA.py", "TITAN_CODE.py"):
+                _sf = _src_dir / _fn
+                if _sf.exists():
+                    _ghsh.copy2(str(_sf), str(_git_dir / _fn))
             _git_cmds = [
-                f'git -C "{_src_dir}" add TITAN_ULTRA.py TITAN_CODE.py titan_unlock.py version.txt',
-                f'git -C "{_src_dir}" commit -m "Update v{_new_ver}"',
-                f'git -C "{_src_dir}" push',
+                f'git -C "{_git_dir}" add TITAN_ULTRA.py TITAN_CODE.py version.txt',
+                f'git -C "{_git_dir}" commit -m "Update v{_new_ver}"',
+                f'git -C "{_git_dir}" push origin master',
             ]
             _git_ok = True
             for _cmd in _git_cmds:
@@ -1086,116 +1111,142 @@ with st.sidebar:
                     _git_ok = False
                     break
             if _git_ok:
-                st.toast(f"✅ Pushed v{_new_ver} to GitHub!", icon="☁️")
+                st.toast(f"Pushed v{_new_ver}!")
 
-    # ── Chat History ──────────────────────────────────────────────────────────
-    _hist_all = _load_history()
-    _hist_label = f"Chat History  ({len(_hist_all)})" if _hist_all else "Chat History"
-    with st.expander(_hist_label, expanded=False):
-        if not _hist_all:
-            st.markdown("<div style='font-size:.75rem;color:#6b7a99;padding:6px 0'>"
-                        "No history yet. Start chatting!</div>", unsafe_allow_html=True)
-        else:
-            # Search box
-            _hist_search = st.text_input("Search history", placeholder="Search...",
-                                         key="_hist_search", label_visibility="collapsed")
-            _hist_filtered = [s for s in _hist_all
-                              if _hist_search.lower() in s.get("title","").lower()] if _hist_search else _hist_all
+    _tf_label = "← back to chat" if st.session_state.show_titan_features else "titan features"
+    if st.button(_tf_label, use_container_width=True, key="_nav_tf"):
+        st.session_state.show_titan_features = not st.session_state.show_titan_features
+        if st.session_state.show_titan_features:
+            st.session_state.notebook_mode = False
+        st.rerun()
 
-            if not _hist_filtered:
-                st.caption("No results.")
-            else:
-                for _hs in _hist_filtered[:60]:
-                    _hs_date = _hs.get("date","")[:10] if _hs.get("date") else ""
-                    _hs_count = len(_hs.get("messages", []))
-                    _hs_msgs_label = f"{_hs_count // 2} msg{'s' if _hs_count // 2 != 1 else ''}"
-                    _col1, _col2, _col3 = st.columns([4, 1, 1])
-                    _col1.markdown(
-                        f"<div style='font-size:.72rem;color:#c9d8f0;line-height:1.3'>"
-                        f"<b>{_hs.get('title','Chat')[:30]}</b><br>"
-                        f"<span style='color:#6b7a99'>{_hs_date} · {_hs_msgs_label}</span></div>",
-                        unsafe_allow_html=True
-                    )
-                    if _col2.button("↗", key=f"_hs_open_{_hs.get('id',0)}", help="Open this chat"):
-                        _save_chat_sessions()  # save current first
-                        st.session_state.chat_sessions = [_hs]
-                        st.session_state.active_session = 0
-                        st.rerun()
-                    if _col3.button("✕", key=f"_hs_del_{_hs.get('id',0)}", help="Delete this chat"):
-                        _delete_history_session(_hs.get("id"))
-                        st.rerun()
+    # ── Space ─────────────────────────────────────────────────────────────────
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
 
-    st.divider()
+    _nb_label = "← back to chat" if st.session_state.notebook_mode else "titan notebook"
+    if st.button(_nb_label, use_container_width=True, key="_nav_nb"):
+        st.session_state.notebook_mode = not st.session_state.notebook_mode
+        if st.session_state.notebook_mode:
+            st.session_state.show_titan_features = False
+        st.rerun()
 
-    st.divider()
-
-    # Groq API Key
-    st.markdown("<div style='font-size:.7rem;color:#4a6a8f;letter-spacing:2px;margin-bottom:4px'>GROQ API KEY</div>", unsafe_allow_html=True)
-    key_in = st.text_input("API Key", type="password", label_visibility="collapsed",
-                           value=st.session_state.api_key, placeholder="gsk_...")
-    if key_in and key_in != st.session_state.api_key:
-        st.session_state.api_key = key_in
-        _save_key(key_in)
-        st.session_state.pop("_key_valid", None)  # recheck validity on next render
-    elif key_in:
-        st.session_state.api_key = key_in
-
-    # Quick key validity check — runs once per session, shows green/red status
-    if st.session_state.api_key and "_key_valid" not in st.session_state:
-        try:
-            _tc = Groq(api_key=st.session_state.api_key)
-            _tc.models.list()
-            st.session_state["_key_valid"] = True
-        except Exception as _ke:
-            _kes = str(_ke).lower()
-            if any(x in _kes for x in ("auth", "401", "invalid", "api key", "unauthorized")):
-                st.session_state["_key_valid"] = False
-            else:
-                st.session_state["_key_valid"] = True  # network/other error — assume key is ok
-
-    if st.session_state.api_key:
-        if st.session_state.get("_key_valid") is True:
-            st.markdown("<div style='font-size:.68rem;color:#22c55e;margin:2px 0 6px 2px'>✅ API key is valid</div>", unsafe_allow_html=True)
-        elif st.session_state.get("_key_valid") is False:
-            st.markdown("<div style='font-size:.68rem;color:#ef4444;margin:2px 0 6px 2px'>❌ API key is INVALID — enter a new key from console.groq.com</div>", unsafe_allow_html=True)
-    elif not st.session_state.api_key:
-        st.markdown("<div style='font-size:.68rem;color:#f59e0b;margin:2px 0 6px 2px'>⚠️ No key — get a free key at console.groq.com</div>", unsafe_allow_html=True)
-
-    provider = "Groq"
-
+    # ── AI Model selector (owner only) ────────────────────────────────────────
     if _IS_OWNER:
-        model_name = st.selectbox("Model", list(GROQ_MODELS.keys()), label_visibility="collapsed")
-        model_id   = GROQ_MODELS[model_name]
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:.6rem;color:#4a5568;letter-spacing:1px;padding:0 2px'>ai model</div>", unsafe_allow_html=True)
+        model_name = st.selectbox("Model", list(GROQ_MODELS.keys()), label_visibility="collapsed",
+                                  key="_model_sel")
+        model_id = GROQ_MODELS[model_name]
     else:
         model_name = list(GROQ_MODELS.keys())[0]
         model_id   = GROQ_MODELS[model_name]
 
-    # Model info box — owner only
-    if _IS_OWNER and provider == "Groq":
-        if model_id in ("meta-llama/llama-4-maverick-17b-128e-instruct", "meta-llama/llama-4-scout-17b-16e-instruct"):
-            st.markdown("""<div style='background:linear-gradient(135deg,rgba(0,80,255,0.35),rgba(0,150,255,0.25));
-            border:1px solid rgba(0,150,255,0.85);border-radius:8px;padding:8px 12px;margin:4px 0 8px'>
-            <b style='font-size:1.1rem;color:#60b4ff;letter-spacing:2px'>👑 TITAN PRIME</b><br>
-            <span style='font-size:.82rem;color:#93c5fd'>Meta Llama 4 Maverick · 128 Experts · GPT-OSS 120B<br>
-            Strongest open-source model · Beats GPT-4o &amp; Gemini<br>
-            Handles everything — coding, math, research, JEE, PhD</span>
-            </div>""", unsafe_allow_html=True)
-        elif model_id == "deepseek-r1-distill-llama-70b":
-            st.markdown("""<div style='background:linear-gradient(135deg,rgba(100,180,255,0.18),rgba(150,210,255,0.12));
-            border:1px solid rgba(147,197,253,0.55);border-radius:8px;padding:8px 12px;margin:4px 0 8px'>
-            <b style='font-size:.72rem;color:#bae6fd'>🏆 MOST POWERFUL REASONING</b><br>
-            <span style='font-size:.68rem;color:#7dd3fc'>DeepSeek R1 · 70B · Chain-of-thought Reasoning<br>
-            Beats GPT-4o &amp; Gemini on Math, Science &amp; Olympiad<br>
-            Handles IMO, IPhO, JEE Advanced, PhD-level research</span>
-            </div>""", unsafe_allow_html=True)
+    # ── History — always open, flat list ─────────────────────────────────────
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:.6rem;color:#4a5568;letter-spacing:1px;padding:0 2px 4px'>history</div>", unsafe_allow_html=True)
 
-    st.divider()
+    _hist_all = _load_history()
+    if not _hist_all:
+        st.markdown("<div style='font-size:.72rem;color:#4a5568;padding:2px 4px'>No chats yet</div>", unsafe_allow_html=True)
+    else:
+        for _hs in _hist_all[:80]:
+            if st.button(_hs.get("title","Chat")[:42], key=f"_hn_{_hs.get('id',0)}",
+                         use_container_width=True):
+                _save_chat_sessions()
+                st.session_state.chat_sessions = [_hs]
+                st.session_state.active_session = 0
+                st.session_state.notebook_mode = False
+                st.session_state.show_titan_features = False
+                st.rerun()
 
-    if st.button("Clear Current Chat", use_container_width=True):
-        import time as _t
-        st.session_state.chat_sessions = [{"id": int(_t.time()), "title": "New Chat", "messages": []}]
-        st.session_state.active_session = 0
-        st.rerun()
+    # ── Hidden settings at bottom (API key, owner unlock) ─────────────────────
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+    with st.expander("···", expanded=False):
+        key_in = st.text_input("API Key", type="password", label_visibility="collapsed",
+                               value=st.session_state.api_key, placeholder="Groq API key  gsk_...")
+        if key_in and key_in != st.session_state.api_key:
+            st.session_state.api_key = key_in
+            _save_key(key_in)
+            st.session_state.pop("_key_valid", None)
+        elif key_in:
+            st.session_state.api_key = key_in
+        if st.session_state.api_key and "_key_valid" not in st.session_state:
+            try:
+                _tc = Groq(api_key=st.session_state.api_key)
+                _tc.models.list()
+                st.session_state["_key_valid"] = True
+            except Exception as _ke:
+                _kes = str(_ke).lower()
+                st.session_state["_key_valid"] = False if any(
+                    x in _kes for x in ("auth","401","invalid","api key","unauthorized")
+                ) else True
+        if st.session_state.get("_key_valid") is False:
+            st.markdown("<div style='font-size:.65rem;color:#ef4444'>Invalid key</div>", unsafe_allow_html=True)
+        if not _IS_OWNER:
+            _ul_code = st.text_input("", type="password", placeholder="Owner code",
+                                     label_visibility="collapsed", key="_owner_unlock_input")
+            if st.button("Unlock", key="_owner_unlock_btn", use_container_width=True):
+                _entered_hash = _hlib_owner.sha256(_ul_code.strip().encode()).hexdigest()
+                if _entered_hash == _OWNER_HASH:
+                    _OWNER_AUTH_FILE.parent.mkdir(parents=True, exist_ok=True)
+                    _OWNER_AUTH_FILE.write_text(_entered_hash)
+                    st.rerun()
+                else:
+                    st.error("Wrong code.")
+        if st.button("Clear Current Chat", use_container_width=True, key="_clr_chat"):
+            import time as _t
+            st.session_state.chat_sessions = [{"id": int(_t.time()), "title": "New Chat", "messages": []}]
+            st.session_state.active_session = 0
+            st.rerun()
+
+    # ── Titan Devices (owner only) ────────────────────────────────────────────
+    if _IS_OWNER:
+        with st.expander("Titan Devices", expanded=False):
+            if not _registry_ready():
+                st.warning("Set up Gist to see devices.")
+            else:
+                if st.button("Refresh", key="_td_refresh", use_container_width=True):
+                    _fetch_registry_cached.clear()
+                _td_all = _load_registry()
+                if not _td_all:
+                    st.caption("No devices registered yet.")
+                else:
+                    _td_search = st.text_input("Search by name", placeholder="Type a name...",
+                                               key="_td_search", label_visibility="collapsed")
+                    _td_filtered = {
+                        did: dev for did, dev in _td_all.items()
+                        if _td_search.lower() in dev.get("name", "").lower()
+                    } if _td_search else _td_all
+                    st.markdown(f"<div style='font-size:.7rem;color:#6b7a99'>{len(_td_all)} device(s)</div>", unsafe_allow_html=True)
+                    for _did, _dev in _td_filtered.items():
+                        _dname  = _dev.get("name", "Unknown")
+                        _dlast  = _dev.get("last_seen", "")[:10]
+                        _tout_s = _dev.get("timeout_until")
+                        _timed_out = False
+                        if _tout_s:
+                            from datetime import datetime as _dtck
+                            _timed_out = _dtck.now() < _dtck.fromisoformat(_tout_s)
+                        _status = "Timed Out" if _timed_out else "Active"
+                        st.markdown(f"**{_dname}** — {_status}  \n<span style='font-size:.65rem;color:#6b7a99'>Last seen: {_dlast} · ID: {_did[:8]}…</span>", unsafe_allow_html=True)
+                        _c1, _c2 = st.columns([2, 1])
+                        _tout_hrs = _c1.number_input("Hours", min_value=0, max_value=720,
+                                                     value=0, step=1, key=f"_td_thr_{_did}",
+                                                     label_visibility="collapsed")
+                        if _c2.button("Timeout", key=f"_td_tout_{_did}", use_container_width=True):
+                            from datetime import datetime as _dtd, timedelta as _tdd
+                            if _tout_hrs > 0:
+                                _td_all[_did]["timeout_until"] = (_dtd.now() + _tdd(hours=_tout_hrs)).isoformat()
+                                _save_registry(_td_all)
+                                st.rerun()
+                        if _timed_out:
+                            if st.button("Remove Timeout", key=f"_td_clr_{_did}", use_container_width=True):
+                                _td_all[_did]["timeout_until"] = None
+                                _save_registry(_td_all)
+                                st.rerun()
+                        st.markdown("---")
+
+    # Provider is always Groq
+    provider = "Groq"
 
     # Memory stays hidden from sidebar (auto-saves in background)
     _mem = st.session_state.titan_memory
@@ -1207,76 +1258,29 @@ with st.sidebar:
     if "pending_vision" not in st.session_state:
         st.session_state.pending_vision = None
 
-    st.divider()
-
-    # Screenshot → PDF
-    pc1, pc2 = st.columns([3,2])
-    pdf_upload = pc1.file_uploader("Image", type=["png","jpg","jpeg","webp","gif"],
-                                   key="_pdf_img", label_visibility="collapsed")
-    if pc2.button("Convert to PDF", key="_pdf_btn"):
-        if pdf_upload:
-            try:
-                from PIL import Image as _PIL
-                from reportlab.lib.pagesizes import A4
-                from reportlab.platypus import SimpleDocTemplate, Image as _RLImage
-                img = _PIL.open(pdf_upload)
-                if img.mode not in ("RGB","L"): img = img.convert("RGB")
-                img_buf = io.BytesIO()
-                img.save(img_buf, format="PNG")
-                img_buf.seek(0)
-                buf = io.BytesIO()
-                doc = SimpleDocTemplate(buf, pagesize=A4,
-                                        leftMargin=20, rightMargin=20,
-                                        topMargin=20, bottomMargin=20)
-                page_w = A4[0] - 40
-                page_h = A4[1] - 40
-                iw, ih = img.size
-                scale = min(page_w / iw, page_h / ih)
-                rl_img = _RLImage(img_buf, width=iw*scale, height=ih*scale)
-                doc.build([rl_img])
-                buf.seek(0)
-                fname = pdf_upload.name.rsplit(".",1)[0] + ".pdf"
-                st.sidebar.success(f"✅ {fname} ready!")
-                st.sidebar.download_button("⬇️ Download PDF", buf.getvalue(),
-                                           fname, "application/pdf", key="_pdf_dl")
-            except Exception as e:
-                st.sidebar.error(f"Error: {e}")
-        else:
-            st.sidebar.warning("Upload an image first")
-
-    st.divider()
-    _nb_label = "Back to Chat" if st.session_state.notebook_mode else "Titan Notebook"
-    if st.button(_nb_label, use_container_width=True, key="_nb_btn_btm"):
-        st.session_state.notebook_mode = not st.session_state.notebook_mode
-        if st.session_state.notebook_mode:
-            st.session_state.show_titan_features = False
-        st.rerun()
-
-    _tf_label = "Back to Chat" if st.session_state.show_titan_features else "Titan Features"
-    if st.button(_tf_label, use_container_width=True, key="_tf_btn"):
-        st.session_state.show_titan_features = not st.session_state.show_titan_features
-        if st.session_state.show_titan_features:
-            st.session_state.notebook_mode = False
-        st.rerun()
-
-    # Titan Devices panel (owner only)
-    if _IS_OWNER and _registry_ready():
+    # ── Titan Devices (owner only, bottom of sidebar) ─────────────────────────
+    if _IS_OWNER:
         st.divider()
-        with st.expander("🖥️ Titan Devices", expanded=False):
-            if st.button("🔄 Refresh", key="_td_refresh", use_container_width=True):
-                _fetch_registry_cached.clear()
-            _td_all = _load_registry()
-            if not _td_all:
-                st.caption("No devices registered yet.")
+        with st.expander("Titan Devices", expanded=False):
+            if not _registry_ready():
+                st.warning("Set up Gist to see devices.\nPaste REGISTRY_GIST_ID and REGISTRY_TOKEN into TITAN_ULTRA.py.")
             else:
+              if st.button("Refresh", key="_td_refresh", use_container_width=True):
+                _fetch_registry_cached.clear()
+              _td_all = _load_registry()
+              if not _td_all:
+                st.caption("No devices registered yet.")
+              else:
                 _td_search = st.text_input("Search by name", placeholder="Type a name...",
                                            key="_td_search", label_visibility="collapsed")
                 _td_filtered = {
                     did: dev for did, dev in _td_all.items()
                     if _td_search.lower() in dev.get("name", "").lower()
                 } if _td_search else _td_all
+
                 st.markdown(f"<div style='font-size:.7rem;color:#6b7a99;margin-bottom:6px'>"
                             f"{len(_td_all)} device(s) registered</div>", unsafe_allow_html=True)
+
                 for _did, _dev in _td_filtered.items():
                     _dname  = _dev.get("name", "Unknown")
                     _dlast  = _dev.get("last_seen", "")[:10]
@@ -1285,58 +1289,34 @@ with st.sidebar:
                     if _tout_s:
                         from datetime import datetime as _dtck
                         _timed_out = _dtck.now() < _dtck.fromisoformat(_tout_s)
-                    _status = "⏳ Timed Out" if _timed_out else "🟢 Active"
-                    st.markdown(
-                        f"**{_dname}** — {_status}  \n"
-                        f"<span style='font-size:.65rem;color:#6b7a99'>Last seen: {_dlast} · ID: {_did[:8]}…</span>",
-                        unsafe_allow_html=True)
-                    _c1, _c2 = st.columns([2, 1])
-                    _tout_hrs = _c1.number_input("Hours", min_value=0, max_value=720,
-                                                 value=0, step=1, key=f"_td_thr_{_did}",
-                                                 label_visibility="collapsed")
-                    if _c2.button("⏱ Timeout", key=f"_td_tout_{_did}", use_container_width=True):
-                        if _tout_hrs > 0:
+                    _status = "Timed Out" if _timed_out else "Active"
+                    with st.container():
+                        st.markdown(
+                            f"**{_dname}** — {_status}  \n"
+                            f"<span style='font-size:.65rem;color:#6b7a99'>Last seen: {_dlast} · ID: {_did[:8]}…</span>",
+                            unsafe_allow_html=True
+                        )
+                        _c1, _c2 = st.columns([2, 1])
+                        _tout_hrs = _c1.number_input("Hours to timeout", min_value=0, max_value=720,
+                                                     value=0, step=1, key=f"_td_thr_{_did}",
+                                                     label_visibility="collapsed")
+                        if _c2.button("Timeout", key=f"_td_tout_{_did}", use_container_width=True):
                             from datetime import datetime as _dtd, timedelta as _tdd
-                            _td_all[_did]["timeout_until"] = (_dtd.now() + _tdd(hours=_tout_hrs)).isoformat()
-                            _save_registry(_td_all)
-                            st.rerun()
-                    if _timed_out:
-                        if st.button("✅ Remove Timeout", key=f"_td_clr_{_did}", use_container_width=True):
-                            _td_all[_did]["timeout_until"] = None
-                            _save_registry(_td_all)
-                            st.rerun()
-                    st.markdown("---")
+                            if _tout_hrs > 0:
+                                _td_all[_did]["timeout_until"] = (_dtd.now() + _tdd(hours=_tout_hrs)).isoformat()
+                                _save_registry(_td_all)
+                                st.rerun()
+                        if _timed_out:
+                            if st.button(f"Remove Timeout", key=f"_td_clr_{_did}", use_container_width=True):
+                                _td_all[_did]["timeout_until"] = None
+                                _save_registry(_td_all)
+                                st.rerun()
+                        st.markdown("---")
 
-
-# ── First-time name gate ───────────────────────────────────────────────────────
-if not st.session_state.titan_memory.get("name"):
-    st.markdown("""
-    <div style='text-align:center;padding:80px 0 20px'>
-        <div style='font-size:80px;line-height:1.1'>🔱</div>
-        <div style='font-family:Orbitron,monospace;font-weight:900;font-size:2rem;
-        letter-spacing:4px;margin:12px 0 6px;
-        background:linear-gradient(90deg,#00e5d0,#a855f7);
-        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text'>
-        TITAN ULTRA</div>
-        <div style='font-size:1.1rem;color:#ffffff;margin:10px 0 28px'>
-        What's your name?</div>
-    </div>
-    """, unsafe_allow_html=True)
-    _wc1, _wc2, _wc3 = st.columns([1, 2, 1])
-    with _wc2:
-        _wn = st.text_input("name", placeholder="Enter your name...",
-                            key="_welcome_name", label_visibility="collapsed")
-        if st.button("Continue", use_container_width=True, key="_welcome_continue"):
-            if _wn.strip():
-                st.session_state.titan_memory["name"] = _wn.strip()
-                _save_memory(st.session_state.titan_memory)
-                st.rerun()
-            else:
-                st.warning("Please enter your name.")
-    st.stop()
 
 # ── Header ────────────────────────────────────────────────────────────────────
 _user_name = st.session_state.titan_memory.get("name", "")
+_greeting = f"Hello, <span style='background:linear-gradient(90deg,#00e5d0,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:700'>{_user_name}</span>" if _user_name else "Hello"
 st.markdown(f"""
 <div style='text-align:center;padding:20px 0 10px'>
     <div style='font-size:90px;line-height:1.1;display:inline-block;
@@ -1346,10 +1326,7 @@ st.markdown(f"""
     background:linear-gradient(90deg,#00e5d0,#a855f7);
     -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text'>
     TITAN ULTRA</div>
-    <div style='font-size:.9rem;color:#ffffff;margin:4px 0 4px'>
-    Hello, <span style='background:linear-gradient(90deg,#00e5d0,#a855f7);
-    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-    font-weight:700'>{_user_name}</span></div>
+    <div style='font-size:.9rem;color:#ffffff;margin:4px 0 4px'>{_greeting}</div>
     <div style='font-size:.72rem;color:#6b7a99;letter-spacing:1.5px;margin:0 0 4px'>
     Your offline and online assistance</div>
     <div style='font-family:Orbitron,monospace;font-size:.75rem;font-weight:700;
@@ -1941,8 +1918,11 @@ if st.session_state.get("show_titan_features"):
         Your selection is saved automatically.</div>""",
         unsafe_allow_html=True)
 
+        # ── Already connected: show logos ─────────────────────────────────────
         _already = st.session_state.get("connected_apps", [])
         if _already:
+            _ALL_DOMAINS = {}
+            # domain lookup built dynamically from catalog below
             _DOMAIN_MAP = {
                 "Facebook":"facebook.com","Instagram":"instagram.com","Twitter / X":"x.com",
                 "LinkedIn":"linkedin.com","Snapchat":"snapchat.com","TikTok":"tiktok.com",
@@ -2034,6 +2014,7 @@ if st.session_state.get("show_titan_features"):
                 unsafe_allow_html=True
             )
 
+        # ── Search bar ────────────────────────────────────────────────────────
         _tf_search = st.text_input(
             "🔍 Search apps",
             placeholder="Search by name (e.g. YouTube, Spotify, GitHub...)",
@@ -3026,9 +3007,44 @@ with st.expander("🌤️ Live Weather Search", expanded=bool(st.session_state.w
 
 
 
+def _is_system_health_request(text):
+    t = text.lower()
+    return any(k in t for k in (
+        'check my system', 'check system', 'system health', 'system check',
+        'check hardware', 'hardware health', 'system scan', 'scan my system',
+        'check my pc', 'pc health', 'laptop health', 'show my laptop',
+        'check inside', 'inside system', 'inside my laptop', 'laptop internals',
+        'check my laptop', 'system damage', 'any damage', 'damage in system',
+        'damage in my', 'check for damage', 'show damage', 'show system',
+        'hardware check', 'laptop check', 'computer health', 'cpu temperature',
+        'check temperature', 'check ram', 'check storage', 'check battery',
+        'show my pc', 'show my computer', 'inside of my pc', 'inside of my laptop',
+        'pc internals', 'computer internals', 'inside my computer', 'inside my pc',
+        'show pc inside', 'pc inside', 'laptop inside', 'inside part',
+        'scan system', 'scan pc', 'scan laptop', 'scan computer',
+        'check my computer', 'check inside my', 'show inside', 'view inside',
+        'what is inside my', 'what inside my', 'how is my system',
+        'how is my pc', 'how is my laptop', 'how is my computer',
+        'is my pc ok', 'is my laptop ok', 'is my system ok',
+        'any errors in my system', 'any errors in my pc', 'error in system',
+        'diagram of my', 'show a diagram of my', 'show diagram of my',
+        'system diagram', 'pc diagram', 'laptop diagram', 'inside diagram',
+        'show my system', 'show my pc health', 'show my laptop health',
+        'my system status', 'my pc status', 'my laptop status',
+        'how much ram', 'how many ram', 'my ram', 'total ram', 'ram size',
+        'how many cpu', 'cpu cores', 'my cpu', 'my processor', 'cpu model',
+        'my laptop name', 'laptop name', 'laptop model', 'computer model', 'pc model',
+        'my pc name', 'my computer name', 'name of my laptop', 'name of my pc',
+        'what laptop', 'what pc', 'which laptop', 'which pc',
+        'disk space', 'storage space', 'free space', 'how much storage',
+    ))
+
+
 # ── Animated Diagrams (AI-generated) ─────────────────────────────────────────
 def _is_diagram_request(text):
     t = text.lower()
+    if _is_system_health_request(text):
+        return False
     return any(k in t for k in [
         'diagram','structure of','layers of','how does','how do','show me','draw',
         'illustrate','explain the structure','explain how','model of','system of',
@@ -3100,19 +3116,6 @@ def _generate_diagram_html(user_query):
 
 
 # ── Chat messages (shown in ALL modes) ───────────────────────────────────────
-def _is_system_health_request(text):
-    t = text.lower()
-    return any(k in t for k in (
-        'check my system', 'check system', 'system health', 'system check',
-        'check hardware', 'hardware health', 'system scan', 'scan my system',
-        'check my pc', 'pc health', 'laptop health', 'show my laptop',
-        'check inside', 'inside system', 'inside my laptop', 'laptop internals',
-        'check my laptop', 'system damage', 'any damage', 'damage in system',
-        'damage in my', 'check for damage', 'show damage', 'show system',
-        'hardware check', 'laptop check', 'computer health', 'cpu temperature',
-        'check temperature', 'check ram', 'check storage', 'check battery',
-    ))
-
 _msgs_list = cur_msgs()
 _last_asst_content = ""
 for _mi, msg in enumerate(_msgs_list):
@@ -3125,29 +3128,30 @@ for _mi, msg in enumerate(_msgs_list):
                 _shkey_d = _hlib_sh.md5(_prev["content"].encode()).hexdigest()
                 _sh_diag_html = st.session_state.get("_sys_health_cache", {}).get(_shkey_d, "")
                 if _sh_diag_html:
-                    _sh_escaped = _html_esc_sh.escape(_sh_diag_html, quote=True)
                     st.markdown(
-                        f'<iframe srcdoc="{_sh_escaped}" width="100%" height="400" '
-                        f'style="border:none;background:#070d1a;display:block;border-radius:12px;'
-                        f'margin:8px 0;" scrolling="no"></iframe>',
+                        "<div style='font-size:.72rem;color:#a78bfa;letter-spacing:2px;"
+                        "margin:6px 0 4px;font-weight:bold'>🖥️ YOUR PC HEALTH DIAGRAM — "
+                        "<span style='color:#00cc66'>GREEN = Good</span> · "
+                        "<span style='color:#ffaa00'>YELLOW = Warning</span> · "
+                        "<span style='color:#ff3333'>RED = Problem</span></div>",
                         unsafe_allow_html=True
                     )
+                    import streamlit.components.v1 as _cv1_sh
+                    _cv1_sh.html(_sh_diag_html, height=430, scrolling=False)
             # Animated diagram
             if _prev["role"] == "user" and _is_diagram_request(_prev["content"]):
                 import hashlib as _hlib_d, html as _html_esc_d
                 _dkey = _hlib_d.md5(_prev["content"].encode()).hexdigest()
                 _dhtml = st.session_state.diagram_cache.get(_dkey, "")
                 if _dhtml:
-                    _escaped = _html_esc_d.escape(_dhtml, quote=True)
-                    st.markdown(
-                        f'<iframe srcdoc="{_escaped}" width="100%" height="380" '
-                        f'style="border:none;background:#05080f;display:block;border-radius:12px;'
-                        f'margin:8px 0;" scrolling="no"></iframe>',
-                        unsafe_allow_html=True
-                    )
+                    import streamlit.components.v1 as _cv1_d
+                    _cv1_d.html(_dhtml, height=390, scrolling=False)
         # Strip ASCII art from AI response when a diagram is shown
         import re as _re_diag
         _content_show = msg["content"]
+        # Hide raw DALL-E image marker (image is rendered above)
+        if _re_diag.match(r'^\[DALLE_IMAGE:[a-f0-9]+\]$', _content_show.strip()):
+            _content_show = ""
         if msg["role"] == "assistant" and _mi > 0:
             _prev2 = _msgs_list[_mi - 1]
             if _prev2["role"] == "user" and _is_diagram_request(_prev2["content"]):
@@ -3386,6 +3390,7 @@ def _web_search(query, max_results=8):
         with DDGS() as ddgs:
             for r in ddgs.text(query, max_results=max_results * 2):
                 raw.append(r)
+        # Prefer trusted domains, filter scam URLs
         trusted = [r for r in raw if _is_trusted_url(r.get('href',''))]
         chosen = trusted if trusted else raw
         results = []
@@ -3576,11 +3581,13 @@ def _run_system_health():
     import platform as _pl
     _d = {
         'cpu_percent': 0, 'cpu_temp': None, 'cpu_cores': 1,
+        'cpu_name': _pl.processor() or 'Unknown CPU',
         'ram_percent': 0, 'ram_used_gb': 0, 'ram_total_gb': 0,
         'disk_percent': 0, 'disk_used_gb': 0, 'disk_total_gb': 0, 'disk_status': 'OK',
         'battery_percent': None, 'battery_plugged': None,
         'gpu_name': None, 'gpu_temp': None,
         'os': _pl.system(), 'machine': _pl.node(),
+        'laptop_model': 'Unknown',
     }
     try:
         try:
@@ -3613,6 +3620,22 @@ def _run_system_health():
         if _bat:
             _d['battery_percent'] = round(_bat.percent, 1)
             _d['battery_plugged'] = _bat.power_plugged
+    except Exception:
+        pass
+    try:
+        import subprocess as _sm
+        _mr = _sm.run(['wmic', 'computersystem', 'get', 'model'], capture_output=True, text=True, timeout=5)
+        _lines = [l.strip() for l in _mr.stdout.splitlines() if l.strip() and l.strip().lower() != 'model']
+        if _lines:
+            _d['laptop_model'] = _lines[0]
+    except Exception:
+        pass
+    try:
+        import subprocess as _sc
+        _cr = _sc.run(['wmic', 'cpu', 'get', 'name'], capture_output=True, text=True, timeout=5)
+        _clines = [l.strip() for l in _cr.stdout.splitlines() if l.strip() and l.strip().lower() != 'name']
+        if _clines:
+            _d['cpu_name'] = _clines[0]
     except Exception:
         pass
     try:
@@ -3694,6 +3717,8 @@ def _render_system_diagram(d):
         diag_html = f'<table style="width:100%;font-size:12px;border-collapse:collapse;color:#eee">{rows}</table>'
     gpu_lbl = d.get('gpu_name', 'GPU N/A')
     cpu_temp_lbl = f"{d['cpu_temp']:.0f}°C" if d.get('cpu_temp') else 'Temp N/A'
+    cpu_name_short = (d.get('cpu_name') or 'CPU')[:22]
+    laptop_model_lbl = (d.get('laptop_model') or d['machine'])[:28]
     return f"""<!DOCTYPE html>
 <html><head>
 <style>
@@ -3704,24 +3729,26 @@ body{{margin:0;background:#070d1a;font-family:'Courier New',monospace;color:#ccc
 .warn{{animation:pulse 1s ease-in-out infinite}}
 </style>
 </head><body>
-<svg width="640" height="330" viewBox="0 0 640 330">
-  <rect x="10" y="10" width="620" height="310" rx="10" fill="#080e1c" stroke="#1e2d45" stroke-width="2"/>
+<svg width="640" height="345" viewBox="0 0 640 345">
+  <rect x="10" y="10" width="620" height="325" rx="10" fill="#080e1c" stroke="#1e2d45" stroke-width="2"/>
   <g stroke="#111c2e" stroke-width="0.5">
     <line x1="10" y1="75" x2="630" y2="75"/>
     <line x1="10" y1="200" x2="630" y2="200"/>
-    <line x1="10" y1="280" x2="630" y2="280"/>
-    <line x1="215" y1="10" x2="215" y2="320"/>
-    <line x1="430" y1="10" x2="430" y2="320"/>
+    <line x1="10" y1="285" x2="630" y2="285"/>
+    <line x1="215" y1="10" x2="215" y2="335"/>
+    <line x1="430" y1="10" x2="430" y2="335"/>
   </g>
-  <text x="18" y="22" fill="#1e2d45" font-size="8">TITAN ULTRA · SYSTEM HEALTH BOARD · {d['machine']}</text>
+  <text x="18" y="22" fill="#40E0D0" font-size="9" font-weight="bold">🖥 {laptop_model_lbl}</text>
+  <text x="18" y="34" fill="#1e2d45" font-size="7">TITAN ULTRA · SYSTEM HEALTH BOARD · {d['machine']}</text>
 
   <!-- CPU -->
-  <rect x="25" y="28" width="170" height="145" rx="6" fill="#0a111e" stroke="{cc}" stroke-width="2.5" class="{'warn' if d['cpu_percent']>=85 else ''}"/>
-  <rect x="40" y="42" width="140" height="116" rx="4" fill="#0d1525" stroke="{cc}" stroke-width="1" opacity="0.5"/>
-  <rect x="65" y="58" width="90" height="74" rx="3" fill="#0f1e30" stroke="{cc}" stroke-width="1.5"/>
-  <text x="110" y="93" text-anchor="middle" fill="{cc}" font-size="12" font-weight="bold">CPU {d['cpu_percent']}%</text>
-  <text x="110" y="110" text-anchor="middle" fill="{tc}" font-size="10">{cpu_temp_lbl}</text>
-  <text x="110" y="128" text-anchor="middle" fill="#445" font-size="8">{d['cpu_cores']} cores</text>
+  <rect x="25" y="42" width="170" height="145" rx="6" fill="#0a111e" stroke="{cc}" stroke-width="2.5" class="{'warn' if d['cpu_percent']>=85 else ''}"/>
+  <rect x="40" y="56" width="140" height="116" rx="4" fill="#0d1525" stroke="{cc}" stroke-width="1" opacity="0.5"/>
+  <rect x="65" y="72" width="90" height="74" rx="3" fill="#0f1e30" stroke="{cc}" stroke-width="1.5"/>
+  <text x="110" y="95" text-anchor="middle" fill="{cc}" font-size="11" font-weight="bold">CPU {d['cpu_percent']}%</text>
+  <text x="110" y="110" text-anchor="middle" fill="{tc}" font-size="9">{cpu_temp_lbl}</text>
+  <text x="110" y="125" text-anchor="middle" fill="{cc}" font-size="7">{cpu_name_short}</text>
+  <text x="110" y="138" text-anchor="middle" fill="#445" font-size="7">{d['cpu_cores']} cores</text>
   {''.join(f'<rect x="{25+i*12}" y="173" width="8" height="6" rx="1" fill="{cc}" opacity="0.4"/>' for i in range(14))}
   <text x="110" y="188" text-anchor="middle" fill="#334" font-size="7">CPU SOCKET</text>
 
@@ -3805,6 +3832,25 @@ def _is_system_health_request(text):
         'damage in my', 'check for damage', 'show damage', 'show system',
         'hardware check', 'laptop check', 'computer health', 'cpu temperature',
         'check temperature', 'check ram', 'check storage', 'check battery',
+        'show my pc', 'show my computer', 'inside of my pc', 'inside of my laptop',
+        'pc internals', 'computer internals', 'inside my computer', 'inside my pc',
+        'show pc inside', 'pc inside', 'laptop inside', 'inside part',
+        'scan system', 'scan pc', 'scan laptop', 'scan computer',
+        'check my computer', 'check inside my', 'show inside', 'view inside',
+        'what is inside my', 'what inside my', 'how is my system',
+        'how is my pc', 'how is my laptop', 'how is my computer',
+        'is my pc ok', 'is my laptop ok', 'is my system ok',
+        'any errors in my system', 'any errors in my pc', 'error in system',
+        'diagram of my', 'show a diagram of my', 'show diagram of my',
+        'system diagram', 'pc diagram', 'laptop diagram', 'inside diagram',
+        'show my system', 'show my pc health', 'show my laptop health',
+        'my system status', 'my pc status', 'my laptop status',
+        'how much ram', 'how many ram', 'my ram', 'total ram', 'ram size',
+        'how many cpu', 'cpu cores', 'my cpu', 'my processor', 'cpu model',
+        'my laptop name', 'laptop name', 'laptop model', 'computer model', 'pc model',
+        'my pc name', 'my computer name', 'name of my laptop', 'name of my pc',
+        'what laptop', 'what pc', 'which laptop', 'which pc',
+        'disk space', 'storage space', 'free space', 'how much storage',
     ))
 
 
@@ -4783,11 +4829,179 @@ def call_groq(messages):
     _last_msg = str(_last_err)[:300] if _last_err else "Unknown error"
     raise RuntimeError(f"❌ All models failed. Last error: {_last_msg}")
 
+def _ollama_options(model_name: str) -> dict:
+    """Return speed-optimised generation options for each model."""
+    m = model_name.lower()
+    if "qwen" in m:
+        # Qwen3 fast mode: /no_think disables hidden chain-of-thought so the
+        # first token arrives immediately. Step-by-step quality comes from the
+        # system prompt, not slow internal reasoning.
+        return {
+            "num_ctx":        8192,    # plenty for any question, loads fast
+            "num_predict":    4096,    # long complete answers
+            "temperature":    0.7,
+            "top_p":          0.9,
+            "top_k":          40,
+            "repeat_penalty": 1.1,
+            "num_gpu":        -1,      # all GPU layers (auto CPU if no GPU)
+            "num_batch":      512,     # process 512 tokens at once — faster
+            "f16_kv":         True,    # FP16 KV-cache — saves RAM, faster
+        }
+    elif "moondream" in m:
+        return {
+            "num_ctx":        4096,
+            "num_predict":    1024,
+            "temperature":    0.3,
+            "top_p":          0.9,
+            "num_gpu":        -1,
+            "num_batch":      512,
+            "f16_kv":         True,
+        }
+    else:
+        return {
+            "num_ctx":        8192,
+            "num_predict":    4096,
+            "temperature":    0.7,
+            "top_p":          0.9,
+            "repeat_penalty": 1.1,
+            "num_gpu":        -1,
+            "num_batch":      512,
+            "f16_kv":         True,
+        }
+
+def _inject_thinking(messages: list, model_name: str) -> list:
+    """For Qwen3: inject /no_think so it skips hidden reasoning and answers immediately."""
+    if "qwen" not in model_name.lower():
+        return messages
+    msgs = [m.copy() for m in messages]
+    for i in range(len(msgs) - 1, -1, -1):
+        if msgs[i]["role"] == "user":
+            content = msgs[i]["content"]
+            if isinstance(content, str):
+                # strip any old /think or /no_think prefix first
+                stripped = content.strip()
+                for prefix in ("/think\n", "/no_think\n", "/think ", "/no_think "):
+                    if stripped.startswith(prefix):
+                        stripped = stripped[len(prefix):]
+                msgs[i]["content"] = "/no_think\n" + stripped
+            break
+    return msgs
+
+def _strip_think_tags(text: str) -> str:
+    """Remove <think>...</think> blocks that Qwen3 sometimes exposes."""
+    import re as _re_th
+    return _re_th.sub(r"<think>.*?</think>", "", text, flags=_re_th.DOTALL).strip()
+
+def call_ollama(messages, ollama_model=None):
+    import time as _t_ol
+    _model = ollama_model or model_id
+    full   = _build_full(messages, trim=20)
+    full   = _inject_thinking(full, _model)
+    # If there is a pending vision image, attach it to the last user message
+    _vis = st.session_state.get("pending_vision")
+    if _vis and full and full[-1]["role"] == "user":
+        _last = full[-1].copy()
+        _txt = _last["content"] if isinstance(_last["content"], str) else str(_last["content"])
+        if not _txt or _txt.startswith("[Image attached"):
+            _txt = "Read and write every single word visible in this image. Even if blurry, try your best. The text may be in any language — Hindi, English, Telugu, Tamil, Urdu, etc. Write the text exactly as it appears, then describe the image."
+        _last["content"] = _txt
+        _last["images"] = [_vis["b64"]]
+        full[-1] = _last
+    _url   = "http://localhost:11434/api/chat"
+    _payload = {"model": _model, "messages": full, "stream": False,
+                "options": _ollama_options(_model)}
+    for _attempt in range(3):
+        try:
+            r = requests.post(_url, json=_payload, timeout=600)
+            r.raise_for_status()
+            _data = r.json()
+            # Ollama /api/chat returns {"message": {"role":"assistant","content":"..."}}
+            content = (
+                _data.get("message", {}).get("content")
+                or _data.get("response")  # /api/generate fallback
+                or ""
+            )
+            if not content:
+                raise RuntimeError("Ollama returned an empty response.")
+            return _strip_think_tags(content)
+        except requests.exceptions.ConnectionError:
+            if _attempt < 2:
+                _t_ol.sleep(3)
+                continue
+            raise RuntimeError(
+                "❌ Ollama is not running.\n"
+                "Fix: open a terminal and run:  ollama serve\n"
+                "Then try again."
+            )
+        except requests.exceptions.Timeout:
+            if _attempt < 2:
+                _t_ol.sleep(5)
+                continue
+            raise RuntimeError(
+                f"⏳ Ollama timed out on model '{_model}'.\n"
+                "The model may still be loading — wait 30 seconds and try again.\n"
+                f"Or run a lighter model: ollama pull qwen2.5:3b"
+            )
+        except RuntimeError:
+            raise
+        except Exception as e:
+            raise RuntimeError(f"❌ Ollama error: {e}")
+
 def _do_ai_call(api_msgs):
-    return call_groq(api_msgs)
+    global ollama_models, ollama_reachable
+
+    def _wake_ollama():
+        global ollama_models, ollama_reachable
+        if start_ollama_background():
+            check_ollama.clear()
+            _r, _m = check_ollama()
+            st.session_state.ollama_reachable = _r
+            st.session_state.ollama_models = _m
+            ollama_reachable, ollama_models = _r, _m
+            return _r
+        return False
+
+    def _best_ollama_model():
+        """Return first available Ollama model name."""
+        return ollama_models[0] if ollama_models else None
+
+    if provider == "🔁 Auto (Smart Switch)":
+        # ── Internet available: ALWAYS use Groq. call_groq handles all retries internally. ──
+        if _has_internet() and st.session_state.api_key:
+            return call_groq(api_msgs)
+        # ── No internet: use Ollama ───────────────────────────────────────────
+        if not ollama_reachable:
+            _wake_ollama()
+        _om = _best_ollama_model()
+        if _om:
+            return call_ollama(api_msgs, ollama_model=_om)
+        if ollama_reachable:
+            raise RuntimeError(
+                "📥 Ollama is running but no models are installed.\n"
+                "In the sidebar, click 'Pull Qwen 3' or 'Pull Moondream'."
+            )
+        raise RuntimeError(
+            "📡 No internet and Ollama is not running.\n"
+            "Connect to the internet or install Ollama for offline use."
+        )
+
+    elif provider == "Groq":
+        return call_groq(api_msgs)
+
+    else:  # Ollama (Offline)
+        if not ollama_reachable:
+            _wake_ollama()
+        _om = _best_ollama_model()
+        if not _om:
+            raise RuntimeError(
+                "📥 No offline models installed yet.\n"
+                "In the sidebar click 'Pull Qwen 3' or 'Pull Moondream'."
+            )
+        # In Ollama-only mode, model_id is already the selected Ollama model
+        return call_ollama(api_msgs, ollama_model=model_id)
 
 # ── Chat input ────────────────────────────────────────────────────────────────
-q_val = st.session_state.pop("quick_q","") or voice_text
+q_val      = st.session_state.pop("quick_q","") or voice_text
 
 if _USER_HIT_LIMIT:
     _usage_data_cur = _load_usage_data()
@@ -4802,7 +5016,7 @@ if _USER_HIT_LIMIT:
   <div id="tu_msg" style="margin-top:14px;font-size:.9rem;color:#6b7a99"></div>
 </div>
 <script>
-var rem={_remaining_secs};
+var rem = {_remaining_secs};
 function fmt(n){{return n.toString().padStart(2,'0');}}
 function tick(){{
   if(rem<=0){{
@@ -4814,7 +5028,8 @@ function tick(){{
   }}
   var h=Math.floor(rem/3600),m=Math.floor((rem%3600)/60),s=rem%60;
   document.getElementById('tu_timer').innerHTML=fmt(h)+':'+fmt(m)+':'+fmt(s);
-  rem--;setTimeout(tick,1000);
+  rem--;
+  setTimeout(tick,1000);
 }}
 tick();
 </script>
@@ -4889,6 +5104,39 @@ if uploaded_file:
     except Exception:
         file_content = f"[File: {uploaded_file.name}]"
 st.session_state.pending_vision = _current_vision
+
+# ── Inline PDF conversion: image + "convert to pdf" → download button ─────────
+if _current_vision and user_input and any(
+    kw in user_input.lower() for kw in ("convert to pdf", "convert this to pdf",
+                                         "make pdf", "to pdf", "image to pdf",
+                                         "screenshot to pdf", "convert pdf")
+):
+    try:
+        from PIL import Image as _PILpdf
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Image as _RLImg
+        _raw_bytes = _current_vision["bytes"]
+        _img_pil = _PILpdf.open(io.BytesIO(_raw_bytes))
+        if _img_pil.mode not in ("RGB","L"): _img_pil = _img_pil.convert("RGB")
+        _ibuf = io.BytesIO()
+        _img_pil.save(_ibuf, format="PNG"); _ibuf.seek(0)
+        _pbuf = io.BytesIO()
+        _pdoc = SimpleDocTemplate(_pbuf, pagesize=A4,
+                                  leftMargin=20, rightMargin=20,
+                                  topMargin=20, bottomMargin=20)
+        _pw = A4[0] - 40; _ph = A4[1] - 40
+        _iw, _ih = _img_pil.size
+        _sc = min(_pw / _iw, _ph / _ih)
+        _pdoc.build([_RLImg(_ibuf, width=_iw*_sc, height=_ih*_sc)])
+        _pbuf.seek(0)
+        _pname = _current_vision.get("name","image").rsplit(".",1)[0] + ".pdf"
+        st.success(f"Done! Your PDF is ready: **{_pname}**")
+        st.download_button("Download PDF", _pbuf.getvalue(),
+                           _pname, "application/pdf", key="_chat_pdf_dl")
+        st.session_state.pending_vision = None
+    except Exception as _pdferr:
+        st.error(f"Could not convert: {_pdferr}")
+    st.stop()
 
 if not user_input and q_val:
     user_input = q_val
@@ -5004,12 +5252,33 @@ if user_input:
             # System Health Diagram — full hardware scan with visual diagram
             _sys_health_html = ""
             if _is_system_health_request(user_input):
-                with st.spinner("🔬 Scanning system hardware..."):
+                with st.spinner("🔬 Scanning your system…"):
                     _sh_data = _run_system_health()
                     import hashlib as _hsh_sys
                     _shkey = _hsh_sys.md5(user_input.encode()).hexdigest()
                     _sys_health_html = _render_system_diagram(_sh_data)
                     st.session_state["_sys_health_cache"][_shkey] = _sys_health_html
+                _issues = []
+                if _sh_data['cpu_percent'] >= 85: _issues.append(f"CPU overloaded ({_sh_data['cpu_percent']}%)")
+                if _sh_data['ram_percent'] >= 85: _issues.append(f"RAM almost full ({_sh_data['ram_percent']}%)")
+                if _sh_data['disk_percent'] >= 85: _issues.append(f"Disk almost full ({_sh_data['disk_percent']}%)")
+                if _sh_data['disk_status'] == 'WARNING': _issues.append("Disk health warning")
+                if _sh_data.get('cpu_temp') and _sh_data['cpu_temp'] >= 88: _issues.append(f"CPU very hot ({_sh_data['cpu_temp']:.0f}°C)")
+                if _sh_data.get('battery_percent') is not None and _sh_data['battery_percent'] < 20 and not _sh_data.get('battery_plugged'): _issues.append(f"Battery low ({_sh_data['battery_percent']}%)")
+                _status = "✅ **All good — no problems found.**" if not _issues else "⚠️ **Issues found:** " + " | ".join(_issues)
+                _summary = (
+                    f"**Device:** {_sh_data.get('laptop_model','Unknown')}  \n"
+                    f"**CPU:** {_sh_data.get('cpu_name','Unknown')} — {_sh_data['cpu_percent']}% used  \n"
+                    f"**RAM:** {_sh_data['ram_used_gb']}GB / {_sh_data['ram_total_gb']}GB ({_sh_data['ram_percent']}%)  \n"
+                    f"**Disk:** {_sh_data['disk_used_gb']}GB / {_sh_data['disk_total_gb']}GB ({_sh_data['disk_percent']}%)  \n"
+                    + (f"**Battery:** {_sh_data['battery_percent']}% ({'Charging' if _sh_data.get('battery_plugged') else 'On battery'})  \n" if _sh_data.get('battery_percent') is not None else "")
+                    + (f"**GPU:** {_sh_data['gpu_name']}  \n" if _sh_data.get('gpu_name') else "")
+                    + f"\n{_status}"
+                )
+                msgs = cur_msgs()
+                msgs.append({"role": "assistant", "content": _summary})
+                set_msgs(msgs)
+                st.rerun()
 
             # PC Diagnostics — auto-run when user reports PC issue
             _pc_diag = ""
@@ -5045,14 +5314,15 @@ if user_input:
                     _sys_diag_ctx = ""
                     if _sys_health_html and '_sh_data' in dir():
                         _sys_diag_ctx = (
-                            f"System Health Scan Results:\n"
-                            f"CPU: {_sh_data['cpu_percent']}% usage"
+                            f"REAL-TIME System Health Scan — answer ONLY from this data, do NOT guess:\n"
+                            f"Device: {_sh_data.get('laptop_model','Unknown')} ({_sh_data['machine']})\n"
+                            f"OS: {_sh_data['os']}\n"
+                            f"CPU: {_sh_data.get('cpu_name','Unknown')} — {_sh_data['cpu_percent']}% usage, {_sh_data['cpu_cores']} cores"
                             + (f", {_sh_data['cpu_temp']:.0f}°C" if _sh_data.get('cpu_temp') else "") + "\n"
-                            f"RAM: {_sh_data['ram_percent']}% ({_sh_data['ram_used_gb']}GB / {_sh_data['ram_total_gb']}GB)\n"
-                            f"Disk: {_sh_data['disk_percent']}% ({_sh_data['disk_used_gb']}GB / {_sh_data['disk_total_gb']}GB) — Status: {_sh_data['disk_status']}\n"
+                            f"RAM: {_sh_data['ram_used_gb']}GB used / {_sh_data['ram_total_gb']}GB total ({_sh_data['ram_percent']}%)\n"
+                            f"Disk: {_sh_data['disk_used_gb']}GB used / {_sh_data['disk_total_gb']}GB total ({_sh_data['disk_percent']}%) — Status: {_sh_data['disk_status']}\n"
                             + (f"Battery: {_sh_data['battery_percent']}% ({'charging' if _sh_data.get('battery_plugged') else 'on battery'})\n" if _sh_data.get('battery_percent') is not None else "")
                             + (f"GPU: {_sh_data['gpu_name']}, {_sh_data['gpu_temp']:.0f}°C\n" if _sh_data.get('gpu_name') else "")
-                            + f"OS: {_sh_data['os']} · Device: {_sh_data['machine']}"
                         )
                     _extra = _youtube_context or _url_context or _deep_results or _sys_diag_ctx or _pc_diag or _error_context or _search_results
                     if _extra:
@@ -5080,5 +5350,5 @@ if user_input:
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.divider()
 st.markdown("""<div style='text-align:center;font-size:.6rem;color:#1a2a3a;letter-spacing:3px;padding:4px'>
-🔱 TITAN ULTRA · GROQ ACCELERATED · VOICE INPUT · PC CONTROL
+🔱 TITAN ULTRA · GROQ ACCELERATED · OLLAMA OFFLINE READY · DALL·E 3 IMAGE GEN · VOICE INPUT · PC CONTROL
 </div>""", unsafe_allow_html=True)
