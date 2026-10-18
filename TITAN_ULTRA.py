@@ -1314,6 +1314,33 @@ with st.sidebar:
                         st.markdown("---")
 
 
+# ── First-time name gate ───────────────────────────────────────────────────────
+if not st.session_state.titan_memory.get("name"):
+    st.markdown("""
+    <div style='text-align:center;padding:80px 0 20px'>
+        <div style='font-size:80px;line-height:1.1'>🔱</div>
+        <div style='font-family:Orbitron,monospace;font-weight:900;font-size:2rem;
+        letter-spacing:4px;margin:12px 0 6px;
+        background:linear-gradient(90deg,#00e5d0,#a855f7);
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text'>
+        TITAN ULTRA</div>
+        <div style='font-size:1.1rem;color:#ffffff;margin:10px 0 28px'>
+        What's your name?</div>
+    </div>
+    """, unsafe_allow_html=True)
+    _wc1, _wc2, _wc3 = st.columns([1, 2, 1])
+    with _wc2:
+        _wn = st.text_input("name", placeholder="Enter your name...",
+                            key="_welcome_name", label_visibility="collapsed")
+        if st.button("Continue", use_container_width=True, key="_welcome_continue"):
+            if _wn.strip():
+                st.session_state.titan_memory["name"] = _wn.strip()
+                _save_memory(st.session_state.titan_memory)
+                st.rerun()
+            else:
+                st.warning("Please enter your name.")
+    st.stop()
+
 # ── Header ────────────────────────────────────────────────────────────────────
 _user_name = st.session_state.titan_memory.get("name", "")
 _greeting = f"Hello, <span style='background:linear-gradient(90deg,#00e5d0,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:700'>{_user_name}</span>" if _user_name else "Hello"
