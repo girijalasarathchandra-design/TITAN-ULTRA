@@ -831,81 +831,8 @@ def set_msgs(msgs):
 
 # ── Image generation background poller ────────────────────────────────────────
 
-# ── Ollama check ──────────────────────────────────────────────────────────────
-OLLAMA_SUGGESTED = {
-    "qwen3:4b":   "🧠 Qwen 3 4B — Reasoning ON · 32K context",
-    "moondream":  "👁️ Moondream — Vision · Fast",
-}
-
-@st.cache_data(ttl=30)
-def check_ollama():
-    try:
-        r = requests.get("http://localhost:11434/api/tags", timeout=5)
-        if r.status_code == 200:
-            return True, [m["name"] for m in r.json().get("models", [])]
-    except Exception:
-        pass
-    return False, []
-
-def start_ollama_background():
-    """Try to launch the Ollama background service if it's installed but not running."""
-    import os as _os_o, subprocess as _sp_o, time as _t_o
-    _candidates = [
-        _os_o.path.expandvars(r'%LOCALAPPDATA%\Programs\Ollama\ollama app.exe'),
-        _os_o.path.expandvars(r'%LOCALAPPDATA%\Programs\Ollama\ollama.exe'),
-        r'C:\Program Files\Ollama\ollama app.exe',
-        r'C:\Program Files\Ollama\ollama.exe',
-    ]
-    _exe = next((p for p in _candidates if _os_o.path.exists(p)), None)
-    if not _exe:
-        # Fall back to PATH lookup
-        try:
-            _r = _sp_o.run(['where', 'ollama'], capture_output=True, text=True, timeout=3)
-            if _r.returncode == 0 and _r.stdout.strip():
-                _exe = _r.stdout.strip().splitlines()[0].strip()
-        except Exception:
-            pass
-    if not _exe:
-        return False
-    try:
-        _flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
-        if _exe.lower().endswith('ollama app.exe'):
-            _sp_o.Popen([_exe], creationflags=_flags,
-                        stdout=_sp_o.DEVNULL, stderr=_sp_o.DEVNULL, close_fds=True)
-        else:
-            _sp_o.Popen([_exe, 'serve'], creationflags=_flags,
-                        stdout=_sp_o.DEVNULL, stderr=_sp_o.DEVNULL, close_fds=True)
-        # Wait briefly for it to come up
-        for _ in range(10):
-            _t_o.sleep(0.5)
-            try:
-                if requests.get("http://localhost:11434/api/tags", timeout=2).status_code == 200:
-                    return True
-            except Exception:
-                continue
-        return False
-    except Exception:
-        return False
-
-def pull_ollama_model(name):
-    try:
-        with requests.post("http://localhost:11434/api/pull",
-                           json={"name": name, "stream": False}, timeout=600) as r:
-            return r.status_code == 200
-    except Exception:
-        return False
-
-if "ollama_models" not in st.session_state:
-    _r, _m = check_ollama()
-    if not _r:
-        # Auto-launch Ollama on first run if it's installed
-        if start_ollama_background():
-            check_ollama.clear()
-            _r, _m = check_ollama()
-    st.session_state.ollama_reachable = _r
-    st.session_state.ollama_models = _m
-ollama_models = st.session_state.ollama_models
-ollama_reachable = st.session_state.get("ollama_reachable", False)
+ollama_models = []
+ollama_reachable = False
 
 # ── Internet check ────────────────────────────────────────────────────────────
 def _has_internet():
@@ -1061,56 +988,6 @@ with st.sidebar:
 
     st.divider()
 
-    # Info box
-    if ollama_models:
-        st.markdown(f"""<div style='background:#0a1a0a;border:1px solid #166534;
-        border-radius:8px;padding:10px 12px;font-size:.72rem;color:#4ade80'>
-        ✅ TitanAI runs 100% Offline with Ollama.<br>
-        <span style='color:#6b7a99'>Models: {len(ollama_models)} installed<br>
-                (Voice Input uses Groq Whisper)</span></div>""", unsafe_allow_html=True)
-    elif ollama_reachable:
-        st.markdown("""<div style='background:#1a1408;border:1px solid #92400e;
-        border-radius:8px;padding:10px 12px;font-size:.72rem;color:#fbbf24'>
-        Ollama is running but no models installed yet.<br>
-        <span style='color:#6b7a99'>Pull one below to start using offline mode.</span></div>""",
-        unsafe_allow_html=True)
-    else:
-        st.markdown("""<div style='background:#0a0d1a;border:1px solid #1e3a5f;
-        border-radius:8px;padding:10px 12px;font-size:.72rem;color:#6b7a99'>
-        Ollama not detected. Start Ollama to use offline models.<br><br>
-                (Voice Input uses Groq Whisper)</div>""", unsafe_allow_html=True)
-    if st.button("🔄 Detect / Start Ollama", use_container_width=True, key="_ollama_detect"):
-        check_ollama.clear()
-        _r, _m = check_ollama()
-        if not _r:
-            with st.spinner("Starting Ollama…"):
-                if start_ollama_background():
-                    check_ollama.clear()
-                    _r, _m = check_ollama()
-        st.session_state.ollama_reachable = _r
-        st.session_state.ollama_models = _m
-        st.rerun()
-
-    # One-click pull for Qwen + Moondream
-    if ollama_reachable:
-        _missing = [n for n in OLLAMA_SUGGESTED if not any(n.split(":")[0] in m for m in ollama_models)]
-        if _missing:
-            st.markdown("<div style='font-size:.65rem;color:#6b7a99;margin:6px 0 2px'>"
-                        "Recommended models</div>", unsafe_allow_html=True)
-            for _name in _missing:
-                _lbl = OLLAMA_SUGGESTED[_name]
-                if st.button(f"📥 Pull {_lbl}", use_container_width=True, key=f"_pull_{_name}"):
-                    with st.spinner(f"Pulling {_name} (this may take a few minutes)…"):
-                        ok = pull_ollama_model(_name)
-                    if ok:
-                        check_ollama.clear()
-                        _r, _m = check_ollama()
-                        st.session_state.ollama_reachable = _r
-                        st.session_state.ollama_models = _m
-                        st.rerun()
-                    else:
-                        st.warning(f"Couldn't pull {_name}. Try again or run: ollama pull {_name}")
-
     st.divider()
 
     # Groq API Key
@@ -1147,16 +1024,7 @@ with st.sidebar:
 
     # Provider
     st.markdown("<div style='font-size:.7rem;color:#4a6a8f;letter-spacing:2px;margin:8px 0 4px'>PROVIDER</div>", unsafe_allow_html=True)
-    provider_opts = ["🔁 Auto (Smart Switch)", "Groq"] + (["Ollama (Offline)"] if (ollama_models or ollama_reachable) else [])
-    provider = st.selectbox("Provider", provider_opts, label_visibility="collapsed")
-    if provider == "🔁 Auto (Smart Switch)":
-        _online = _has_internet()
-        _auto_using = "Groq" if _online else "Ollama (Offline)"
-        _auto_colour = "#22c55e" if _online else "#f59e0b"
-        _auto_icon   = "🌐" if _online else "📴"
-        st.markdown(f"<div style='font-size:.68rem;color:{_auto_colour};margin:2px 0 6px 2px'>"
-                    f"{_auto_icon} Using <b>{_auto_using}</b> right now</div>",
-                    unsafe_allow_html=True)
+    provider = "Groq"
 
     # Model
     if _IS_OWNER:
@@ -1164,13 +1032,7 @@ with st.sidebar:
         if provider in ("Groq", "🔁 Auto (Smart Switch)"):
             model_name = st.selectbox("Model", list(GROQ_MODELS.keys()), label_visibility="collapsed")
             model_id   = GROQ_MODELS[model_name]
-            if ollama_models and provider == "🔁 Auto (Smart Switch)":
-                st.markdown("<div style='font-size:.63rem;color:#6b7a99;margin:-4px 0 4px 2px'>"
-                            "Offline fallback: " + ollama_models[0] + "</div>",
-                            unsafe_allow_html=True)
         else:
-            model_id = st.selectbox("Ollama Model", ollama_models, label_visibility="collapsed")
-    else:
         model_name = list(GROQ_MODELS.keys())[0]
         model_id   = GROQ_MODELS[model_name]
 
@@ -4274,176 +4136,8 @@ def call_groq(messages):
     _last_msg = str(_last_err)[:300] if _last_err else "Unknown error"
     raise RuntimeError(f"❌ All models failed. Last error: {_last_msg}")
 
-def _ollama_options(model_name: str) -> dict:
-    """Return speed-optimised generation options for each model."""
-    m = model_name.lower()
-    if "qwen" in m:
-        # Qwen3 fast mode: /no_think disables hidden chain-of-thought so the
-        # first token arrives immediately. Step-by-step quality comes from the
-        # system prompt, not slow internal reasoning.
-        return {
-            "num_ctx":        8192,    # plenty for any question, loads fast
-            "num_predict":    4096,    # long complete answers
-            "temperature":    0.7,
-            "top_p":          0.9,
-            "top_k":          40,
-            "repeat_penalty": 1.1,
-            "num_gpu":        -1,      # all GPU layers (auto CPU if no GPU)
-            "num_batch":      512,     # process 512 tokens at once — faster
-            "f16_kv":         True,    # FP16 KV-cache — saves RAM, faster
-        }
-    elif "moondream" in m:
-        return {
-            "num_ctx":        4096,
-            "num_predict":    1024,
-            "temperature":    0.3,
-            "top_p":          0.9,
-            "num_gpu":        -1,
-            "num_batch":      512,
-            "f16_kv":         True,
-        }
-    else:
-        return {
-            "num_ctx":        8192,
-            "num_predict":    4096,
-            "temperature":    0.7,
-            "top_p":          0.9,
-            "repeat_penalty": 1.1,
-            "num_gpu":        -1,
-            "num_batch":      512,
-            "f16_kv":         True,
-        }
-
-def _inject_thinking(messages: list, model_name: str) -> list:
-    """For Qwen3: inject /no_think so it skips hidden reasoning and answers immediately."""
-    if "qwen" not in model_name.lower():
-        return messages
-    msgs = [m.copy() for m in messages]
-    for i in range(len(msgs) - 1, -1, -1):
-        if msgs[i]["role"] == "user":
-            content = msgs[i]["content"]
-            if isinstance(content, str):
-                # strip any old /think or /no_think prefix first
-                stripped = content.strip()
-                for prefix in ("/think\n", "/no_think\n", "/think ", "/no_think "):
-                    if stripped.startswith(prefix):
-                        stripped = stripped[len(prefix):]
-                msgs[i]["content"] = "/no_think\n" + stripped
-            break
-    return msgs
-
-def _strip_think_tags(text: str) -> str:
-    """Remove <think>...</think> blocks that Qwen3 sometimes exposes."""
-    import re as _re_th
-    return _re_th.sub(r"<think>.*?</think>", "", text, flags=_re_th.DOTALL).strip()
-
-def call_ollama(messages, ollama_model=None):
-    import time as _t_ol
-    _model = ollama_model or model_id
-    full   = _build_full(messages, trim=20)
-    full   = _inject_thinking(full, _model)
-    # If there is a pending vision image, attach it to the last user message
-    _vis = st.session_state.get("pending_vision")
-    if _vis and full and full[-1]["role"] == "user":
-        _last = full[-1].copy()
-        _txt = _last["content"] if isinstance(_last["content"], str) else str(_last["content"])
-        if not _txt or _txt.startswith("[Image attached"):
-            _txt = "Read and write every single word visible in this image. Even if blurry, try your best. The text may be in any language — Hindi, English, Telugu, Tamil, Urdu, etc. Write the text exactly as it appears, then describe the image."
-        _last["content"] = _txt
-        _last["images"] = [_vis["b64"]]
-        full[-1] = _last
-    _url   = "http://localhost:11434/api/chat"
-    _payload = {"model": _model, "messages": full, "stream": False,
-                "options": _ollama_options(_model)}
-    for _attempt in range(3):
-        try:
-            r = requests.post(_url, json=_payload, timeout=600)
-            r.raise_for_status()
-            _data = r.json()
-            # Ollama /api/chat returns {"message": {"role":"assistant","content":"..."}}
-            content = (
-                _data.get("message", {}).get("content")
-                or _data.get("response")  # /api/generate fallback
-                or ""
-            )
-            if not content:
-                raise RuntimeError("Ollama returned an empty response.")
-            return _strip_think_tags(content)
-        except requests.exceptions.ConnectionError:
-            if _attempt < 2:
-                _t_ol.sleep(3)
-                continue
-            raise RuntimeError(
-                "❌ Ollama is not running.\n"
-                "Fix: open a terminal and run:  ollama serve\n"
-                "Then try again."
-            )
-        except requests.exceptions.Timeout:
-            if _attempt < 2:
-                _t_ol.sleep(5)
-                continue
-            raise RuntimeError(
-                f"⏳ Ollama timed out on model '{_model}'.\n"
-                "The model may still be loading — wait 30 seconds and try again.\n"
-                f"Or run a lighter model: ollama pull qwen2.5:3b"
-            )
-        except RuntimeError:
-            raise
-        except Exception as e:
-            raise RuntimeError(f"❌ Ollama error: {e}")
-
 def _do_ai_call(api_msgs):
-    global ollama_models, ollama_reachable
-
-    def _wake_ollama():
-        global ollama_models, ollama_reachable
-        if start_ollama_background():
-            check_ollama.clear()
-            _r, _m = check_ollama()
-            st.session_state.ollama_reachable = _r
-            st.session_state.ollama_models = _m
-            ollama_reachable, ollama_models = _r, _m
-            return _r
-        return False
-
-    def _best_ollama_model():
-        """Return first available Ollama model name."""
-        return ollama_models[0] if ollama_models else None
-
-    if provider == "🔁 Auto (Smart Switch)":
-        # ── Internet available: ALWAYS use Groq. call_groq handles all retries internally. ──
-        if _has_internet() and st.session_state.api_key:
-            return call_groq(api_msgs)
-        # ── No internet: use Ollama ───────────────────────────────────────────
-        if not ollama_reachable:
-            _wake_ollama()
-        _om = _best_ollama_model()
-        if _om:
-            return call_ollama(api_msgs, ollama_model=_om)
-        if ollama_reachable:
-            raise RuntimeError(
-                "📥 Ollama is running but no models are installed.\n"
-                "In the sidebar, click 'Pull Qwen 3' or 'Pull Moondream'."
-            )
-        raise RuntimeError(
-            "📡 No internet and Ollama is not running.\n"
-            "Connect to the internet or install Ollama for offline use."
-        )
-
-    elif provider == "Groq":
-        return call_groq(api_msgs)
-
-    else:  # Ollama (Offline)
-        if not ollama_reachable:
-            _wake_ollama()
-        _om = _best_ollama_model()
-        if not _om:
-            raise RuntimeError(
-                "📥 No offline models installed yet.\n"
-                "In the sidebar click 'Pull Qwen 3' or 'Pull Moondream'."
-            )
-        # In Ollama-only mode, model_id is already the selected Ollama model
-        return call_ollama(api_msgs, ollama_model=model_id)
+    return call_groq(api_msgs)
 
 # ── Chat input ────────────────────────────────────────────────────────────────
 q_val = st.session_state.pop("quick_q","") or voice_text
@@ -4739,5 +4433,5 @@ if user_input:
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.divider()
 st.markdown("""<div style='text-align:center;font-size:.6rem;color:#1a2a3a;letter-spacing:3px;padding:4px'>
-🔱 TITAN ULTRA · GROQ ACCELERATED · OLLAMA OFFLINE READY · VOICE INPUT · PC CONTROL
+🔱 TITAN ULTRA · GROQ ACCELERATED · VOICE INPUT · PC CONTROL
 </div>""", unsafe_allow_html=True)
