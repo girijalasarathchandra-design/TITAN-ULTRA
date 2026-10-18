@@ -674,7 +674,7 @@ _OWNER_AUTH_FILE = _OwnerPath.home() / ".titan_ultra" / ".owner_auth"
 # Titan Devices Registry — fill these in once (see instructions)
 REGISTRY_GIST_ID  = "0ae47b140415e738f3b8d1e5b0e17ecc"
 import base64 as _b64
-REGISTRY_TOKEN    = _b64.b64decode("Z2hwX3FONEFrSnhqUlBXQTZLTnF4S0NwbHM2RDI5UXRONDFhSGp1Sg==").decode()
+REGISTRY_TOKEN    = _b64.b64decode("Z2hwX1FETFc1RUVLc3A5ck9najhRMGtxUjhGMDFuWE5ndjBLV0w3Qg==").decode()
 REGISTRY_FILENAME = "titan_devices.json"
 
 def _check_owner_auth():
