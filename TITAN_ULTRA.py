@@ -11,6 +11,16 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&display=swap');
 
+/* Force dark theme on ALL devices regardless of system color */
+:root { color-scheme: dark !important; }
+* { color-scheme: dark !important; }
+html, body { background:#05080f !important; color:#c9d8f0 !important; }
+@media (prefers-color-scheme: light) {
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
+        background:#05080f !important; color:#c9d8f0 !important;
+    }
+}
+
 @keyframes titanflow { to { background-position:400% center; } }
 @keyframes rainbowborder {
     0%{border-color:#ff0000} 14%{border-color:#ff6b00} 28%{border-color:#ffd000}
@@ -122,10 +132,16 @@ SYSTEM = (
     "   the answer meaningful (what situation, what significance).\n"
     "   If they asked a simple fact: give the fact plus a sentence of context so it actually lands.\n"
     "   Match depth to the question: simple questions get clean direct answers, complex questions get full answers.\n\n"
-    "3. EVERY SENTENCE MUST ADD VALUE — No filler. No padding. No repeating the question back.\n"
-    "   No 'That is a great question!', 'Hope this helps!', 'Let me know if you need more!'.\n"
-    "   But DO include relevant context, examples, analogies, and detail that make the answer genuinely useful.\n"
-    "   The difference: filler adds no new information. Context and examples DO add information.\n\n"
+    "3. EASY LANGUAGE ALWAYS — Never use complicated technical jargon or code-like language.\n"
+    "   Always write in simple, clear, everyday words that anyone can understand.\n"
+    "   If a technical word is needed, explain it immediately in simple words.\n"
+    "   Write like you are explaining to a smart friend, not writing a textbook.\n\n"
+    "4. BE CHEERFUL AND ENCOURAGING — Always be warm, enthusiastic, and uplifting.\n"
+    "   React with genuine excitement to good questions: 'What an incredible question!', "
+    "'You've hit the nail on the head!', 'That is absolutely brilliant!', 'Wow, great thinking!'.\n"
+    "   Make the user feel smart, valued, and motivated. Be their biggest fan.\n\n"
+    "5. EVERY SENTENCE MUST ADD VALUE — No padding. No repeating the question back.\n"
+    "   DO include context, examples, analogies that make the answer genuinely useful.\n\n"
     "4. IDENTIFY THE SOURCE — If the question is about a book, movie, game, or show:\n"
     "   Silently identify which one it is before answering.\n"
     "   Use the correct names, characters, and details from that specific source.\n"
@@ -801,6 +817,47 @@ for k, v in [("api_key", _saved_key), ("titan_memory", _saved_memory),
     if k not in st.session_state:
         st.session_state[k] = v
 
+# ── Name prompt (web users) ───────────────────────────────────────────────────
+_web_name = st.session_state.get("titan_memory", {}).get("name", "").strip()
+if not _web_name:
+    st.markdown("""
+    <div style='text-align:center;padding:60px 20px 20px'>
+    <div style='font-size:80px'>🔱</div>
+    <div style='font-family:Orbitron,monospace;font-weight:900;font-size:2rem;
+    background:linear-gradient(90deg,#00e5d0,#00b4d8,#0077b6);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    margin:10px 0'>TITAN ULTRA</div>
+    <div style='color:#6b7a99;margin-bottom:30px'>What is your name?</div>
+    </div>
+    """, unsafe_allow_html=True)
+    _col1, _col2, _col3 = st.columns([1, 2, 1])
+    with _col2:
+        _entered_name = st.text_input("", placeholder="Type your name here...",
+                                       label_visibility="collapsed", key="_name_input_web")
+        if st.button("Start Chatting →", use_container_width=True, key="_name_submit_web"):
+            if _entered_name.strip():
+                _mem = st.session_state.get("titan_memory", {})
+                _mem["name"] = _entered_name.strip()
+                st.session_state["titan_memory"] = _mem
+                _save_memory(_mem)
+                _register_this_device(_entered_name.strip())
+                st.rerun()
+            else:
+                st.warning("Please enter your name.")
+    st.stop()
+
+# ── Mobile detection ──────────────────────────────────────────────────────────
+import streamlit.components.v1 as _cv1_mob
+_cv1_mob.html("""
+<script>
+var isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+if(isMobile){
+    window.parent.postMessage({type:'streamlit:setComponentValue', value: true}, '*');
+}
+</script>
+""", height=0)
+if "_is_mobile" not in st.session_state:
+    st.session_state["_is_mobile"] = False
 
 def cur_msgs():
     return st.session_state.chat_sessions[st.session_state.active_session]["messages"]
@@ -897,22 +954,27 @@ with st.sidebar:
 
     if st.button("🖥️ Launch TITAN CODE", use_container_width=True,
                  help="Open Titan Code — AI terminal coding assistant"):
-        import subprocess as _sp, sys as _sys
-        from pathlib import Path as _Path
-        _titan_dir = _Path.home() / ".titan_ultra"
-        _tc_path   = _titan_dir / "TITAN_CODE.py"
-        if not _tc_path.exists():
-            _tc_path = _Path.home() / "Documents" / "important" / "TITAN_CODE.py"
-        if _tc_path.exists():
-            _bat = _titan_dir / "launch_titan_code.bat"
-            _bat.write_text(
-                f'@echo off\ntitle TITAN CODE\ncolor 0B\npython "{_tc_path}"\npause\n',
-                encoding="utf-8"
-            )
-            _sp.Popen(f'start "TITAN CODE" "{_bat}"', shell=True)
-            st.toast("🖥️ Titan Code launched in a new terminal!", icon="⚡")
+        import platform as _plt
+        _is_mobile = st.session_state.get("_is_mobile", False)
+        if _is_mobile:
+            st.warning("⚠️ TITAN CODE can only be launched on computers and laptops.")
         else:
-            st.error("TITAN CODE not found. Please re-run the setup command.")
+            import subprocess as _sp, sys as _sys
+            from pathlib import Path as _Path
+            _titan_dir = _Path.home() / ".titan_ultra"
+            _tc_path   = _titan_dir / "TITAN_CODE.py"
+            if not _tc_path.exists():
+                _tc_path = _Path.home() / "Documents" / "important" / "TITAN_CODE.py"
+            if _tc_path.exists():
+                _bat = _titan_dir / "launch_titan_code.bat"
+                _bat.write_text(
+                    f'@echo off\ntitle TITAN CODE\ncolor 0B\npython "{_tc_path}"\npause\n',
+                    encoding="utf-8"
+                )
+                _sp.Popen(f'start "TITAN CODE" "{_bat}"', shell=True)
+                st.toast("🖥️ Titan Code launched in a new terminal!", icon="⚡")
+            else:
+                st.error("TITAN CODE not found. Please re-run the setup command.")
 
     # ── Push to GitHub (owner only) ───────────────────────────────────────────
     if _IS_OWNER:
