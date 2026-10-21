@@ -262,10 +262,16 @@ html:has([data-testid="stChatMessage"]) section[data-testid="stMain"] {
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stBottom"] {
     display:none !important;
 }
-html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container,
-html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container > [data-testid="stVerticalBlock"] {
+html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] {
     display:flex !important; flex-direction:column !important; justify-content:center !important;
-    min-height:calc(100vh - 140px) !important; padding-top:0 !important; padding-bottom:0 !important;
+    min-height:calc(100vh - 48px) !important;
+}
+html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container {
+    padding-top:0 !important; padding-bottom:0 !important;
+    min-height:0 !important; width:100% !important;
+}
+html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container > [data-testid="stVerticalBlock"] {
+    width:100% !important;
 }
 /* ── HOME SCREEN: hide ALL stButton elements (they're all internal hidden ones) ── */
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stButton"] {
