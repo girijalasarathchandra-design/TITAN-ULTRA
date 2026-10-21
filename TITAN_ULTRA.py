@@ -265,7 +265,7 @@ html:not(:has([data-testid="stChatMessage"])) [data-testid="stBottom"] {
 html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container,
 html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container > [data-testid="stVerticalBlock"] {
     display:flex !important; flex-direction:column !important; justify-content:center !important;
-    min-height:calc(100vh - 80px) !important; padding-top:0 !important; padding-bottom:0 !important;
+    min-height:calc(100vh - 140px) !important; padding-top:0 !important; padding-bottom:0 !important;
 }
 /* ── HOME SCREEN: hide ALL stButton elements (they're all internal hidden ones) ── */
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stButton"] {
@@ -299,7 +299,7 @@ html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testi
 }
 /* Center home input column at ChatGPT-like width */
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="column"]:nth-child(2) {
-    max-width:680px !important;
+    max-width:760px !important;
 }
 </style>
 """, unsafe_allow_html=True)
