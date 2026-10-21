@@ -1530,7 +1530,6 @@ if not cur_msgs():
     with _hc2:
         _mode = st.session_state.get("_titan_mode", "normal")
         _ph = ("⚡ Fast Mode active — Message TITAN ULTRA..." if _mode == "fast"
-               else "🧠 Thinking Mode active — Message TITAN ULTRA..." if _mode == "think"
                else "Message TITAN ULTRA...")
         _home_q = st.text_input("", placeholder=_ph,
                                  label_visibility="collapsed",
@@ -5759,12 +5758,9 @@ else:
 
 # Hidden mode-setter buttons — CSS hides on home screen; JS hides in chat mode
 _hid_fast   = st.button("__TITAN_SET_FAST__",   key="_hid_mode_fast")
-_hid_think  = st.button("__TITAN_SET_THINK__",  key="_hid_mode_think")
 _hid_normal = st.button("__TITAN_SET_NORMAL__", key="_hid_mode_normal")
 if _hid_fast:
     st.session_state._titan_mode = "fast";   st.rerun()
-if _hid_think:
-    st.session_state._titan_mode = "think";  st.rerun()
 if _hid_normal:
     st.session_state._titan_mode = "normal"; st.rerun()
 
@@ -5846,22 +5842,15 @@ var _popAnchor=null; // which button opened the popup
 
 function _refreshModeUI(){
     var mode=localStorage.getItem('titan_mode')||'normal';
-    var fb=pd.getElementById('tpb-fast'),tb=pd.getElementById('tpb-think');
-    if(!fb||!tb) return;
+    var fb=pd.getElementById('tpb-fast');
+    if(!fb) return;
     fb.className='tpb'+(mode==='fast'?' tpb-on':'');
-    fb.textContent=(mode==='fast'?'⚡  Fast Mode ✓':'⚡  Fast Mode');
-    tb.className='tpb'+(mode==='think'?' tpb-on':'');
-    tb.textContent=(mode==='think'?'🧠  Thinking Mode ✓':'🧠  Thinking Mode');
+    fb.textContent=(mode==='fast'?'⚡  Fast Mode ✓':'⚡  Fast Mode');
 }
 
 function _openPopup(anchorEl){
     _popAnchor=anchorEl;
     _refreshModeUI();
-    // Show Photos/Files only in chat mode
-    var inChat=!!pd.querySelector('[data-testid="stChatInput"]');
-    pd.querySelectorAll('#tpop .tpb[data-act]').forEach(function(b){b.style.display=inChat?'block':'none';});
-    var hr=pd.querySelector('#tpop hr');
-    if(hr) hr.style.display=inChat?'block':'none';
     var r=anchorEl.getBoundingClientRect();
     _pop.style.left=r.left+'px';
     _pop.style.bottom=(pd.documentElement.clientHeight-r.top+8)+'px';
@@ -5882,19 +5871,13 @@ _pop.addEventListener('click',function(e){
     if(!btn) return;
     var act=btn.getAttribute('data-act')||btn.id;
     if(act==='photos'||act==='files'){
-        var fi=pd.querySelector('[data-testid="stChatInput"] input[type="file"]');
+        var fi=pd.querySelector('[data-testid="stChatInput"] input[type="file"]')||pd.querySelector('input[type="file"]');
         if(fi){if(act==='photos')fi.setAttribute('accept','image/*');else fi.removeAttribute('accept');fi.click();}
     } else if(act==='tpb-fast'){
         var cur=localStorage.getItem('titan_mode')||'normal';
         var next=cur==='fast'?'normal':'fast';
         localStorage.setItem('titan_mode',next);
         _clickHiddenBtn(next==='fast'?'__TITAN_SET_FAST__':'__TITAN_SET_NORMAL__');
-        _refreshModeUI();
-    } else if(act==='tpb-think'){
-        var cur=localStorage.getItem('titan_mode')||'normal';
-        var next=cur==='think'?'normal':'think';
-        localStorage.setItem('titan_mode',next);
-        _clickHiddenBtn(next==='think'?'__TITAN_SET_THINK__':'__TITAN_SET_NORMAL__');
         _refreshModeUI();
     }
     _pop.style.display='none';
@@ -5921,16 +5904,6 @@ function _hookChatPlus(){
 
 // ── Unified Think button refresh ──────────────────────────────────────────────
 function _refreshThinkBtns(){
-    var mode=localStorage.getItem('titan_mode')||'normal';
-    var on=(mode==='think');
-    ['home-think-btn','chat-think-btn'].forEach(function(id){
-        var b=pd.getElementById(id);
-        if(!b) return;
-        b.textContent=on?'🧠 Think ✓':'🧠 Think';
-        b.style.color=on?'#ffffff':'#888888';
-        b.style.borderColor=on?'#ffffff':'#444444';
-        b.style.background=on?'rgba(255,255,255,0.08)':'transparent';
-    });
     _refreshModeUI();
 }
 
@@ -5961,56 +5934,10 @@ function _injectHomePlus(){
     });
     wrap.appendChild(plus);
 
-    // ── Think button (right) ──
-    var mode=localStorage.getItem('titan_mode')||'normal';
-    var on=(mode==='think');
-    var tb=pd.createElement('button');
-    tb.id='home-think-btn';
-    tb.textContent=on?'🧠 Think ✓':'🧠 Think';
-    tb.style.cssText='position:absolute;right:16px;top:50%;transform:translateY(-50%);'+
-        'background:'+(on?'rgba(255,255,255,0.08)':'transparent')+';'+
-        'border:1px solid '+(on?'#ffffff':'#444444')+';'+
-        'color:'+(on?'#ffffff':'#888888')+';'+
-        'font-size:0.82rem;border-radius:20px;padding:5px 14px;cursor:pointer;'+
-        'z-index:10;transition:all .15s;white-space:nowrap;font-family:"Segoe UI",sans-serif;';
-    tb.addEventListener('click',function(e){
-        e.preventDefault();e.stopPropagation();
-        var cur=localStorage.getItem('titan_mode')||'normal';
-        var next=cur==='think'?'normal':'think';
-        localStorage.setItem('titan_mode',next);
-        _clickHiddenBtn(next==='think'?'__TITAN_SET_THINK__':'__TITAN_SET_NORMAL__');
-        _refreshThinkBtns();
-    });
-    wrap.appendChild(tb);
 }
 
 // ── Chat screen: inject visible Think button inside st.chat_input ─────────────
-function _injectChatThink(){
-    var ci=pd.querySelector('[data-testid="stChatInput"]');
-    if(!ci||ci.__titanThinkInjected) return;
-    if(!ci.querySelector('textarea')) return;
-    ci.__titanThinkInjected=true;
-    var mode=localStorage.getItem('titan_mode')||'normal';
-    var on=(mode==='think');
-    var tb=pd.createElement('button');
-    tb.id='chat-think-btn';
-    tb.textContent=on?'🧠 Think ✓':'🧠 Think';
-    tb.style.cssText='position:absolute;right:52px;bottom:14px;'+
-        'background:'+(on?'rgba(255,255,255,0.08)':'transparent')+';'+
-        'border:1px solid '+(on?'#ffffff':'#444444')+';'+
-        'color:'+(on?'#ffffff':'#888888')+';'+
-        'font-size:0.82rem;border-radius:20px;padding:5px 14px;cursor:pointer;'+
-        'z-index:10;transition:all .15s;white-space:nowrap;font-family:"Segoe UI",sans-serif;';
-    tb.addEventListener('click',function(e){
-        e.preventDefault();e.stopPropagation();
-        var cur=localStorage.getItem('titan_mode')||'normal';
-        var next=cur==='think'?'normal':'think';
-        localStorage.setItem('titan_mode',next);
-        _clickHiddenBtn(next==='think'?'__TITAN_SET_THINK__':'__TITAN_SET_NORMAL__');
-        _refreshThinkBtns();
-    });
-    ci.appendChild(tb);
-}
+function _injectChatThink(){}
 
 // ── Hide mode buttons in chat mode (home screen hides them via CSS) ───────────
 function _hideModeBtns(){
@@ -6044,6 +5971,27 @@ _injectHomePlus();
 _injectChatThink();
 _hideModeBtns();
 _refreshModeUI();
+
+// ── Ctrl+V paste image into chat ─────────────────────────────────────────────
+pd.addEventListener('paste',function(e){
+    var items=e.clipboardData&&e.clipboardData.items;
+    if(!items) return;
+    for(var i=0;i<items.length;i++){
+        if(items[i].type.indexOf('image')!==-1){
+            var file=items[i].getAsFile();
+            if(!file) continue;
+            var fi=pd.querySelector('[data-testid="stChatInput"] input[type="file"]')
+                  ||pd.querySelector('input[type="file"]');
+            if(!fi) continue;
+            var dt=new DataTransfer();
+            dt.items.add(new File([file],'pasted_image.png',{type:file.type||'image/png'}));
+            fi.files=dt.files;
+            fi.dispatchEvent(new Event('change',{bubbles:true}));
+            e.preventDefault();
+            break;
+        }
+    }
+});
 })();
 </script>""", height=0)
 
