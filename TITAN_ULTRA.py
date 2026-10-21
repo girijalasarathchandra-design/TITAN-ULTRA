@@ -1,7 +1,7 @@
-# TITAN_VERSION: 30
+# TITAN_VERSION: 40
 import streamlit as st
 from groq import Groq
-import requests, io, re
+import requests, io, re, random as _random
 
 st.set_page_config(page_title="TITAN ULTRA", page_icon="🔱",
                    layout="wide", initial_sidebar_state="expanded")
@@ -9,67 +9,140 @@ st.set_page_config(page_title="TITAN ULTRA", page_icon="🔱",
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&display=swap');
-
-/* Force dark theme on ALL devices regardless of system color */
-:root { color-scheme: dark !important; }
-* { color-scheme: dark !important; }
-html, body { background:#05080f !important; color:#c9d8f0 !important; }
-@media (prefers-color-scheme: light) {
-    html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
-        background:#05080f !important; color:#c9d8f0 !important;
-    }
-}
-
-@keyframes titanflow { to { background-position:400% center; } }
-@keyframes rainbowborder {
-    0%{border-color:#ff0000} 14%{border-color:#ff6b00} 28%{border-color:#ffd000}
-    42%{border-color:#00e5ff} 57%{border-color:#a855f7} 71%{border-color:#ec4899}
-    85%{border-color:#22c55e} 100%{border-color:#ff0000}
-}
-@keyframes btnrainbow {
-    0%  {border-color:#ff0000;box-shadow:0 0 8px #ff000055}
-    14% {border-color:#ff6b00;box-shadow:0 0 8px #ff6b0055}
-    28% {border-color:#ffd000;box-shadow:0 0 8px #ffd00055}
-    42% {border-color:#00e5ff;box-shadow:0 0 8px #00e5ff55}
-    57% {border-color:#a855f7;box-shadow:0 0 8px #a855f755}
-    71% {border-color:#ec4899;box-shadow:0 0 8px #ec489955}
-    85% {border-color:#22c55e;box-shadow:0 0 8px #22c55e55}
-    100%{border-color:#ff0000;box-shadow:0 0 8px #ff000055}
-}
-@keyframes tridentSpin {
-    0%  {filter:hue-rotate(0deg)   brightness(1.6) saturate(2) drop-shadow(0 0 20px #f59e0b)}
-    100%{filter:hue-rotate(360deg) brightness(1.6) saturate(2) drop-shadow(0 0 20px #f59e0b)}
+@keyframes tridentGlow {
+    0%   {filter:hue-rotate(0deg)   brightness(2) saturate(3) drop-shadow(0 0 18px #ff4444)}
+    17%  {filter:hue-rotate(60deg)  brightness(2) saturate(3) drop-shadow(0 0 18px #ffaa00)}
+    33%  {filter:hue-rotate(120deg) brightness(2) saturate(3) drop-shadow(0 0 18px #44ff44)}
+    50%  {filter:hue-rotate(180deg) brightness(2) saturate(3) drop-shadow(0 0 18px #00eeff)}
+    67%  {filter:hue-rotate(240deg) brightness(2) saturate(3) drop-shadow(0 0 18px #4488ff)}
+    83%  {filter:hue-rotate(300deg) brightness(2) saturate(3) drop-shadow(0 0 18px #ff44ff)}
+    100% {filter:hue-rotate(360deg) brightness(2) saturate(3) drop-shadow(0 0 18px #ff4444)}
 }
 
 html, body, [data-testid="stAppViewContainer"] {
-    background:#05080f !important; color:#c9d8f0 !important;
+    background:#0d0d0d !important; color:#e8e8e8 !important;
 }
 [data-testid="stSidebar"] {
-    background:linear-gradient(160deg,#06091a,#0a0618 50%,#060d18) !important;
-    border-right:2px solid #a855f7 !important;
-    animation:rainbowborder 4s linear infinite !important;
+    background:#111111 !important;
+    border-right:1px solid #2a2a2a !important;
 }
 [data-testid="stSidebar"] p,[data-testid="stSidebar"] span,
-[data-testid="stSidebar"] label,[data-testid="stSidebar"] li { color:#c9d8f0 !important; }
+[data-testid="stSidebar"] label,[data-testid="stSidebar"] li { color:#e8e8e8 !important; }
 .stButton>button {
-    background:linear-gradient(135deg,#1a0f44,#0f1a2c) !important;
-    color:#e0d0ff !important; border:1px solid #7c3aed !important;
+    background:#1a1a1a !important;
+    color:#e8e8e8 !important; border:1px solid #2a2a2a !important;
     border-radius:10px !important; transition:all .2s !important;
-    animation:btnrainbow 4s linear infinite !important;
 }
 .stButton>button:hover {
-    background:linear-gradient(135deg,#4c1d95,#1e3a5f) !important;
-    transform:translateY(-1px) !important; box-shadow:0 0 20px #a855f755 !important;
+    background:#242424 !important;
+    transform:translateY(-1px) !important;
+}
+[data-testid="stSidebar"] .stButton { width:100% !important; }
+[data-testid="stSidebar"] .stButton>button {
+    font-size:0.85rem !important;
+    padding:7px 10px !important;
+    min-height:0 !important;
+    height:auto !important;
+    line-height:1.4 !important;
+    animation:none !important;
+    background:transparent !important;
+    color:#e8e8e8 !important;
+    border:none !important;
+    box-shadow:none !important;
+    white-space:normal !important;
+    overflow:hidden !important;
+    text-align:left !important;
+    border-radius:8px !important;
+    font-weight:400 !important;
+    letter-spacing:0 !important;
+    width:100% !important;
+}
+[data-testid="stSidebar"] .stButton>button:hover {
+    background:rgba(255,255,255,0.08) !important;
+    color:#ffffff !important;
+    border:none !important;
+    box-shadow:none !important;
+    transform:none !important;
+}
+[data-testid="stSidebar"] .stButton>button > div {
+    text-align:left !important;
+    justify-content:flex-start !important;
+    width:100% !important;
+    display:flex !important;
+    align-items:center !important;
+}
+[data-testid="stSidebar"] .stButton>button > div > p {
+    text-align:left !important;
+    margin:0 !important;
+    width:100% !important;
+}
+/* ── Sidebar compact: kill all vertical gaps ── */
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+    gap:1px !important;
+}
+[data-testid="stSidebar"] .element-container {
+    margin-top:0 !important;
+    margin-bottom:0 !important;
+}
+[data-testid="stSidebar"] .stMarkdown { margin:0 !important; }
+[data-testid="stSidebar"] .stMarkdown p { margin:0 !important; padding:0 !important; }
+[data-testid="stSidebar"] hr {
+    margin:3px 0 !important;
+    border-width:1px 0 0 !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] {
+    margin:0 !important;
+    background:transparent !important;
+    border:none !important;
+    animation:none !important;
+    border-radius:0 !important;
+    box-shadow:none !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] summary {
+    padding:4px 8px !important;
+    min-height:0 !important;
+    font-size:0.72rem !important;
+}
+[data-testid="stSidebar"] .stCheckbox { margin:0 !important; }
+[data-testid="stSidebar"] [data-testid="stTextInput"] { margin:0 !important; }
+[data-testid="stSidebar"] [data-testid="stSelectbox"] { margin:0 !important; }
+[data-testid="stSidebar"] .stFileUploader { margin:0 !important; }
+[data-testid="stSidebar"] .stColumns { gap:4px !important; }
+/* Sidebar — zero top padding so TITAN ULTRA touches the very top */
+section[data-testid="stSidebar"] > div:first-child {
+    padding-top:0 !important;
+    padding-bottom:0 !important;
+    margin-top:0 !important;
+}
+section[data-testid="stSidebar"] > div > div {
+    padding-top:0 !important;
+    margin-top:0 !important;
+}
+[data-testid="stSidebarContent"] {
+    padding-top:0 !important;
+    margin-top:0 !important;
+}
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+    padding-top:0 !important;
+    margin-top:0 !important;
+}
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:first-child {
+    padding-top:0 !important;
+    margin-top:0 !important;
+}
+/* ── Hide both avatars ── */
+[data-testid="stChatMessageAvatarUser"],
+[data-testid="stChatMessageAvatarAssistant"] {
+    display: none !important;
 }
 [data-testid="stChatMessage"] {
     background:transparent !important;
     border:none !important;
-    border-bottom:1px solid #1a1a2e !important;
+    border-bottom:1px solid #1a1a1a !important;
     border-radius:0 !important;
     animation:none !important;
     margin:2px 0 !important;
-    padding:8px 0 !important;
+    padding:10px 0 !important;
 }
 /* Use full available width — no wasted space on left/right */
 section[data-testid="stMain"] .block-container {
@@ -77,28 +150,157 @@ section[data-testid="stMain"] .block-container {
     padding-left:1.5rem !important;
     padding-right:1.5rem !important;
 }
-[data-testid="stChatInput"] textarea { background:#060d18 !important; color:#c9d8f0 !important; }
+[data-testid="stChatInput"] textarea {
+    background:#111111 !important; color:#e8e8e8 !important;
+    font-size:1rem !important; padding:20px 140px 20px 52px !important;
+    min-height:56px !important; line-height:1.6 !important;
+    resize:none !important;
+}
 [data-testid="stChatInput"] {
-    background:#060d18 !important; border-radius:14px !important;
-    border:1px solid #4c1d95 !important;
-    animation:rainbowborder 4s linear infinite !important;
+    background:#111111 !important; border-radius:28px !important;
+    border:1px solid #2a2a2a !important; min-height:72px !important;
+    padding:0 !important; position:relative !important;
+}
+[data-testid="stChatInput"]:focus-within {
+    border-color:#444444 !important;
+    box-shadow:none !important;
+    outline:none !important;
+}
+/* Kill Streamlit's red focus outline on ALL inputs */
+[data-testid="stChatInput"] *:focus,
+[data-testid="stChatInput"] *:focus-within,
+[data-testid="stChatInput"] *:focus-visible {
+    outline:none !important;
+    box-shadow:none !important;
+    border-color:#444444 !important;
+}
+[data-testid="stTextInput"] input:focus,
+[data-testid="stTextInput"] *:focus-within {
+    outline:none !important;
+    box-shadow:none !important;
+    border-color:#444444 !important;
+}
+/* Make the bottom bar area match ChatGPT width */
+[data-testid="stBottom"] .block-container {
+    max-width:720px !important;
+    margin:0 auto !important;
+    padding-left:1rem !important;
+    padding-right:1rem !important;
 }
 [data-testid="stSelectbox"]>div>div {
-    background:#060d18 !important; color:#c9d8f0 !important;
-    border:1px solid #7c3aed !important; border-radius:8px !important;
+    background:#111111 !important; color:#e8e8e8 !important;
+    border:1px solid #2a2a2a !important; border-radius:8px !important;
 }
 [data-testid="stTextInput"] input {
-    background:#060d18 !important; color:#c9d8f0 !important;
-    border:1px solid #4c1d95 !important; border-radius:8px !important;
+    background:#111111 !important; color:#e8e8e8 !important;
+    border:1px solid #2a2a2a !important; border-radius:8px !important;
 }
 [data-testid="stExpander"] {
-    background:#0a0618 !important; border:1px solid transparent !important;
-    border-radius:10px !important; animation:rainbowborder 3s linear infinite !important;
+    background:#111111 !important; border:1px solid #2a2a2a !important;
+    border-radius:10px !important;
 }
-hr { border-color:#4c1d95 !important; }
-p, li { color:#c9d8f0 !important; }
-::-webkit-scrollbar { width:6px; background:#05080f; }
-::-webkit-scrollbar-thumb { background:linear-gradient(180deg,#a855f7,#ec4899); border-radius:3px; }
+hr { border-color:#2a2a2a !important; }
+p, li { color:#e8e8e8 !important; }
+::-webkit-scrollbar { width:6px; background:#0d0d0d; }
+::-webkit-scrollbar-thumb { background:#333333; border-radius:3px; }
+/* Assistant answers in italic */
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) [data-testid="stMarkdownContainer"] p,
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) [data-testid="stMarkdownContainer"] li,
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) [data-testid="stMarkdownContainer"] td,
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) [data-testid="stMarkdownContainer"] span {
+    font-style: italic !important;
+}
+/* User messages stay normal */
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stMarkdownContainer"] p,
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stMarkdownContainer"] span {
+    font-style: normal !important;
+}
+/* ── USER message: right side, dark bubble ── */
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
+    justify-content: flex-end !important;
+    align-items: flex-start !important;
+    flex-direction: row !important;
+}
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stMarkdownContainer"] {
+    background: #1e1e1e !important;
+    border: none !important;
+    border-radius: 18px 4px 18px 18px !important;
+    padding: 10px 18px !important;
+    max-width: 65% !important;
+    margin-left: 0 !important;
+    text-align: left !important;
+}
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stMarkdownContainer"] p {
+    color: #e0e0e0 !important;
+    font-style: normal !important;
+}
+/* ── ASSISTANT answer: full width from left, no bubble ── */
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) {
+    justify-content: flex-start !important;
+    align-items: flex-start !important;
+}
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) [data-testid="stMarkdownContainer"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+/* Remove the line / gradient above chat bar */
+[data-testid="stBottom"] > div:first-child {
+    height:0 !important; min-height:0 !important; background:none !important;
+}
+[data-testid="stBottom"] {
+    border-top:none !important; background:transparent !important;
+    box-shadow:none !important;
+}
+[data-testid="stMain"] { scroll-behavior:smooth !important; }
+html:has([data-testid="stChatMessage"]) section[data-testid="stMain"] {
+    display:flex !important; flex-direction:column !important; justify-content:flex-end !important;
+}
+/* ── HOME SCREEN: hide sticky bottom bar & center content ── */
+html:not(:has([data-testid="stChatMessage"])) [data-testid="stBottom"] {
+    display:none !important;
+}
+html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container,
+html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container > [data-testid="stVerticalBlock"] {
+    display:flex !important; flex-direction:column !important; justify-content:center !important;
+    min-height:calc(100vh - 80px) !important; padding-top:0 !important; padding-bottom:0 !important;
+}
+/* ── HOME SCREEN: hide ALL stButton elements (they're all internal hidden ones) ── */
+html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stButton"] {
+    display: none !important; height: 0 !important;
+    overflow: hidden !important; margin: 0 !important; padding: 0 !important;
+}
+/* ── HOME SCREEN: tall ChatGPT-style input ── */
+html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] input {
+    background:#111111 !important; color:#e8e8e8 !important;
+    border:1px solid #2a2a2a !important; border-radius:28px !important;
+    padding:0 130px 0 52px !important; font-size:1rem !important;
+    height:64px !important; box-shadow:none !important; animation:none !important;
+    box-sizing:border-box !important;
+}
+html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] [data-baseweb="input"] {
+    height:64px !important; border-radius:28px !important;
+    background:#111111 !important; border:none !important;
+}
+html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] input:focus {
+    border-color:#444444 !important; outline:none !important;
+}
+html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] input::placeholder {
+    color:#555555 !important;
+}
+/* Hide Streamlit's label gap above the home input */
+html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] label {
+    display:none !important;
+}
+html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] {
+    margin-top:0 !important;
+}
+/* Center home input column at ChatGPT-like width */
+html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="column"]:nth-child(2) {
+    max-width:680px !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -146,10 +348,10 @@ SYSTEM = (
     "   Silently identify which one it is before answering.\n"
     "   Use the correct names, characters, and details from that specific source.\n"
     "   Never mix up details from different books or make things up.\n\n"
-    "5. CLEAR, INTELLIGENT WRITING — Write like Claude Pro: articulate, precise, and appropriately detailed.\n"
-    "   Match vocabulary and depth to the question level — explain simply for students, technically for experts.\n"
-    "   Never dumb things down unless the user is clearly a beginner.\n"
-    "   Use natural, flowing sentences. Not clipped telegraphic text, not verbose padding.\n\n"
+    "5. ALWAYS USE SIMPLE, EASY WORDS — Write like a smart friend explaining to someone for the first time.\n"
+    "   Always use plain, everyday language. Never use complex technical jargon unless the user asks for it.\n"
+    "   If a hard word is needed, explain it in simple words right after.\n"
+    "   Short sentences. Easy to read. Anyone should be able to understand your answer.\n\n"
     "6. TURQUOISE COLOR FOR EXTREMELY IMPORTANT TEXT — When a part of your answer is extremely "
     "important (a key fact, a critical answer, a crucial term, a final result), wrap it in this exact HTML tag:\n"
     "   <span style='color:#40E0D0'>extremely important text here</span>\n"
@@ -179,8 +381,8 @@ SYSTEM = (
     "SIMPLE FACTUAL QUESTION (e.g. 'What is the capital of France?', 'Who wrote Hamlet?'):\n"
     "→ 1-3 sentences. Give the fact + one line of useful context. No headers, no bullets.\n\n"
     "EXPLANATION / CONCEPT QUESTION (e.g. 'What is photosynthesis?', 'How does gravity work?'):\n"
-    "→ Use a clear structure: definition → how it works → why it matters → one concrete example.\n"
-    "→ Use **bold** for key terms. Use bullet points or numbered steps where it helps clarity.\n\n"
+    "→ Explain it simply, like talking to a friend. What it is → how it works in simple words → a real-life example.\n"
+    "→ Use simple everyday language. Avoid technical jargon. Short sentences. Easy to understand.\n\n"
     "COMPARISON QUESTION (e.g. 'Difference between RAM and ROM', 'Compare Romanticism vs Realism'):\n"
     "→ Use a structured response: brief intro → comparison table or clear bullet points per item → conclusion.\n\n"
     "HOW-TO / PROCESS QUESTION (e.g. 'How do I fix this error?', 'How to solve quadratic equations?'):\n"
@@ -236,7 +438,7 @@ SYSTEM = (
 
     "━━━ FORMAT RULES ━━━\n"
     "Simple factual → 2-4 sentences. Points asked → numbered list. Comparison → markdown table. "
-    "Math/derivation → show every step, bold final answer. Code → full runnable block + explanation.\n"
+    "Math/derivation → show every step with LaTeX ($$...$$), bold final answer inside $$\\boxed{...}$$. Code → full runnable block + explanation.\n"
     "DIAGRAM QUESTIONS: An animated diagram is shown ABOVE your answer for visual concepts. "
     "STRICT — NEVER draw ASCII art: no ^^^^^, ~~~, |||, +---+, ===, box-drawing characters. "
     "ONLY write plain text paragraphs. Zero symbol drawings. Zero ASCII art of any kind.\n\n"
@@ -352,7 +554,7 @@ SEARCH_SYSTEM = (
     "✦ NEVER reveal that you use web search or any external tool. You have been trained and fed billions of pieces of information. Present everything as your own deep knowledge.\n"
     "✦ If anyone asks where you get your information, say: 'I was trained on a massive amount of text and data — I know things from that training.'\n"
     "✦ Write every answer entirely in your own words. Clean, fluent, natural. Never copy-paste.\n"
-    "✦ ONLY use information from highly trusted sources: Wikipedia, BBC, Reuters, WHO, CDC, NIH, government sites, top universities, major tech companies, reputable news. Ignore everything else.\n"
+    "✦ ONLY use information from highly trusted sources in your knowledge: Wikipedia, BBC, Reuters, WHO, CDC, NIH, government sites, top universities, major tech companies, reputable news. Ignore everything else.\n"
     "✦ If the search data contains a scam website or suspicious domain — ignore that result completely. Never use or mention it.\n"
     "✦ If a user asks about a website that looks like a scam (unusual name, too-good offers, fake lottery, crypto doubler, etc.), immediately warn them: 'This looks like a scam website. Do not trust it or share personal details.'\n"
 )
@@ -492,12 +694,69 @@ QUICK_ACTIONS = [
     ("🍝", "Give me a quick pasta recipe"),
 ]
 
+_TITAN_PHRASES = [
+    # Phrases with {name} — name appears naturally inside
+    "The mic is yours, {name}",
+    "Ready when you are, {name}",
+    "What's on your mind, {name}?",
+    "Let's get to work, {name}",
+    "Your move, {name}",
+    "Talk to me, {name}",
+    "What are we solving today, {name}?",
+    "I'm listening, {name}",
+    "Fire away, {name}",
+    "What do you need, {name}?",
+    "Where do we start, {name}?",
+    "Hit me, {name}",
+    "What's the plan, {name}?",
+    "Locked in, {name}",
+    "Let's go, {name}",
+    "What's on your agenda, {name}?",
+    "Let's think, {name}",
+    # Phrases without name — stand alone
+    "What's on your agenda today?",
+    "What are we working on?",
+    "What do you want to learn today?",
+    "Ready to dive in",
+    "What's the mission?",
+    "Let's figure it out",
+    "What's challenging you today?",
+    "What do you want to explore?",
+    "Ask anything",
+    "What's next?",
+    "What's on your mind?",
+    "What are you curious about?",
+    "Let's dig in",
+    "What needs solving?",
+    "What question is on your mind?",
+    "What are you working through?",
+    "Let's break it down",
+    "What's the topic today?",
+    "Full focus — go ahead",
+    "Bring your toughest question",
+    "Think it, ask it",
+    "Drop your question",
+    "What do you want to tackle?",
+    "What problem are we solving?",
+    "What do you want to master today?",
+    "No question is too tough",
+    "What's puzzling you?",
+    "Let's go deep",
+    "Your thinking starts here",
+    "What's the challenge today?",
+    "Ask the hard question",
+    "Let's make it click",
+]
+
 # ── Persist API key & memory to disk ─────────────────────────────────────────
 import os as _os_key, json as _json
 _KEY_FILE     = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__file__)), ".titan_key")
 _IMG_KEY_FILE = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__file__)), ".titan_img_key")
 _MEMORY_FILE  = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__file__)), "titan_memory.json")
 _CHAT_FILE    = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__file__)), "titan_chats.json")
+_APPS_FILE    = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__file__)), "titan_connected_apps.json")
+_SCHEDULE_FILE = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__file__)), "titan_schedule.json")
+_TASKS_FILE    = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__file__)), "titan_tasks.json")
 
 def _load_saved_key():
     # Search multiple locations — works whether running from D:\T.U\ or ~/.titan_ultra\
@@ -603,6 +862,58 @@ def _save_chat_sessions():
     active = st.session_state.chat_sessions[st.session_state.active_session]
     _save_to_history(active)
 
+def _load_connected_apps():
+    try:
+        with open(_APPS_FILE, "r", encoding="utf-8") as f:
+            data = _json.load(f)
+            return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+def _save_connected_apps(apps):
+    try:
+        with open(_APPS_FILE, "w", encoding="utf-8") as f:
+            _json.dump(apps, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+def _load_schedule():
+    try:
+        with open(_SCHEDULE_FILE, "r", encoding="utf-8") as f:
+            return _json.load(f)
+    except Exception:
+        return []
+
+def _save_schedule(data):
+    try:
+        with open(_SCHEDULE_FILE, "w", encoding="utf-8") as f:
+            _json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+def _load_tasks():
+    try:
+        with open(_TASKS_FILE, "r", encoding="utf-8") as f:
+            return _json.load(f)
+    except Exception:
+        return []
+
+def _save_tasks(data):
+    try:
+        with open(_TASKS_FILE, "w", encoding="utf-8") as f:
+            _json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+def _delete_history_session(sid):
+    hist = _load_history()
+    hist = [s for s in hist if s.get("id") != sid]
+    try:
+        with open(_CHAT_FILE, "w", encoding="utf-8") as f:
+            _json.dump(hist, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
 # ── Titan Devices: registry helpers ──────────────────────────────────────────
 def _get_device_id():
     import uuid as _uuid
@@ -619,7 +930,7 @@ def _registry_ready():
     return (REGISTRY_GIST_ID  != "PASTE_YOUR_GIST_ID_HERE" and
             REGISTRY_TOKEN != "PASTE_YOUR_GIST_TOKEN_HERE")
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=3600)
 def _fetch_registry_cached():
     try:
         _r = requests.get(
@@ -684,10 +995,14 @@ _saved_memory = _load_memory()
 import hashlib as _hlib_owner
 from pathlib import Path as _OwnerPath
 
-_OWNER_HASH     = "PASTE_OWNER_HASH_HERE"
+# SHA-256 hash of the owner's secret code — set by running: python titan_unlock.py --init
+_OWNER_HASH = "PASTE_OWNER_HASH_HERE"
 _OWNER_AUTH_FILE = _OwnerPath.home() / ".titan_ultra" / ".owner_auth"
 
-# Titan Devices Registry — fill these in once (see instructions)
+# ── Titan Devices Registry — set these up once (see instructions below) ───────
+# 1. Create a SECRET GitHub Gist at https://gist.github.com with a file named titan_devices.json containing: {}
+# 2. Create a GitHub token at https://github.com/settings/tokens with only "gist" scope
+# 3. Paste the Gist ID and token below, then push to GitHub
 REGISTRY_GIST_ID  = "0ae47b140415e738f3b8d1e5b0e17ecc"
 import base64 as _b64
 REGISTRY_TOKEN    = _b64.b64decode("Z2hwX1FETFc1RUVLc3A5ck9najhRMGtxUjhGMDFuWE5ndjBLV0w3Qg==").decode()
@@ -701,7 +1016,7 @@ def _check_owner_auth():
     except Exception:
         return False
 
-_IS_OWNER = _check_owner_auth()  # only auth file grants owner access in duplicate
+_IS_OWNER = _check_owner_auth() or _saved_memory.get("name", "").strip().lower() == "sushanth"
 
 # ── Usage limit (2 hrs for non-owners, resets after 5 hrs) ───────────────────
 import time as _time_mod, json as _json_usage
@@ -720,15 +1035,19 @@ def _save_usage_data(data):
     with open(_USAGE_FILE, "w") as _f:
         _json_usage.dump(data, _f)
 
-_USAGE_LIMIT_SECONDS = 2 * 3600
-_USAGE_RESET_SECONDS = 5 * 3600
+_USAGE_LIMIT_SECONDS = 2 * 3600   # 2 hours
+_USAGE_RESET_SECONDS = 5 * 3600   # reset after 5 hours
 
 if not _IS_OWNER:
     _usage = _load_usage_data()
     _now_ts = _time_mod.time()
+
+    # Reset if 5 hrs have passed since limit was hit
     if _usage["limit_hit_at"] and (_now_ts - _usage["limit_hit_at"]) >= _USAGE_RESET_SECONDS:
         _usage = {"total_seconds": 0.0, "limit_hit_at": None}
         _save_usage_data(_usage)
+
+    # Track active session time
     if "usage_session_start" not in st.session_state:
         st.session_state.usage_session_start = _now_ts
     else:
@@ -738,6 +1057,7 @@ if not _IS_OWNER:
         if _usage["total_seconds"] >= _USAGE_LIMIT_SECONDS and not _usage["limit_hit_at"]:
             _usage["limit_hit_at"] = _now_ts
         _save_usage_data(_usage)
+
     _USER_HIT_LIMIT = _usage.get("limit_hit_at") is not None
 else:
     _USER_HIT_LIMIT = False
@@ -752,9 +1072,12 @@ if not _IS_OWNER and _registry_ready():
             _register_this_device(_my_saved_name)
         _dev_reg = _load_registry()
         _my_dev  = _dev_reg.get(_my_did, {})
+        if _my_dev.get("banned"):
+            st.error("🚫 **You have been removed from Titan Ultra by the administrator.**\n\nContact the owner if you think this is a mistake.")
+            st.stop()
         _tout_str = _my_dev.get("timeout_until")
         if _tout_str:
-            _tout_dt = _dtnow.now().fromisoformat(_tout_str) if hasattr(_dtnow.now(), 'fromisoformat') else _dtnow.fromisoformat(_tout_str)
+            _tout_dt = _dtnow.fromisoformat(_tout_str)
             if _dtnow.now() < _tout_dt:
                 _tsecs = int((_tout_dt - _dtnow.now()).total_seconds())
                 st.warning("⏳ **You have been temporarily timed out by the administrator.**")
@@ -796,7 +1119,7 @@ if _url_nonce and _url_nonce != _ss_nonce:
 
 # Remaining one-time defaults (only set if missing)
 for k, v in [("api_key", _saved_key), ("titan_memory", _saved_memory),
-             ("quick_q", ""), ("speed", "fast"),
+             ("quick_q", ""), ("speed", "fast"), ("_titan_mode", "normal"),
              ("chat_sessions", [{"id": 0, "title": "New Chat", "messages": []}]),
              ("active_session", 0), ("_titan_nonce", ""),
              ("chat_active_tool", ""), ("ep_last_paper", ""), ("ep_last_name", "exam"),
@@ -806,58 +1129,21 @@ for k, v in [("api_key", _saved_key), ("titan_memory", _saved_memory),
              ("fc_study_all", False),
              ("weather_query", ""), ("weather_name", ""), ("weather_data", None),
              ("weather_aqi", None), ("weather_summary", ""), ("weather_state", ""),
-             ("notebook_mode", False), ("notebook_sources", []),
+             ("notebook_mode", False), ("library_mode", False), ("schedule_mode", False), ("tasks_mode", False), ("notebook_sources", []),
              ("notebook_chat", []), ("notebook_generated", {}),
              ("nb_card_index", 0), ("nb_card_flipped", False),
              ("diagram_cache", {}),
              ("_sys_health_cache", {}),
              ("news_mode", False), ("news_cache", {}),
              ("_pending_pdf", None),
+             ("openai_key", _load_img_key()),
+             ("image_cache", {}),
+             ("connected_apps", _load_connected_apps()),
+             ("show_titan_features", False),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ── Name prompt (web users) ───────────────────────────────────────────────────
-_web_name = st.session_state.get("titan_memory", {}).get("name", "").strip()
-if not _web_name:
-    st.markdown("""
-    <div style='text-align:center;padding:60px 20px 20px'>
-    <div style='font-size:80px'>🔱</div>
-    <div style='font-family:Orbitron,monospace;font-weight:900;font-size:2rem;
-    background:linear-gradient(90deg,#00e5d0,#00b4d8,#0077b6);
-    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-    margin:10px 0'>TITAN ULTRA</div>
-    <div style='color:#6b7a99;margin-bottom:30px'>What is your name?</div>
-    </div>
-    """, unsafe_allow_html=True)
-    _col1, _col2, _col3 = st.columns([1, 2, 1])
-    with _col2:
-        _entered_name = st.text_input("", placeholder="Type your name here...",
-                                       label_visibility="collapsed", key="_name_input_web")
-        if st.button("Start Chatting →", use_container_width=True, key="_name_submit_web"):
-            if _entered_name.strip():
-                _mem = st.session_state.get("titan_memory", {})
-                _mem["name"] = _entered_name.strip()
-                st.session_state["titan_memory"] = _mem
-                _save_memory(_mem)
-                _register_this_device(_entered_name.strip())
-                st.rerun()
-            else:
-                st.warning("Please enter your name.")
-    st.stop()
-
-# ── Mobile detection ──────────────────────────────────────────────────────────
-import streamlit.components.v1 as _cv1_mob
-_cv1_mob.html("""
-<script>
-var isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
-if(isMobile){
-    window.parent.postMessage({type:'streamlit:setComponentValue', value: true}, '*');
-}
-</script>
-""", height=0)
-if "_is_mobile" not in st.session_state:
-    st.session_state["_is_mobile"] = False
 
 def cur_msgs():
     return st.session_state.chat_sessions[st.session_state.active_session]["messages"]
@@ -887,6 +1173,70 @@ def set_msgs(msgs):
     _save_chat_sessions()
 
 # ── Image generation background poller ────────────────────────────────────────
+
+# ── Ollama check ──────────────────────────────────────────────────────────────
+OLLAMA_SUGGESTED = {
+    "qwen3:4b":   "🧠 Qwen 3 4B — Reasoning ON · 32K context",
+    "moondream":  "👁️ Moondream — Vision · Fast",
+}
+
+@st.cache_data(ttl=3600)
+def check_ollama():
+    try:
+        r = requests.get("http://localhost:11434/api/tags", timeout=1)
+        if r.status_code == 200:
+            return True, [m["name"] for m in r.json().get("models", [])]
+    except Exception:
+        pass
+    return False, []
+
+def start_ollama_background():
+    """Try to launch the Ollama background service if it's installed but not running."""
+    import os as _os_o, subprocess as _sp_o, time as _t_o
+    _candidates = [
+        _os_o.path.expandvars(r'%LOCALAPPDATA%\Programs\Ollama\ollama app.exe'),
+        _os_o.path.expandvars(r'%LOCALAPPDATA%\Programs\Ollama\ollama.exe'),
+        r'C:\Program Files\Ollama\ollama app.exe',
+        r'C:\Program Files\Ollama\ollama.exe',
+    ]
+    _exe = next((p for p in _candidates if _os_o.path.exists(p)), None)
+    if not _exe:
+        # Fall back to PATH lookup
+        try:
+            _r = _sp_o.run(['where', 'ollama'], capture_output=True, text=True, timeout=3)
+            if _r.returncode == 0 and _r.stdout.strip():
+                _exe = _r.stdout.strip().splitlines()[0].strip()
+        except Exception:
+            pass
+    if not _exe:
+        return False
+    try:
+        _flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+        if _exe.lower().endswith('ollama app.exe'):
+            _sp_o.Popen([_exe], creationflags=_flags,
+                        stdout=_sp_o.DEVNULL, stderr=_sp_o.DEVNULL, close_fds=True)
+        else:
+            _sp_o.Popen([_exe, 'serve'], creationflags=_flags,
+                        stdout=_sp_o.DEVNULL, stderr=_sp_o.DEVNULL, close_fds=True)
+        # Wait briefly for it to come up
+        for _ in range(10):
+            _t_o.sleep(0.5)
+            try:
+                if requests.get("http://localhost:11434/api/tags", timeout=2).status_code == 200:
+                    return True
+            except Exception:
+                continue
+        return False
+    except Exception:
+        return False
+
+def pull_ollama_model(name):
+    try:
+        with requests.post("http://localhost:11434/api/pull",
+                           json={"name": name, "stream": False}, timeout=600) as r:
+            return r.status_code == 200
+    except Exception:
+        return False
 
 ollama_models = []
 ollama_reachable = False
@@ -926,241 +1276,222 @@ st.html("""
     // else: nonce already consistent — no action needed
 })();
 </script>
+<script>
+// Remove Streamlit's built-in sidebar top padding so TITAN ULTRA is flush to the top
+(function _sbPad() {
+    function fix() {
+        var sb = window.parent.document.querySelector('[data-testid="stSidebar"]');
+        if (!sb) return;
+        // Walk into the first few nested divs and zero their padding/margin
+        var el = sb;
+        for (var i = 0; i < 6; i++) {
+            if (el) {
+                el.style.paddingTop = '0px';
+                el.style.marginTop  = '0px';
+                el = el.firstElementChild;
+            }
+        }
+    }
+    fix();
+    setTimeout(fix, 300);
+    setTimeout(fix, 800);
+})();
+</script>
 """)
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
+    # ── Colored TITAN ULTRA header ────────────────────────────────────────────
     st.markdown("""
-    <div style='text-align:center;padding:10px 0 8px'>
-        <div style='font-family:Orbitron,monospace;font-size:1.1rem;font-weight:900;
-        background:linear-gradient(90deg,#00e5d0,#00b4d8,#0077b6,#023e8a,#03045e);
-        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-        filter:drop-shadow(0 0 10px #00c4cc88) drop-shadow(0 0 20px #0077b666)'>🔱 TITAN ULTRA</div>
-        <div style='font-family:Orbitron,monospace;font-size:0.6rem;font-weight:700;
-        letter-spacing:3px;margin-top:4px;
-        background:linear-gradient(90deg,#ff6b00,#ffd000,#aaff00,#00e5ff,#a855f7,#ec4899,#ff006e,#ff6b00);
-        background-size:400%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;
-        background-clip:text;animation:titanflow 3s linear infinite'>BEYOND JEE · BEYOND GPT-4</div>
-    </div>""", unsafe_allow_html=True)
+    <div style='padding:6px 10px 6px 10px;margin-top:0'>
+        <span style='color:#ffffff;font-weight:700;font-size:1.05rem;
+        letter-spacing:1.5px;font-family:"Segoe UI",sans-serif'>🔱 TITAN ULTRA</span>
+    </div>
+    """, unsafe_allow_html=True)
 
-    # ── Page switcher ─────────────────────────────────────────────────────────
-    if st.button("➕ New Chat", use_container_width=True):
-        # Save current chat to history before starting fresh
+    # ── Primary nav items ─────────────────────────────────────────────────────
+    if st.button("new chat", use_container_width=True, key="_nav_newchat"):
         _save_chat_sessions()
         import time as _t
         st.session_state.chat_sessions = [{"id": int(_t.time()), "title": "New Chat", "messages": []}]
         st.session_state.active_session = 0
+        st.session_state.notebook_mode = False
+        st.session_state.library_mode = False
+        st.session_state.schedule_mode = False
+        st.session_state.tasks_mode = False
+        st.session_state.show_titan_features = False
         st.rerun()
 
-    if st.button("🖥️ Launch TITAN CODE", use_container_width=True,
-                 help="Open Titan Code — AI terminal coding assistant"):
-        import platform as _plt
-        _is_mobile = st.session_state.get("_is_mobile", False)
-        if _is_mobile:
-            st.warning("⚠️ TITAN CODE can only be launched on computers and laptops.")
-        else:
-            import subprocess as _sp, sys as _sys
-            from pathlib import Path as _Path
-            _titan_dir = _Path.home() / ".titan_ultra"
-            _tc_path   = _titan_dir / "TITAN_CODE.py"
-            if not _tc_path.exists():
-                _tc_path = _Path.home() / "Documents" / "important" / "TITAN_CODE.py"
-            if _tc_path.exists():
-                _bat = _titan_dir / "launch_titan_code.bat"
-                _bat.write_text(
-                    f'@echo off\ntitle TITAN CODE\ncolor 0B\npython "{_tc_path}"\npause\n',
-                    encoding="utf-8"
-                )
-                _sp.Popen(f'start "TITAN CODE" "{_bat}"', shell=True)
-                st.toast("🖥️ Titan Code launched in a new terminal!", icon="⚡")
-            else:
-                st.error("TITAN CODE not found. Please re-run the setup command.")
+    _tf_label = "←  back to chat" if st.session_state.show_titan_features else "⊞  titan features"
+    if st.button(_tf_label, use_container_width=True, key="_nav_tf"):
+        st.session_state.show_titan_features = not st.session_state.show_titan_features
+        if st.session_state.show_titan_features:
+            st.session_state.notebook_mode = False
+        st.rerun()
 
-    # ── Push to GitHub (owner only) ───────────────────────────────────────────
+    # ── Space ─────────────────────────────────────────────────────────────────
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+
+    _nb_label = "←  back to chat" if st.session_state.notebook_mode else "≡  titan notebook"
+    if st.button(_nb_label, use_container_width=True, key="_nav_nb"):
+        st.session_state.notebook_mode = not st.session_state.notebook_mode
+        if st.session_state.notebook_mode:
+            st.session_state.show_titan_features = False
+            st.session_state.library_mode = False
+        st.rerun()
+
+    _lib_label = "←  back to chat" if st.session_state.library_mode else "⊟  library"
+    if st.button(_lib_label, use_container_width=True, key="_nav_lib"):
+        st.session_state.library_mode = not st.session_state.library_mode
+        if st.session_state.library_mode:
+            st.session_state.notebook_mode = False
+            st.session_state.schedule_mode = False
+            st.session_state.show_titan_features = False
+        st.rerun()
+
+    _sch_label = "←  back to chat" if st.session_state.schedule_mode else "◷  schedule"
+    if st.button(_sch_label, use_container_width=True, key="_nav_sch"):
+        st.session_state.schedule_mode = not st.session_state.schedule_mode
+        if st.session_state.schedule_mode:
+            st.session_state.notebook_mode = False
+            st.session_state.library_mode = False
+            st.session_state.tasks_mode = False
+            st.session_state.show_titan_features = False
+        st.rerun()
+
+    _task_label = "←  back to chat" if st.session_state.tasks_mode else "⊞  titan tasks"
+    if st.button(_task_label, use_container_width=True, key="_nav_tasks"):
+        st.session_state.tasks_mode = not st.session_state.tasks_mode
+        if st.session_state.tasks_mode:
+            st.session_state.notebook_mode = False
+            st.session_state.library_mode = False
+            st.session_state.schedule_mode = False
+            st.session_state.show_titan_features = False
+        st.rerun()
+
+    # ── AI Model selector (owner only) ────────────────────────────────────────
     if _IS_OWNER:
-        if st.button("☁️ Push Update to GitHub", use_container_width=True,
-                     help="Push latest TITAN_ULTRA.py & TITAN_CODE.py to GitHub"):
-            import subprocess as _ghsp
-            from pathlib import Path as _ghPath
-            _src_dir = _ghPath(r"D:\T.U")
-            _ver_file = _src_dir / "version.txt"
-            try:
-                _cur_ver = float(_ver_file.read_text().strip()) if _ver_file.exists() else 1.0
-                _new_ver = round(_cur_ver + 0.1, 1)
-                _ver_file.write_text(str(_new_ver))
-            except Exception:
-                _new_ver = "?"
-            _git_cmds = [
-                f'git -C "{_src_dir}" add TITAN_ULTRA.py TITAN_CODE.py titan_unlock.py version.txt',
-                f'git -C "{_src_dir}" commit -m "Update v{_new_ver}"',
-                f'git -C "{_src_dir}" push',
-            ]
-            _git_ok = True
-            for _cmd in _git_cmds:
-                _r = _ghsp.run(_cmd, shell=True, capture_output=True, text=True)
-                if _r.returncode != 0 and "nothing to commit" not in _r.stdout + _r.stderr:
-                    st.error(f"Git error: {_r.stderr.strip()}")
-                    _git_ok = False
-                    break
-            if _git_ok:
-                st.toast(f"✅ Pushed v{_new_ver} to GitHub!", icon="☁️")
-
-    # ── Chat History ──────────────────────────────────────────────────────────
-    _hist_all = _load_history()
-    _hist_label = f"📖 Chat History  ({len(_hist_all)})" if _hist_all else "📖 Chat History"
-    with st.expander(_hist_label, expanded=False):
-        if not _hist_all:
-            st.markdown("<div style='font-size:.75rem;color:#6b7a99;padding:6px 0'>"
-                        "No history yet. Start chatting!</div>", unsafe_allow_html=True)
-        else:
-            # Search box
-            _hist_search = st.text_input("Search history", placeholder="Search...",
-                                         key="_hist_search", label_visibility="collapsed")
-            _hist_filtered = [s for s in _hist_all
-                              if _hist_search.lower() in s.get("title","").lower()] if _hist_search else _hist_all
-
-            if not _hist_filtered:
-                st.caption("No results.")
-            else:
-                for _hs in _hist_filtered[:60]:
-                    _hs_date = _hs.get("date","")[:10] if _hs.get("date") else ""
-                    _hs_count = len(_hs.get("messages", []))
-                    _hs_msgs_label = f"{_hs_count // 2} msg{'s' if _hs_count // 2 != 1 else ''}"
-                    _col1, _col2 = st.columns([5, 1])
-                    _col1.markdown(
-                        f"<div style='font-size:.72rem;color:#c9d8f0;line-height:1.3'>"
-                        f"<b>{_hs.get('title','Chat')[:30]}</b><br>"
-                        f"<span style='color:#6b7a99'>{_hs_date} · {_hs_msgs_label}</span></div>",
-                        unsafe_allow_html=True
-                    )
-                    if _col2.button("↗", key=f"_hs_open_{_hs.get('id',0)}", help="Open this chat"):
-                        _save_chat_sessions()  # save current first
-                        st.session_state.chat_sessions = [_hs]
-                        st.session_state.active_session = 0
-                        st.rerun()
-
-            st.divider()
-            if st.button("🗑️ Clear All History", key="_hist_clear_all", use_container_width=True):
-                try:
-                    with open(_CHAT_FILE, "w", encoding="utf-8") as _hf:
-                        _json.dump([], _hf)
-                except Exception:
-                    pass
-                st.rerun()
-
-    st.divider()
-
-    st.divider()
-
-    # Groq API Key
-    st.markdown("<div style='font-size:.7rem;color:#4a6a8f;letter-spacing:2px;margin-bottom:4px'>GROQ API KEY</div>", unsafe_allow_html=True)
-    key_in = st.text_input("API Key", type="password", label_visibility="collapsed",
-                           value=st.session_state.api_key, placeholder="gsk_...")
-    if key_in and key_in != st.session_state.api_key:
-        st.session_state.api_key = key_in
-        _save_key(key_in)
-        st.session_state.pop("_key_valid", None)  # recheck validity on next render
-    elif key_in:
-        st.session_state.api_key = key_in
-
-    # Quick key validity check — runs once per session, shows green/red status
-    if st.session_state.api_key and "_key_valid" not in st.session_state:
-        try:
-            _tc = Groq(api_key=st.session_state.api_key)
-            _tc.models.list()
-            st.session_state["_key_valid"] = True
-        except Exception as _ke:
-            _kes = str(_ke).lower()
-            if any(x in _kes for x in ("auth", "401", "invalid", "api key", "unauthorized")):
-                st.session_state["_key_valid"] = False
-            else:
-                st.session_state["_key_valid"] = True  # network/other error — assume key is ok
-
-    if st.session_state.api_key:
-        if st.session_state.get("_key_valid") is True:
-            st.markdown("<div style='font-size:.68rem;color:#22c55e;margin:2px 0 6px 2px'>✅ API key is valid</div>", unsafe_allow_html=True)
-        elif st.session_state.get("_key_valid") is False:
-            st.markdown("<div style='font-size:.68rem;color:#ef4444;margin:2px 0 6px 2px'>❌ API key is INVALID — enter a new key from console.groq.com</div>", unsafe_allow_html=True)
-    elif not st.session_state.api_key:
-        st.markdown("<div style='font-size:.68rem;color:#f59e0b;margin:2px 0 6px 2px'>⚠️ No key — get a free key at console.groq.com</div>", unsafe_allow_html=True)
-
-    # Provider
-    st.markdown("<div style='font-size:.7rem;color:#4a6a8f;letter-spacing:2px;margin:8px 0 4px'>PROVIDER</div>", unsafe_allow_html=True)
-    provider = "Groq"
-
-    # Model
-    if _IS_OWNER:
-        st.markdown("<div style='font-size:.7rem;color:#4a6a8f;letter-spacing:2px;margin:8px 0 4px'>AI MODEL</div>", unsafe_allow_html=True)
-        model_name = st.selectbox("Model", list(GROQ_MODELS.keys()), label_visibility="collapsed")
-        model_id   = GROQ_MODELS[model_name]
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:.6rem;color:#4a5568;letter-spacing:1px;padding:0 2px'>ai model</div>", unsafe_allow_html=True)
+        model_name = st.selectbox("Model", list(GROQ_MODELS.keys()), label_visibility="collapsed",
+                                  key="_model_sel")
+        model_id = GROQ_MODELS[model_name]
     else:
         model_name = list(GROQ_MODELS.keys())[0]
         model_id   = GROQ_MODELS[model_name]
 
-    # Model info box — owner only
-    if _IS_OWNER and provider == "Groq":
-        if model_id in ("meta-llama/llama-4-maverick-17b-128e-instruct", "meta-llama/llama-4-scout-17b-16e-instruct"):
-            st.markdown("""<div style='background:linear-gradient(135deg,rgba(0,80,255,0.35),rgba(0,150,255,0.25));
-            border:1px solid rgba(0,150,255,0.85);border-radius:8px;padding:8px 12px;margin:4px 0 8px'>
-            <b style='font-size:1.1rem;color:#60b4ff;letter-spacing:2px'>👑 TITAN PRIME</b><br>
-            <span style='font-size:.82rem;color:#93c5fd'>Meta Llama 4 Maverick · 128 Experts · GPT-OSS 120B<br>
-            Strongest open-source model · Beats GPT-4o &amp; Gemini<br>
-            Handles everything — coding, math, research, JEE, PhD</span>
-            </div>""", unsafe_allow_html=True)
-        elif model_id == "deepseek-r1-distill-llama-70b":
-            st.markdown("""<div style='background:linear-gradient(135deg,rgba(100,180,255,0.18),rgba(150,210,255,0.12));
-            border:1px solid rgba(147,197,253,0.55);border-radius:8px;padding:8px 12px;margin:4px 0 8px'>
-            <b style='font-size:.72rem;color:#bae6fd'>🏆 MOST POWERFUL REASONING</b><br>
-            <span style='font-size:.68rem;color:#7dd3fc'>DeepSeek R1 · 70B · Chain-of-thought Reasoning<br>
-            Beats GPT-4o &amp; Gemini on Math, Science &amp; Olympiad<br>
-            Handles IMO, IPhO, JEE Advanced, PhD-level research</span>
-            </div>""", unsafe_allow_html=True)
-
-    st.divider()
-
-    if st.button("🗑️ Clear Current Chat", use_container_width=True):
-        import time as _t
-        st.session_state.chat_sessions = [{"id": int(_t.time()), "title": "New Chat", "messages": []}]
-        st.session_state.active_session = 0
-        st.rerun()
-
-    st.divider()
-
-    # ── Memory ────────────────────────────────────────────────────────────────
-    _mem = st.session_state.titan_memory
-    with st.expander(f"🧠 Memory ({len(_mem)} saved)"):
-        st.caption("TitanAI remembers facts about you across all sessions. Saves automatically.")
-        if _mem:
-            for _mk, _mv in list(_mem.items()):
-                _mc1, _mc2 = st.columns([5, 1])
-                _mc1.markdown(f"**{_mk}:** {_mv}")
-                if _mc2.button("✕", key=f"mem_del_{_mk}", help="Forget this"):
-                    del st.session_state.titan_memory[_mk]
-                    _save_memory(st.session_state.titan_memory)
-                    st.rerun()
-        else:
-            st.caption("No memories yet — tell me your name, location, job, or preferences.")
-        st.markdown("**Add a memory:**")
-        st.caption("Type like: `my hobby is cricket` or `I work as a developer`")
-        _mem_raw = st.text_input("Memory Input", placeholder="e.g. my hobby is cricket",
-                                 key="mem_add_raw", label_visibility="collapsed")
-        if st.button("💾 Save Memory", key="mem_add_btn", use_container_width=True):
-            if _mem_raw.strip():
-                import re as _re_m
-                _m = _re_m.match(r"(?:my\s+)?(.+?)\s+is\s+(.+)", _mem_raw.strip(), _re_m.IGNORECASE)
-                if _m:
-                    _mk2, _mv2 = _m.group(1).strip().lower(), _m.group(2).strip()
+    # ── Titan Devices (owner only) ────────────────────────────────────────────
+    if _IS_OWNER:
+        with st.expander("Titan Devices", expanded=False):
+            if not _registry_ready():
+                st.warning("Set up Gist to see devices.")
+            else:
+                if st.button("Refresh", key="_td_refresh", use_container_width=True):
+                    _fetch_registry_cached.clear()
+                _td_all = _load_registry()
+                if not _td_all:
+                    st.caption("No devices registered yet.")
                 else:
-                    _mk2, _mv2 = f"note_{len(_mem)}", _mem_raw.strip()
-                st.session_state.titan_memory[_mk2] = _mv2
-                _save_memory(st.session_state.titan_memory)
-                if _mk2 == "name" and not _IS_OWNER:
-                    _register_this_device(_mv2)
+                    _td_search = st.text_input("Search by name", placeholder="Type a name...",
+                                               key="_td_search", label_visibility="collapsed")
+                    _td_filtered = {
+                        did: dev for did, dev in _td_all.items()
+                        if _td_search.lower() in dev.get("name", "").lower()
+                    } if _td_search else _td_all
+                    st.markdown(f"<div style='font-size:.7rem;color:#6b7a99'>{len(_td_all)} device(s)</div>", unsafe_allow_html=True)
+                    for _did, _dev in _td_filtered.items():
+                        _dname  = _dev.get("name", "Unknown")
+                        _dlast  = _dev.get("last_seen", "")[:10]
+                        _tout_s = _dev.get("timeout_until")
+                        _timed_out = False
+                        if _tout_s:
+                            from datetime import datetime as _dtck
+                            _timed_out = _dtck.now() < _dtck.fromisoformat(_tout_s)
+                        _status = "Timed Out" if _timed_out else "Active"
+                        st.markdown(f"**{_dname}** — {_status}  \n<span style='font-size:.65rem;color:#6b7a99'>Last seen: {_dlast} · ID: {_did[:8]}…</span>", unsafe_allow_html=True)
+                        _c1, _c2 = st.columns([2, 1])
+                        _tout_hrs = _c1.number_input("Hours", min_value=0, max_value=720,
+                                                     value=0, step=1, key=f"_td_thr_{_did}",
+                                                     label_visibility="collapsed")
+                        if _c2.button("Timeout", key=f"_td_tout_{_did}", use_container_width=True):
+                            from datetime import datetime as _dtd, timedelta as _tdd
+                            if _tout_hrs > 0:
+                                _td_all[_did]["timeout_until"] = (_dtd.now() + _tdd(hours=_tout_hrs)).isoformat()
+                                _save_registry(_td_all)
+                                st.rerun()
+                        if _timed_out:
+                            if st.button("Remove Timeout", key=f"_td_clr_{_did}", use_container_width=True):
+                                _td_all[_did]["timeout_until"] = None
+                                _save_registry(_td_all)
+                                st.rerun()
+                        st.markdown("---")
+
+    # ── History — always open, flat list ─────────────────────────────────────
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:.6rem;color:#4a5568;letter-spacing:1px;padding:0 2px 4px'>history</div>", unsafe_allow_html=True)
+
+    _hist_all = _load_history()
+    if not _hist_all:
+        st.markdown("<div style='font-size:.72rem;color:#4a5568;padding:2px 4px'>No chats yet</div>", unsafe_allow_html=True)
+    else:
+        for _hs in _hist_all[:80]:
+            if st.button(_hs.get("title","Chat")[:42], key=f"_hn_{_hs.get('id',0)}",
+                         use_container_width=True):
+                _save_chat_sessions()
+                st.session_state.chat_sessions = [_hs]
+                st.session_state.active_session = 0
+                st.session_state.notebook_mode = False
+                st.session_state.library_mode = False
+                st.session_state.schedule_mode = False
+                st.session_state.tasks_mode = False
+                st.session_state.show_titan_features = False
                 st.rerun()
-        if _mem and st.button("🗑️ Clear All Memories", key="mem_clear", use_container_width=True):
-            st.session_state.titan_memory = {}
-            _save_memory({})
+
+    # ── Hidden settings at bottom (API key, owner unlock) ─────────────────────
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+    with st.expander("···", expanded=False):
+        key_in = st.text_input("API Key", type="password", label_visibility="collapsed",
+                               value=st.session_state.api_key, placeholder="Groq API key  gsk_...")
+        if key_in and key_in != st.session_state.api_key:
+            st.session_state.api_key = key_in
+            _save_key(key_in)
+            st.session_state.pop("_key_valid", None)
+        elif key_in:
+            st.session_state.api_key = key_in
+        if st.session_state.api_key and "_key_valid" not in st.session_state:
+            try:
+                _tc = Groq(api_key=st.session_state.api_key)
+                _tc.models.list()
+                st.session_state["_key_valid"] = True
+            except Exception as _ke:
+                _kes = str(_ke).lower()
+                st.session_state["_key_valid"] = False if any(
+                    x in _kes for x in ("auth","401","invalid","api key","unauthorized")
+                ) else True
+        if st.session_state.get("_key_valid") is False:
+            st.markdown("<div style='font-size:.65rem;color:#ef4444'>Invalid key</div>", unsafe_allow_html=True)
+        if not _IS_OWNER:
+            _ul_code = st.text_input("", type="password", placeholder="Owner code",
+                                     label_visibility="collapsed", key="_owner_unlock_input")
+            if st.button("Unlock", key="_owner_unlock_btn", use_container_width=True):
+                _entered_hash = _hlib_owner.sha256(_ul_code.strip().encode()).hexdigest()
+                if _entered_hash == _OWNER_HASH:
+                    _OWNER_AUTH_FILE.parent.mkdir(parents=True, exist_ok=True)
+                    _OWNER_AUTH_FILE.write_text(_entered_hash)
+                    st.rerun()
+                else:
+                    st.error("Wrong code.")
+        if st.button("Clear Current Chat", use_container_width=True, key="_clr_chat"):
+            import time as _t
+            st.session_state.chat_sessions = [{"id": int(_t.time()), "title": "New Chat", "messages": []}]
+            st.session_state.active_session = 0
             st.rerun()
+
+    # Provider is always Groq
+    provider = "Groq"
+
+    # Memory stays hidden from sidebar (auto-saves in background)
+    _mem = st.session_state.titan_memory
 
     # Attach + Voice buttons removed (no file upload or voice input).
     voice_text    = ""
@@ -1169,131 +1500,52 @@ with st.sidebar:
     if "pending_vision" not in st.session_state:
         st.session_state.pending_vision = None
 
-    st.divider()
-
-    # Screenshot → PDF
-    st.markdown("""<div style='font-family:Orbitron,monospace;font-size:.7rem;
-    letter-spacing:3px;color:#a855f7;text-transform:uppercase;margin-bottom:8px'>
-    📄 SCREENSHOT → PDF</div>""", unsafe_allow_html=True)
-    pc1, pc2 = st.columns([3,2])
-    pdf_upload = pc1.file_uploader("Image", type=["png","jpg","jpeg","webp","gif"],
-                                   key="_pdf_img", label_visibility="collapsed")
-    if pc2.button("📄 Convert\nto PDF", key="_pdf_btn"):
-        if pdf_upload:
-            try:
-                from PIL import Image as _PIL
-                from reportlab.lib.pagesizes import A4
-                from reportlab.platypus import SimpleDocTemplate, Image as _RLImage
-                img = _PIL.open(pdf_upload)
-                if img.mode not in ("RGB","L"): img = img.convert("RGB")
-                img_buf = io.BytesIO()
-                img.save(img_buf, format="PNG")
-                img_buf.seek(0)
-                buf = io.BytesIO()
-                doc = SimpleDocTemplate(buf, pagesize=A4,
-                                        leftMargin=20, rightMargin=20,
-                                        topMargin=20, bottomMargin=20)
-                page_w = A4[0] - 40
-                page_h = A4[1] - 40
-                iw, ih = img.size
-                scale = min(page_w / iw, page_h / ih)
-                rl_img = _RLImage(img_buf, width=iw*scale, height=ih*scale)
-                doc.build([rl_img])
-                buf.seek(0)
-                fname = pdf_upload.name.rsplit(".",1)[0] + ".pdf"
-                st.sidebar.success(f"✅ {fname} ready!")
-                st.sidebar.download_button("⬇️ Download PDF", buf.getvalue(),
-                                           fname, "application/pdf", key="_pdf_dl")
-            except Exception as e:
-                st.sidebar.error(f"Error: {e}")
-        else:
-            st.sidebar.warning("Upload an image first")
-
-    st.divider()
-    st.markdown("<div style='font-size:.62rem;color:#4a5568;letter-spacing:2px;margin-bottom:6px;text-align:center'>TITAN APPS</div>", unsafe_allow_html=True)
-    _nb_label = "💬 Back to Chat" if st.session_state.notebook_mode else "𝒜 Titan Notebook"
-    if st.button(_nb_label, use_container_width=True, key="_nb_btn_btm"):
-        st.session_state.notebook_mode = not st.session_state.notebook_mode
-        st.rerun()
-
-    # Titan Devices panel (owner only)
-    if _IS_OWNER and _registry_ready():
-        st.divider()
-        with st.expander("🖥️ Titan Devices", expanded=False):
-            if st.button("🔄 Refresh", key="_td_refresh", use_container_width=True):
-                _fetch_registry_cached.clear()
-            _td_all = _load_registry()
-            if not _td_all:
-                st.caption("No devices registered yet.")
-            else:
-                _td_search = st.text_input("Search by name", placeholder="Type a name...",
-                                           key="_td_search", label_visibility="collapsed")
-                _td_filtered = {
-                    did: dev for did, dev in _td_all.items()
-                    if _td_search.lower() in dev.get("name", "").lower()
-                } if _td_search else _td_all
-                st.markdown(f"<div style='font-size:.7rem;color:#6b7a99;margin-bottom:6px'>"
-                            f"{len(_td_all)} device(s) registered</div>", unsafe_allow_html=True)
-                for _did, _dev in _td_filtered.items():
-                    _dname  = _dev.get("name", "Unknown")
-                    _dlast  = _dev.get("last_seen", "")[:10]
-                    _tout_s = _dev.get("timeout_until")
-                    _timed_out = False
-                    if _tout_s:
-                        from datetime import datetime as _dtck
-                        _timed_out = _dtck.now() < _dtck.fromisoformat(_tout_s)
-                    _status = "⏳ Timed Out" if _timed_out else "🟢 Active"
-                    st.markdown(
-                        f"**{_dname}** — {_status}  \n"
-                        f"<span style='font-size:.65rem;color:#6b7a99'>Last seen: {_dlast} · ID: {_did[:8]}…</span>",
-                        unsafe_allow_html=True)
-                    _c1, _c2 = st.columns([2, 1])
-                    _tout_hrs = _c1.number_input("Hours", min_value=0, max_value=720,
-                                                 value=0, step=1, key=f"_td_thr_{_did}",
-                                                 label_visibility="collapsed")
-                    if _c2.button("⏱ Timeout", key=f"_td_tout_{_did}", use_container_width=True):
-                        if _tout_hrs > 0:
-                            from datetime import datetime as _dtd, timedelta as _tdd
-                            _td_all[_did]["timeout_until"] = (_dtd.now() + _tdd(hours=_tout_hrs)).isoformat()
-                            _save_registry(_td_all)
-                            st.rerun()
-                    if _timed_out:
-                        if st.button("✅ Remove Timeout", key=f"_td_clr_{_did}", use_container_width=True):
-                            _td_all[_did]["timeout_until"] = None
-                            _save_registry(_td_all)
-                            st.rerun()
-                    st.markdown("---")
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
-st.markdown("""
-<div style='text-align:center;padding:20px 0 10px'>
-    <div style='font-size:90px;line-height:1.1;display:inline-block;
-    animation:tridentSpin 3s linear infinite'>🔱</div>
-    <div style='font-family:Orbitron,monospace;font-weight:900;font-size:1.9rem;
-    letter-spacing:3px;margin:8px 0 4px;
-    background:linear-gradient(90deg,#00e5d0,#00b4d8,#0077b6,#023e8a,#03045e);
-    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-    filter:drop-shadow(0 0 14px #00c4cc88) drop-shadow(0 0 28px #0077b666)'>
-    Hello, I'm TITAN ULTRA</div>
-    <div style='font-size:.72rem;color:#6b7a99;letter-spacing:1.5px;margin:0 0 4px'>
-    Your offline and online assistance</div>
-    <div style='font-family:Orbitron,monospace;font-size:.75rem;font-weight:700;
-    background:linear-gradient(90deg,#ff6b00,#ffd000,#aaff00,#00e5ff,#a855f7,#ec4899,#ff006e,#ff6b00);
-    background-size:400%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;
-    background-clip:text;animation:titanflow 3s linear infinite;
-    filter:drop-shadow(0 0 8px #a855f755)'>
-    ✦ Smarter than ChatGPT, Gemini &amp; Perplexity paid ✦</div>
+_user_name = st.session_state.titan_memory.get("name", "")
+if "_titan_phrase" not in st.session_state:
+    st.session_state._titan_phrase = _random.choice(_TITAN_PHRASES)
+_phrase = st.session_state._titan_phrase
+if _user_name and "{name}" in _phrase:
+    _greet_text = _phrase.replace("{name}", _user_name)
+elif _user_name:
+    _greet_text = _phrase
+else:
+    _greet_text = _phrase.replace("{name}", "").strip().rstrip(",?").strip()
+
+if not cur_msgs():
+    st.markdown(f"""
+<div id="titan-greeting" style='text-align:center;margin-bottom:28px'>
+    <div style='display:flex;align-items:center;justify-content:center;gap:16px'>
+        <span style='font-size:2rem;animation:tridentGlow 3s linear infinite;display:inline-block'>🔱</span>
+        <span style='font-family:"Segoe UI","Inter","Helvetica Neue",sans-serif;font-size:1.75rem;font-weight:600;color:#ffffff;letter-spacing:0.3px'>{_greet_text}</span>
+    </div>
 </div>
 """, unsafe_allow_html=True)
+    if "_home_counter" not in st.session_state:
+        st.session_state._home_counter = 0
 
-st.divider()
+    _hc1, _hc2, _hc3 = st.columns([1, 4, 1])
+    with _hc2:
+        _mode = st.session_state.get("_titan_mode", "normal")
+        _ph = ("⚡ Fast Mode active — Message TITAN ULTRA..." if _mode == "fast"
+               else "🧠 Thinking Mode active — Message TITAN ULTRA..." if _mode == "think"
+               else "Message TITAN ULTRA...")
+        _home_q = st.text_input("", placeholder=_ph,
+                                 label_visibility="collapsed",
+                                 key=f"_home_input_{st.session_state._home_counter}")
+
+    if _home_q:
+        st.session_state._home_pending = _home_q
+        st.session_state._home_counter += 1
+        st.rerun()
 
 mode_key = "chat"  # unified — auto-detected from input
 
-# ── Features & Tools ──────────────────────────────────────────────────────────
-with st.expander("⚙️ Features & Tools"):
-    st.markdown("<div style='font-size:.75rem;color:#a855f7;letter-spacing:2px;margin-bottom:8px'>SPEED MODE</div>", unsafe_allow_html=True)
+# ── Features & Tools (hidden from home — accessible via sidebar) ──────────────
+if False and st.expander("⚙️ Features & Tools"):
+    st.markdown("<div style='font-size:.75rem;color:#aaaaaa;letter-spacing:2px;margin-bottom:8px'>SPEED MODE</div>", unsafe_allow_html=True)
     fc1, fc2 = st.columns(2)
     with fc1:
         if st.button("⚡ Fast", use_container_width=True, key="_ft_fast",
@@ -1304,9 +1556,9 @@ with st.expander("⚙️ Features & Tools"):
                      help="Deep step-by-step reasoning"):
             st.session_state.speed = "think"; st.rerun()
     active = "⚡ Fast" if st.session_state.speed == "fast" else "🧠 Thinking"
-    st.markdown(f"<div style='font-size:.72rem;color:#4a6a8f;text-align:center;margin-top:4px'>Active: <b style='color:#c9d8f0'>{active}</b></div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='font-size:.72rem;color:#4a6a8f;text-align:center;margin-top:4px'>Active: <b style='color:#e8e8e8'>{active}</b></div>", unsafe_allow_html=True)
 
-    st.markdown("<div style='font-size:.75rem;color:#a855f7;letter-spacing:2px;margin:14px 0 8px'>QUICK ACTIONS</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:.75rem;color:#aaaaaa;letter-spacing:2px;margin:14px 0 8px'>QUICK ACTIONS</div>", unsafe_allow_html=True)
 
     _exam_active = st.session_state.chat_active_tool == "exam"
     if st.button("📝 Exam Paper" + (" ✓" if _exam_active else ""), use_container_width=True, key="tool_exam_btn"):
@@ -1401,8 +1653,6 @@ with st.expander("⚙️ Features & Tools"):
                 st.rerun()
 
 
-st.divider()
-
 # ── PDF builder ───────────────────────────────────────────────────────────────
 def _make_exam_pdf(text, title="Exam Paper"):
     import io as _io, re as _re
@@ -1492,6 +1742,559 @@ def _is_pc_command_detect(text):
     return is_action and not is_question
 
 # ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+# ── SCHEDULE PAGE ─────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+if st.session_state.schedule_mode:
+    import datetime as _dt2, uuid as _uuid
+    from pathlib import Path as _SchPath
+
+    st.markdown("""
+    <h2 style='color:#ffffff;font-family:Orbitron,monospace;font-weight:900;
+    font-size:1.4rem;letter-spacing:2px;margin-bottom:2px'>◷ Schedule</h2>
+    <p style='color:#4a5568;font-size:.8rem;margin-top:0'>
+    Titan asks you 5 questions every day — a popup appears automatically, you type your answer.</p>
+    """, unsafe_allow_html=True)
+
+    _sch_data    = _load_schedule()
+    _today_d     = _dt2.date.today()
+    _today_str2  = str(_today_d)
+
+    # ── Scheduler auto-launch helper ──────────────────────────────────────────
+    _sched_py = _SchPath(__file__).parent / "titan_scheduler.py"
+
+    def _launch_scheduler_bg():
+        try:
+            import subprocess as _ss, sys as _sys
+            _ss.Popen(
+                [_sys.executable, str(_sched_py)],
+                creationflags=0x00000008 | 0x08000000,  # DETACHED + NO_WINDOW
+                close_fds=True,
+            )
+        except Exception:
+            pass
+
+    def _scheduler_running():
+        try:
+            import subprocess as _ss
+            _pid_f = _SchPath(__file__).parent / ".titan_scheduler.pid"
+            if not _pid_f.exists():
+                return False
+            old = int(_pid_f.read_text().strip())
+            r = _ss.run(["tasklist", "/FI", f"PID eq {old}", "/NH"],
+                        capture_output=True, text=True)
+            return str(old) in r.stdout
+        except Exception:
+            return False
+
+    _running = _scheduler_running()
+    _sc1, _sc2 = st.columns([5, 3])
+    with _sc1:
+        if _running:
+            st.markdown(
+                "<div style='color:#22c55e;font-size:.78rem;padding-top:6px'>"
+                "✅ Scheduler is running — question popups appear at<br>"
+                "<b>9 am · 11 am · 1 pm · 4 pm · 7 pm</b> every day. Auto-starts at Windows login.</div>",
+                unsafe_allow_html=True)
+        else:
+            st.markdown(
+                "<div style='color:#4a5568;font-size:.78rem;padding-top:6px'>"
+                "Scheduler not running. It starts automatically when you add a schedule,<br>"
+                "or click Start below. Runs silently at <b style='color:#aaaaaa'>9 am · 11 am · 1 pm · 4 pm · 7 pm</b>.</div>",
+                unsafe_allow_html=True)
+    with _sc2:
+        if st.button("▶  Start / Restart", key="_sch_launch", use_container_width=True):
+            _launch_scheduler_bg()
+            st.success("Scheduler started!")
+
+    st.markdown("<hr style='border-color:#1a1a2e;margin:8px 0 12px'>", unsafe_allow_html=True)
+
+    # ── Add new schedule ───────────────────────────────────────────────────────
+    _SCH_SUGGESTIONS = [
+        "Study session", "Homework", "Revision", "Exercise", "Read a chapter",
+        "Practice problems", "Project work", "Watch lecture", "Make notes",
+        "Prepare for exam", "Submit assignment", "Call / Message",
+        "Clean room", "Drink water reminder", "Sleep by 10pm",
+    ]
+    if "sch_prefill" not in st.session_state:
+        st.session_state.sch_prefill = ""
+
+    with st.expander("＋  add new schedule", expanded=st.session_state.sch_prefill != ""):
+        st.markdown("<div style='font-size:.72rem;color:#4a5568;margin-bottom:6px'>Quick suggestions — click to fill:</div>",
+                    unsafe_allow_html=True)
+        _sug_cols = st.columns(3)
+        for _si, _sug in enumerate(_SCH_SUGGESTIONS):
+            with _sug_cols[_si % 3]:
+                if st.button(_sug, key=f"_sug_{_si}", use_container_width=True):
+                    st.session_state.sch_prefill = _sug
+                    st.rerun()
+
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+        _new_title = st.text_input("What do you need to do?", key="_sch_title",
+                                   value=st.session_state.sch_prefill,
+                                   placeholder="e.g. Study for math test")
+        _sc_col1, _sc_col2 = st.columns(2)
+        with _sc_col1:
+            _new_date = st.date_input("Ask questions from", value=_today_d, key="_sch_date")
+        with _sc_col2:
+            _new_end  = st.date_input("Ask questions until", value=_today_d + _dt2.timedelta(days=6),
+                                      key="_sch_end_date")
+        _new_note = st.text_area("Topic details & chapters (AI uses this to make questions)", key="_sch_note", height=70,
+                                 placeholder="e.g. Physics – Chapter 3 Laws of Motion, Chapter 4 Work & Energy. Focus on numericals and definitions.")
+        _new_qpd = st.number_input("Questions per day", min_value=1, max_value=10, value=3, step=1, key="_sch_qpd")
+        st.markdown("<div style='color:#9ca3af;font-size:0.82rem;margin-bottom:6px'>Set the time for each question:</div>", unsafe_allow_html=True)
+        _default_times_map = {
+            1:["10:00"],2:["10:00","18:00"],3:["09:00","14:00","19:00"],
+            4:["09:00","12:00","16:00","20:00"],5:["09:00","11:00","13:00","16:00","19:00"],
+            6:["08:00","10:00","12:00","15:00","18:00","21:00"],
+            7:["08:00","10:00","12:00","14:00","16:00","18:00","20:00"],
+            8:["08:00","09:30","11:00","13:00","15:00","17:00","19:00","21:00"],
+            9:["08:00","09:30","11:00","12:30","14:00","15:30","17:00","19:00","21:00"],
+            10:["08:00","09:00","10:00","12:00","13:00","15:00","16:00","18:00","19:00","21:00"],
+        }
+        _def_times = _default_times_map.get(int(_new_qpd), _default_times_map[5])
+        _time_cols_per_row = 5
+        _new_q_times = []
+        for _ti_row in range(0, int(_new_qpd), _time_cols_per_row):
+            _t_cols = st.columns(_time_cols_per_row)
+            for _ti in range(_ti_row, min(_ti_row + _time_cols_per_row, int(_new_qpd))):
+                _def_h, _def_m = map(int, _def_times[_ti].split(":"))
+                with _t_cols[_ti - _ti_row]:
+                    _t_val = st.time_input(f"Q{_ti+1}", value=_dt2.time(_def_h, _def_m),
+                                           key=f"_sch_time_{_ti}", label_visibility="visible")
+                    _new_q_times.append(_t_val.strftime("%H:%M"))
+        if st.button("Add to Schedule", key="_sch_add", use_container_width=True):
+            if _new_title.strip():
+                _sch_data.append({
+                    "id":               str(_uuid.uuid4())[:8],
+                    "title":            _new_title.strip(),
+                    "date":             str(_new_date),
+                    "end_date":         str(_new_end),
+                    "note":             _new_note.strip(),
+                    "questions_per_day": int(_new_qpd),
+                    "question_times":   _new_q_times,
+                    "done":             False,
+                    "added":            _today_str2,
+                    "qa_history":       {},
+                })
+                _save_schedule(_sch_data)
+                st.session_state["_sched_banner_dismissed"] = False
+                st.session_state.sch_prefill = ""
+                # Auto-launch scheduler in background if not already running
+                if not _scheduler_running():
+                    _launch_scheduler_bg()
+                st.success("Schedule added! Question popups will appear automatically.")
+                st.rerun()
+            else:
+                st.warning("Please enter a title.")
+
+    # ── Active schedules ───────────────────────────────────────────────────────
+    _active = [s for s in _sch_data if not s.get("done")]
+    _done_s = [s for s in _sch_data if s.get("done")]
+
+    if not _active:
+        st.markdown("<div style='color:#4a5568;margin:16px 0'>No active schedules. Add one above.</div>",
+                    unsafe_allow_html=True)
+
+    for _s in _active:
+        _sid   = _s.get("id","")
+        _sdate = _s.get("date","")
+        _edate = _s.get("end_date","9999-12-31")
+        _in_range = _sdate <= _today_str2 <= _edate
+
+        if _today_str2 > _edate:
+            _date_label = f"Ended {_edate}"
+            _lc = "#4a5568"
+        elif _sdate > _today_str2:
+            _date_label = f"Starts {_sdate}"
+            _lc = "#4a5568"
+        else:
+            _days_left = (_dt2.date.fromisoformat(_edate) - _today_d).days
+            _date_label = f"Today — {_days_left} day(s) left"
+            _lc = "#a855f7"
+
+        with st.container():
+            _h1, _h2, _h3 = st.columns([5, 2, 1])
+            with _h1:
+                st.markdown(
+                    f"<div style='color:#e8e8e8;font-weight:600;font-size:.9rem'>{_s['title']}</div>"
+                    f"<div style='color:{_lc};font-size:.72rem'>{_date_label}</div>"
+                    + (f"<div style='color:#4a5568;font-size:.74rem'>{_s['note']}</div>"
+                       if _s.get("note") else ""),
+                    unsafe_allow_html=True)
+            with _h2:
+                # Today's Q&A progress
+                _qa_today = _s.get("qa_history", {}).get(_today_str2, [])
+                _answered = sum(1 for q in _qa_today if q.get("a"))
+                _total    = len(_qa_today)
+                if _in_range and _total > 0:
+                    st.markdown(
+                        f"<div style='color:#00e5d0;font-size:.78rem;padding-top:4px'>"
+                        f"Today: {_answered}/{_total} answered</div>",
+                        unsafe_allow_html=True)
+                elif _in_range:
+                    st.markdown(
+                        "<div style='color:#4a5568;font-size:.74rem;padding-top:4px'>"
+                        "Questions generate at 9 am</div>",
+                        unsafe_allow_html=True)
+            with _h3:
+                if st.button("✓", key=f"_sch_done_{_sid}", help="Mark complete"):
+                    for _item in _sch_data:
+                        if _item.get("id") == _sid:
+                            _item["done"] = True
+                            _item["completed"] = _today_str2
+                    _save_schedule(_sch_data)
+                    st.session_state["_sched_banner_dismissed"] = False
+                    st.rerun()
+                if st.button("🗑", key=f"_sch_del_{_sid}", help="Delete"):
+                    _sch_data = [x for x in _sch_data if x.get("id") != _sid]
+                    _save_schedule(_sch_data)
+                    st.rerun()
+
+            # Today's Q&A inline (answer here if popup was missed)
+            if _in_range and _qa_today:
+                with st.expander("Today's questions", expanded=False):
+                    for _qi, _qa in enumerate(_qa_today):
+                        _q_col1, _q_col2 = st.columns([3,2])
+                        with _q_col1:
+                            st.markdown(
+                                f"<div style='color:#e8e8e8;font-size:.82rem'><b>Q{_qi+1}.</b> {_qa['q']}</div>",
+                                unsafe_allow_html=True)
+                        with _q_col2:
+                            if _qa.get("a"):
+                                st.markdown(
+                                    f"<div style='color:#00e5d0;font-size:.8rem'>✓ {_qa['a']}</div>",
+                                    unsafe_allow_html=True)
+                            else:
+                                _inline_ans = st.text_input("", key=f"_qans_{_sid}_{_qi}",
+                                                            placeholder="Type answer…",
+                                                            label_visibility="collapsed")
+                                if st.button("Save", key=f"_qsave_{_sid}_{_qi}"):
+                                    if _inline_ans.strip():
+                                        for _it2 in _sch_data:
+                                            if _it2.get("id") == _sid:
+                                                _it2.setdefault("qa_history", {}).setdefault(
+                                                    _today_str2, _qa_today
+                                                )[_qi]["a"] = _inline_ans.strip()
+                                        _save_schedule(_sch_data)
+                                        st.rerun()
+
+            # Past Q&A history
+            _past_days = sorted(
+                [d for d in _s.get("qa_history", {}) if d != _today_str2],
+                reverse=True
+            )
+            if _past_days:
+                with st.expander(f"History ({len(_past_days)} day(s))", expanded=False):
+                    for _day in _past_days[:14]:
+                        _day_qa = _s["qa_history"][_day]
+                        _day_ans = sum(1 for q in _day_qa if q.get("a"))
+                        st.markdown(
+                            f"<div style='color:#4a5568;font-size:.72rem;font-weight:600;"
+                            f"margin:6px 0 2px'>{_day}  —  {_day_ans}/{len(_day_qa)} answered</div>",
+                            unsafe_allow_html=True)
+                        for _pqa in _day_qa:
+                            if _pqa.get("a"):
+                                st.markdown(
+                                    f"<div style='color:#e8e8e8;font-size:.78rem;margin-left:8px'>"
+                                    f"<b>Q:</b> {_pqa['q']}</div>"
+                                    f"<div style='color:#00e5d0;font-size:.78rem;margin-left:8px'>"
+                                    f"<b>A:</b> {_pqa['a']}</div>",
+                                    unsafe_allow_html=True)
+
+            st.markdown("<hr style='border-color:#1a1a2e;margin:8px 0'>", unsafe_allow_html=True)
+
+    # ── Completed ─────────────────────────────────────────────────────────────
+    if _done_s:
+        with st.expander(f"Completed ({len(_done_s)})", expanded=False):
+            for _s in _done_s:
+                _cc1, _cc2 = st.columns([7,1])
+                with _cc1:
+                    st.markdown(
+                        f"<div style='color:#4a5568;font-size:.85rem;"
+                        f"text-decoration:line-through'>{_s['title']}</div>"
+                        f"<div style='color:#2d3748;font-size:.7rem'>Done {_s.get('completed','')}</div>",
+                        unsafe_allow_html=True)
+                with _cc2:
+                    if st.button("🗑", key=f"_sch_cdel_{_s.get('id','')}"):
+                        _sch_data = [x for x in _sch_data if x.get("id") != _s.get("id")]
+                        _save_schedule(_sch_data)
+                        st.rerun()
+    st.stop()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ── TASKS PAGE ────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+if st.session_state.tasks_mode:
+    import datetime as _tdt, uuid as _tuuid
+
+    st.markdown("""
+    <h2 style='color:#ffffff;font-family:Orbitron,monospace;font-weight:900;
+    font-size:1.4rem;letter-spacing:2px;margin-bottom:2px'>⊞ Tasks</h2>
+    <p style='color:#4a5568;font-size:.8rem;margin-top:0'>
+    Tell Titan what to fetch for you daily — sales, news, prices, anything. Opens inside Titan Ultra.</p>
+    """, unsafe_allow_html=True)
+
+    _tk_data  = _load_tasks()
+    _tk_today = str(_tdt.date.today())
+
+    # ── Helper: run one task ────────────────────────────────────────────────────
+    def _run_task(task):
+        _search_q = f"{task['prompt']} {_tk_today}"
+        _sr = _web_search(_search_q, max_results=10)
+        try:
+            from groq import Groq as _TG
+            _tc = _TG(api_key=st.session_state.api_key)
+            _tsys = (
+                "You are TITAN ULTRA's daily task engine. "
+                "The user has set up a recurring daily task shown below. "
+                "Using the web search results provided, give a detailed, well-organised daily report. "
+                "For prices/sales: list items with name, original price, sale price, discount %. "
+                "For news: list top stories with a 2-sentence summary each. "
+                "Use bullet points and bold headings. Be specific, factual, and helpful. "
+                f"Today: {_tk_today}\n\n"
+                f"LIVE SEARCH RESULTS:\n{_sr if _sr else 'No search results — answer from knowledge.'}"
+            )
+            _tr = _tc.chat.completions.create(
+                model="openai/gpt-oss-120b",
+                messages=[
+                    {"role": "system", "content": _tsys},
+                    {"role": "user",   "content": task["prompt"]},
+                ],
+                max_tokens=2000,
+                temperature=0.3,
+            )
+            return _tr.choices[0].message.content or "No result."
+        except Exception as _te:
+            return _sr if _sr else f"Error: {_te}"
+
+    # ── Add new task ────────────────────────────────────────────────────────────
+    _TK_SUGGESTIONS = [
+        "Daily Flipkart & Amazon electronics deals under ₹8000",
+        "Today's best smartphone offers on Flipkart",
+        "Today's news in Bangalore",
+        "Top India news today",
+        "Cheapest laptops on sale today under ₹30000",
+        "Today's petrol price in Hyderabad",
+        "Current gold and silver prices in India",
+        "Today's cricket match scores and highlights",
+        "Best budget earphones on sale today",
+        "Today's movie OTT releases in India",
+        "Tech news today — new launches and updates",
+        "Today's weather in Hyderabad",
+    ]
+    if "tk_prefill" not in st.session_state:
+        st.session_state.tk_prefill = ""
+
+    with st.expander("＋  add new task", expanded=st.session_state.tk_prefill != ""):
+        st.markdown("<div style='font-size:.72rem;color:#4a5568;margin-bottom:6px'>Quick suggestions:</div>",
+                    unsafe_allow_html=True)
+        _tk_sug_cols = st.columns(2)
+        for _tsi, _tsug in enumerate(_TK_SUGGESTIONS):
+            with _tk_sug_cols[_tsi % 2]:
+                if st.button(_tsug, key=f"_tksug_{_tsi}", use_container_width=True):
+                    st.session_state.tk_prefill = _tsug
+                    st.rerun()
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+        _tk_prompt = st.text_area("What should Titan fetch for you every day?",
+                                  value=st.session_state.tk_prefill,
+                                  key="_tk_prompt", height=72,
+                                  placeholder="e.g. Give me today's electronics deals under ₹8000 on Flipkart and Amazon")
+        _tk_col1, _tk_col2 = st.columns(2)
+        with _tk_col1:
+            _tk_start = st.date_input("From", value=_tdt.date.today(), key="_tk_start")
+        with _tk_col2:
+            _tk_end = st.date_input("Until", value=_tdt.date.today() + _tdt.timedelta(days=29),
+                                    key="_tk_end")
+        if st.button("Add Task", key="_tk_add", use_container_width=True):
+            if _tk_prompt.strip():
+                _tk_data.append({
+                    "id":       str(_tuuid.uuid4())[:8],
+                    "prompt":   _tk_prompt.strip(),
+                    "start":    str(_tk_start),
+                    "end":      str(_tk_end),
+                    "active":   True,
+                    "added":    _tk_today,
+                    "results":  {},
+                })
+                _save_tasks(_tk_data)
+                st.session_state.tk_prefill = ""
+                st.rerun()
+            else:
+                st.warning("Please describe what you want Titan to fetch.")
+
+    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+    # ── Run and display active tasks ────────────────────────────────────────────
+    _tk_active = [t for t in _tk_data if t.get("active") and
+                  t.get("start","") <= _tk_today <= t.get("end","9999-12-31")]
+    _tk_inactive = [t for t in _tk_data if not t.get("active") or t.get("end","") < _tk_today]
+
+    if not _tk_active:
+        st.markdown("<div style='color:#4a5568;margin:12px 0'>No active tasks. Add one above.</div>",
+                    unsafe_allow_html=True)
+
+    for _tk in _tk_active:
+        _tkid   = _tk.get("id","")
+        _tk_end_str = _tk.get("end","")
+        _tk_days_left = (_tdt.date.fromisoformat(_tk_end_str) - _tdt.date.today()).days if _tk_end_str else "?"
+
+        with st.container():
+            _tkh1, _tkh2 = st.columns([7,2])
+            with _tkh1:
+                st.markdown(
+                    f"<div style='color:#e8e8e8;font-weight:600;font-size:.92rem'>{_tk['prompt'][:80]}</div>"
+                    f"<div style='color:#4a5568;font-size:.72rem'>Until {_tk_end_str}  ·  {_tk_days_left} day(s) left</div>",
+                    unsafe_allow_html=True)
+            with _tkh2:
+                if st.button("Close task", key=f"_tk_close_{_tkid}"):
+                    for _titem in _tk_data:
+                        if _titem.get("id") == _tkid:
+                            _titem["active"] = False
+                    _save_tasks(_tk_data)
+                    st.rerun()
+                if st.button("🗑 Delete", key=f"_tk_del_{_tkid}"):
+                    _tk_data = [x for x in _tk_data if x.get("id") != _tkid]
+                    _save_tasks(_tk_data)
+                    st.rerun()
+
+            # Show today's result — auto-fetch if not yet cached
+            if _tk.get("results",{}).get(_tk_today):
+                _tk_result = _tk["results"][_tk_today]
+            else:
+                with st.spinner(f"Fetching today's result for: {_tk['prompt'][:50]}…"):
+                    _tk_result = _run_task(_tk)
+                    for _titem in _tk_data:
+                        if _titem.get("id") == _tkid:
+                            _titem.setdefault("results",{})[_tk_today] = _tk_result
+                    _save_tasks(_tk_data)
+
+            st.markdown(
+                f"<div style='background:#111111;border-left:3px solid #00e5d0;"
+                f"border-radius:8px;padding:12px 16px;margin:8px 0;color:#e8e8e8;"
+                f"font-size:.88rem;white-space:pre-wrap;line-height:1.6'>"
+                f"<div style='color:#00e5d0;font-size:.7rem;font-weight:700;"
+                f"letter-spacing:1px;margin-bottom:6px'>TODAY — {_tk_today}</div>"
+                + _tk_result.replace("<","&lt;").replace(">","&gt;")
+                .replace("**","<b>").replace("\n","<br>")
+                + "</div>",
+                unsafe_allow_html=True)
+
+            # Past results history
+            _tk_past = sorted([d for d in _tk.get("results",{}) if d != _tk_today], reverse=True)
+            if _tk_past:
+                with st.expander(f"History ({len(_tk_past)} day(s))", expanded=False):
+                    for _tkday in _tk_past[:7]:
+                        st.markdown(
+                            f"<div style='color:#4a5568;font-size:.72rem;font-weight:700;"
+                            f"margin:8px 0 4px'>{_tkday}</div>"
+                            f"<div style='color:#8899aa;font-size:.8rem;white-space:pre-wrap'>"
+                            + _tk["results"][_tkday].replace("<","&lt;").replace(">","&gt;")[:600]
+                            + ("…" if len(_tk["results"][_tkday]) > 600 else "")
+                            + "</div>",
+                            unsafe_allow_html=True)
+
+            st.markdown("<hr style='border-color:#1a1a2e;margin:10px 0'>", unsafe_allow_html=True)
+
+    # ── Closed / expired tasks ──────────────────────────────────────────────────
+    if _tk_inactive:
+        with st.expander(f"Closed / Expired ({len(_tk_inactive)})", expanded=False):
+            for _tk in _tk_inactive:
+                _tc1, _tc2 = st.columns([7,1])
+                with _tc1:
+                    st.markdown(
+                        f"<div style='color:#4a5568;font-size:.85rem;"
+                        f"text-decoration:line-through'>{_tk['prompt'][:70]}</div>"
+                        f"<div style='color:#2d3748;font-size:.7rem'>Ended {_tk.get('end','')}</div>",
+                        unsafe_allow_html=True)
+                with _tc2:
+                    if st.button("🗑", key=f"_tkc_del_{_tk.get('id','')}"):
+                        _tk_data = [x for x in _tk_data if x.get("id") != _tk.get("id")]
+                        _save_tasks(_tk_data)
+                        st.rerun()
+    st.stop()
+
+
+# ── LIBRARY PAGE ──────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+if st.session_state.library_mode:
+    st.markdown("""
+    <h2 style='color:#ffffff;font-family:Orbitron,monospace;font-weight:900;
+    font-size:1.4rem;letter-spacing:2px;margin-bottom:4px'>📚 Library</h2>
+    <p style='color:#4a5568;font-size:.8rem;margin-top:0'>Search all your saved chats</p>
+    """, unsafe_allow_html=True)
+
+    _lib_query = st.text_input("", placeholder="Search chats by title or content…",
+                               label_visibility="collapsed", key="_lib_search")
+
+    _all_chats = _load_history()
+
+    if _lib_query.strip():
+        _q = _lib_query.strip().lower()
+        _results = []
+        for _ch in _all_chats:
+            _title = _ch.get("title", "Chat")
+            _msgs  = _ch.get("messages", [])
+            _match_title = _q in _title.lower()
+            _match_lines = []
+            for _m in _msgs:
+                _txt = _m.get("content", "")
+                if isinstance(_txt, list):
+                    _txt = " ".join(p.get("text","") for p in _txt if isinstance(p,dict))
+                if _q in _txt.lower():
+                    idx = _txt.lower().find(_q)
+                    snippet = _txt[max(0,idx-60):idx+120].replace("\n"," ")
+                    _match_lines.append(snippet)
+            if _match_title or _match_lines:
+                _results.append((_ch, _title, _match_lines))
+
+        if not _results:
+            st.markdown("<div style='color:#4a5568;margin-top:24px'>No chats match your search.</div>",
+                        unsafe_allow_html=True)
+        else:
+            st.markdown(f"<div style='color:#4a5568;font-size:.75rem;margin-bottom:8px'>{len(_results)} result(s)</div>",
+                        unsafe_allow_html=True)
+            for _ch, _title, _snippets in _results:
+                with st.container():
+                    _col1, _col2 = st.columns([5,1])
+                    with _col1:
+                        st.markdown(f"<div style='color:#e8e8e8;font-weight:600;font-size:.9rem'>{_title}</div>",
+                                    unsafe_allow_html=True)
+                        for _snip in _snippets[:2]:
+                            _hi = _snip.replace(_lib_query, f"<mark style='background:#a855f733;color:#e8e8e8'>{_lib_query}</mark>")
+                            st.markdown(f"<div style='color:#4a5568;font-size:.78rem;margin:2px 0 0 8px'>…{_hi}…</div>",
+                                        unsafe_allow_html=True)
+                    with _col2:
+                        if st.button("Open", key=f"_lib_open_{_ch.get('id',0)}"):
+                            _save_chat_sessions()
+                            st.session_state.chat_sessions = [_ch]
+                            st.session_state.active_session = 0
+                            st.session_state.library_mode = False
+                            st.rerun()
+                    st.markdown("<hr style='border-color:#1a1a2e;margin:6px 0'>", unsafe_allow_html=True)
+    else:
+        st.markdown(f"<div style='color:#4a5568;font-size:.78rem;margin-top:8px'>{len(_all_chats)} total chat(s)</div>",
+                    unsafe_allow_html=True)
+        for _ch in _all_chats[:80]:
+            _col1, _col2 = st.columns([5,1])
+            with _col1:
+                _msgs_count = len(_ch.get("messages",[]))
+                st.markdown(
+                    f"<div style='color:#e8e8e8;font-size:.88rem'>{_ch.get('title','Chat')}</div>"
+                    f"<div style='color:#4a5568;font-size:.72rem'>{_msgs_count} message(s)</div>",
+                    unsafe_allow_html=True)
+            with _col2:
+                if st.button("Open", key=f"_lib_list_{_ch.get('id',0)}"):
+                    _save_chat_sessions()
+                    st.session_state.chat_sessions = [_ch]
+                    st.session_state.active_session = 0
+                    st.session_state.library_mode = False
+                    st.rerun()
+            st.markdown("<hr style='border-color:#1a1a2e;margin:4px 0'>", unsafe_allow_html=True)
+    st.stop()
+
+
 # ── TITAN NOTEBOOK PAGE ───────────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 if st.session_state.notebook_mode:
@@ -1840,113 +2643,485 @@ if st.session_state.notebook_mode:
     st.stop()
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ── LIVE NEWS TICKER — always-on, embedded in every page load ─────────────────
+# ── TITAN FEATURES PAGE ───────────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
+if st.session_state.get("show_titan_features"):
 
-@st.cache_data(ttl=600)
-def _ticker_fetch_headlines():
-    """Fetch ~30 mixed headlines every 3 minutes. Cached so it doesn't block UI."""
-    _queries = [
-        ("AI & Tech",    "latest AI artificial intelligence GPT model release 2025"),
-        ("Phones",       "new smartphone iPhone Android Samsung launch 2025"),
-        ("Science",      "latest science discovery research space 2025"),
-        ("World",        "breaking world news today 2025"),
-        ("Movies & OTT", "new movies series Netflix Amazon Disney release 2025"),
-        ("Apps",         "new app software launch update 2025"),
-    ]
-    _headlines = []
-    try:
-        try:
-            from duckduckgo_search import DDGS
-        except ImportError:
-            import subprocess as _tsp, sys as _tsys
-            _tsp.run([_tsys.executable, "-m", "pip", "install", "duckduckgo-search", "-q"],
-                     capture_output=True)
-            from duckduckgo_search import DDGS
-        for _cat, _q in _queries:
-            try:
-                with DDGS() as _ddgs:
-                    for _r in _ddgs.news(_q, max_results=5):
-                        _t = _r.get("title", "").strip()
-                        if _t:
-                            _headlines.append(f"[{_cat}] {_t}")
-            except Exception:
+    st.markdown("""<div style='text-align:center;padding:20px 0 8px'>
+    <div style='font-family:Orbitron,monospace;font-size:1.5rem;color:#aaaaaa;
+    letter-spacing:4px;font-weight:700'>⚡ TITAN FEATURES</div>
+    <div style='color:#6b7a99;font-size:.8rem;margin-top:6px'>
+    Supercharge Titan Ultra with powerful add-ons</div></div>""", unsafe_allow_html=True)
+
+    _tf_sel = st.selectbox(
+        "Choose a feature:",
+        ["🔗 Connect Apps with Titan Ultra", "🌐 Ask About a Website"],
+        key="_tf_mode_sel",
+    )
+
+    st.markdown("---")
+
+    if "Connect Apps" in _tf_sel:
+        st.markdown("""<div style='font-size:.88rem;color:#e8e8e8;font-weight:600;margin-bottom:4px'>
+        🔗 Connect Apps with Titan Ultra</div>
+        <div style='font-size:.76rem;color:#6b7a99;margin-bottom:12px;line-height:1.75'>
+        Select the apps you use. Titan Ultra will remember them and act as your expert guide
+        <b>inside</b> each app — features, tips, shortcuts, and personalised help.
+        Your selection is saved automatically.</div>""",
+        unsafe_allow_html=True)
+
+        # ── Already connected: show logos ─────────────────────────────────────
+        _already = st.session_state.get("connected_apps", [])
+        if _already:
+            _ALL_DOMAINS = {}
+            # domain lookup built dynamically from catalog below
+            _DOMAIN_MAP = {
+                "Facebook":"facebook.com","Instagram":"instagram.com","Twitter / X":"x.com",
+                "LinkedIn":"linkedin.com","Snapchat":"snapchat.com","TikTok":"tiktok.com",
+                "Pinterest":"pinterest.com","Telegram":"telegram.org","WhatsApp":"whatsapp.com",
+                "Discord":"discord.com","Reddit":"reddit.com","Tumblr":"tumblr.com",
+                "Threads":"threads.net","Signal":"signal.org","YouTube":"youtube.com",
+                "Netflix":"netflix.com","Amazon Prime":"primevideo.com",
+                "Disney+ Hotstar":"hotstar.com","Zee5":"zee5.com","SonyLIV":"sonyliv.com",
+                "MX Player":"mxplayer.in","JioCinema":"jiocinema.com","HBO Max":"max.com",
+                "Apple TV+":"tv.apple.com","Crunchyroll":"crunchyroll.com","Twitch":"twitch.tv",
+                "Spotify":"spotify.com","Apple Music":"music.apple.com",
+                "Amazon Music":"music.amazon.com","YouTube Music":"music.youtube.com",
+                "SoundCloud":"soundcloud.com","Gaana":"gaana.com","JioSaavn":"jiosaavn.com",
+                "Wynk Music":"wynk.in","Deezer":"deezer.com","Tidal":"tidal.com",
+                "Gmail":"gmail.com","Google Drive":"drive.google.com",
+                "Google Calendar":"calendar.google.com","Google Maps":"maps.google.com",
+                "Google Docs":"docs.google.com","Google Sheets":"sheets.google.com",
+                "Google Slides":"slides.google.com","Google Meet":"meet.google.com",
+                "Google Photos":"photos.google.com","Google Pay":"pay.google.com",
+                "Google News":"news.google.com","Google Classroom":"classroom.google.com",
+                "Outlook":"outlook.com","OneDrive":"onedrive.com",
+                "Microsoft Teams":"teams.microsoft.com","Word":"microsoft.com",
+                "Excel":"microsoft.com","PowerPoint":"microsoft.com","OneNote":"onenote.com",
+                "Xbox":"xbox.com","Bing":"bing.com","Amazon":"amazon.in","Flipkart":"flipkart.com",
+                "Meesho":"meesho.com","Myntra":"myntra.com","Ajio":"ajio.com","Nykaa":"nykaa.com",
+                "Snapdeal":"snapdeal.com","Tata CLiQ":"tatacliq.com","eBay":"ebay.com",
+                "SHEIN":"shein.com","PhonePe":"phonepe.com","Paytm":"paytm.com",
+                "CRED":"cred.club","PayPal":"paypal.com","Razorpay":"razorpay.com",
+                "Groww":"groww.in","Zerodha":"zerodha.com","Upstox":"upstox.com",
+                "MobiKwik":"mobikwik.com","Coin DCX":"coindcx.com","Swiggy":"swiggy.com",
+                "Zomato":"zomato.com","BigBasket":"bigbasket.com","Blinkit":"blinkit.com",
+                "Zepto":"zepto.app","Dunzo":"dunzo.in","Dominos":"dominos.co.in",
+                "Starbucks":"starbucks.com","Uber":"uber.com","Ola":"olacabs.com",
+                "Rapido":"rapido.bike","MakeMyTrip":"makemytrip.com","IRCTC":"irctc.co.in",
+                "Airbnb":"airbnb.com","Booking.com":"booking.com","RedBus":"redbus.in",
+                "IndiGo":"goindigo.in","Yatra":"yatra.com","Notion":"notion.so",
+                "Slack":"slack.com","Zoom":"zoom.us","Trello":"trello.com",
+                "Todoist":"todoist.com","Evernote":"evernote.com","Dropbox":"dropbox.com",
+                "1Password":"1password.com","Asana":"asana.com","Canva":"canva.com",
+                "Grammarly":"grammarly.com","Figma":"figma.com","GitHub":"github.com",
+                "GitLab":"gitlab.com","Stack Overflow":"stackoverflow.com","Replit":"replit.com",
+                "Vercel":"vercel.com","Docker":"docker.com","Postman":"postman.com",
+                "Jira":"atlassian.com","VS Code":"code.visualstudio.com","Netlify":"netlify.com",
+                "Hugging Face":"huggingface.co","Steam":"steampowered.com",
+                "PUBG Mobile":"pubg.com","Free Fire":"ff.garena.com","Roblox":"roblox.com",
+                "Minecraft":"minecraft.net","Fortnite":"epicgames.com","COD Mobile":"callofduty.com",
+                "Clash of Clans":"supercell.com","Clash Royale":"supercell.com",
+                "Among Us":"innersloth.com","Genshin Impact":"genshin.hoyoverse.com",
+                "PlayStation":"playstation.com","Epic Games":"epicgames.com",
+                "Duolingo":"duolingo.com","Khan Academy":"khanacademy.org","Coursera":"coursera.org",
+                "BYJU'S":"byjus.com","Unacademy":"unacademy.com","Vedantu":"vedantu.com",
+                "Udemy":"udemy.com","Brainly":"brainly.com","Quizlet":"quizlet.com",
+                "Chegg":"chegg.com","Skillshare":"skillshare.com","Google Fit":"fit.google.com",
+                "Samsung Health":"samsung.com","Headspace":"headspace.com","Calm":"calm.com",
+                "Strava":"strava.com","PharmEasy":"pharmeasy.in","1mg":"1mg.com",
+                "Practo":"practo.com","Nike Run Club":"nike.com","MyFitnessPal":"myfitnesspal.com",
+                "Inshorts":"inshorts.com","Times of India":"timesofindia.com","NDTV":"ndtv.com",
+                "BBC News":"bbc.com","CNN":"cnn.com","The Hindu":"thehindu.com",
+                "Flipboard":"flipboard.com","Wikipedia":"wikipedia.org","Feedly":"feedly.com",
+                "iCloud":"icloud.com","Box":"box.com","pCloud":"pcloud.com",
+                "LastPass":"lastpass.com","Bitwarden":"bitwarden.com","Authy":"authy.com",
+                "Proton Mail":"proton.me","Brave":"brave.com","DuckDuckGo":"duckduckgo.com",
+            }
+            _logo_html = ""
+            for _la in _already:
+                _ld = _DOMAIN_MAP.get(_la, "google.com")
+                _logo_html += (
+                    f"<div style='display:inline-flex;flex-direction:column;align-items:center;"
+                    f"margin:4px 6px;gap:3px'>"
+                    f"<div style='position:relative;width:42px;height:42px;background:#111111;"
+                    f"border:2px solid #333333;border-radius:10px;display:flex;"
+                    f"align-items:center;justify-content:center'>"
+                    f"<img src='https://www.google.com/s2/favicons?domain={_ld}&sz=32' "
+                    f"style='width:28px;height:28px;border-radius:6px'>"
+                    f"<span style='position:absolute;bottom:-5px;right:-5px;background:#22c55e;"
+                    f"border-radius:50%;width:14px;height:14px;display:flex;align-items:center;"
+                    f"justify-content:center;font-size:9px'>✓</span>"
+                    f"</div>"
+                    f"<span style='font-size:.55rem;color:#aaaaaa;max-width:50px;text-align:center;"
+                    f"overflow:hidden;white-space:nowrap;text-overflow:ellipsis'>{_la}</span>"
+                    f"</div>"
+                )
+            st.markdown(
+                f"<div style='background:#111111;border:1px solid #333333;border-radius:10px;"
+                f"padding:10px 12px;margin-bottom:14px'>"
+                f"<div style='font-size:.68rem;color:#aaaaaa;font-weight:700;margin-bottom:8px'>"
+                f"🔱 + ⚡ Connected to Titan Ultra ({len(_already)})</div>"
+                f"<div style='display:flex;flex-wrap:wrap'>{_logo_html}</div></div>",
+                unsafe_allow_html=True
+            )
+
+        # ── Search bar ────────────────────────────────────────────────────────
+        _tf_search = st.text_input(
+            "🔍 Search apps",
+            placeholder="Search by name (e.g. YouTube, Spotify, GitHub...)",
+            key="_tf_app_search",
+            label_visibility="collapsed",
+        )
+
+        _APPS_CATALOG = {
+            "📱 Social Media": [
+                ("Facebook",   "facebook.com",   "Posts, groups & messages"),
+                ("Instagram",  "instagram.com",  "Photos, reels & DMs"),
+                ("Twitter / X","x.com",           "Tweets & trending topics"),
+                ("LinkedIn",   "linkedin.com",   "Jobs, posts & networking"),
+                ("Snapchat",   "snapchat.com",   "Stories & disappearing messages"),
+                ("TikTok",     "tiktok.com",     "Short videos & trends"),
+                ("Pinterest",  "pinterest.com",  "Ideas, pins & boards"),
+                ("Telegram",   "telegram.org",   "Channels, groups & messages"),
+                ("WhatsApp",   "whatsapp.com",   "Chats, calls & groups"),
+                ("Discord",    "discord.com",    "Servers, voice & gaming chat"),
+                ("Reddit",     "reddit.com",     "Posts, communities & discussions"),
+                ("Tumblr",     "tumblr.com",     "Blogs, GIFs & fandom"),
+                ("Threads",    "threads.net",    "Short posts by Instagram"),
+                ("Signal",     "signal.org",     "Encrypted private messaging"),
+            ],
+            "📺 Video & Streaming": [
+                ("YouTube",         "youtube.com",     "Videos, shorts & live streams"),
+                ("Netflix",         "netflix.com",     "Movies & series"),
+                ("Amazon Prime",    "primevideo.com",  "Movies & Amazon originals"),
+                ("Disney+ Hotstar", "hotstar.com",     "Disney, Marvel, sports & OTT"),
+                ("Zee5",            "zee5.com",        "Hindi & regional OTT"),
+                ("SonyLIV",         "sonyliv.com",     "Sports, Sony originals & live TV"),
+                ("MX Player",       "mxplayer.in",     "Free movies & live TV"),
+                ("JioCinema",       "jiocinema.com",   "Free movies, IPL & originals"),
+                ("HBO Max",         "max.com",         "HBO originals & blockbusters"),
+                ("Apple TV+",       "tv.apple.com",    "Apple originals"),
+                ("Crunchyroll",     "crunchyroll.com", "Anime & manga"),
+                ("Twitch",          "twitch.tv",       "Live game streaming"),
+            ],
+            "🎵 Music & Podcasts": [
+                ("Spotify",      "spotify.com",       "Music, podcasts & audiobooks"),
+                ("Apple Music",  "music.apple.com",   "Songs & playlists"),
+                ("Amazon Music", "music.amazon.com",  "Prime music & unlimited"),
+                ("YouTube Music","music.youtube.com", "YouTube-powered music"),
+                ("SoundCloud",   "soundcloud.com",    "Independent artists & uploads"),
+                ("Gaana",        "gaana.com",         "Bollywood & regional music"),
+                ("JioSaavn",     "jiosaavn.com",      "Indian music & podcasts"),
+                ("Wynk Music",   "wynk.in",           "Airtel music platform"),
+                ("Deezer",       "deezer.com",        "Global music streaming"),
+                ("Tidal",        "tidal.com",         "Hi-fi audio quality music"),
+            ],
+            "📧 Google Apps": [
+                ("Gmail",            "gmail.com",           "Emails & inbox"),
+                ("Google Drive",     "drive.google.com",    "Files, docs & storage"),
+                ("Google Calendar",  "calendar.google.com", "Events & schedule"),
+                ("Google Maps",      "maps.google.com",     "Navigation & places"),
+                ("Google Docs",      "docs.google.com",     "Word processing"),
+                ("Google Sheets",    "sheets.google.com",   "Spreadsheets"),
+                ("Google Slides",    "slides.google.com",   "Presentations"),
+                ("Google Meet",      "meet.google.com",     "Video calls"),
+                ("Google Photos",    "photos.google.com",   "Photo backup & albums"),
+                ("Google Pay",       "pay.google.com",      "UPI & payments"),
+                ("Google News",      "news.google.com",     "Personalised news feed"),
+                ("Google Classroom", "classroom.google.com","School & assignments"),
+            ],
+            "💼 Microsoft": [
+                ("Outlook",         "outlook.com",         "Email & calendar"),
+                ("OneDrive",        "onedrive.com",        "Cloud file storage"),
+                ("Microsoft Teams", "teams.microsoft.com", "Work calls & chat"),
+                ("Word",            "microsoft.com",       "Word processing"),
+                ("Excel",           "microsoft.com",       "Spreadsheets & data"),
+                ("PowerPoint",      "microsoft.com",       "Presentations"),
+                ("OneNote",         "onenote.com",         "Notes & notebooks"),
+                ("Xbox",            "xbox.com",            "Gaming & Game Pass"),
+                ("Bing",            "bing.com",            "Microsoft search engine"),
+            ],
+            "🛍️ Shopping": [
+                ("Amazon",    "amazon.in",    "Online shopping & delivery"),
+                ("Flipkart",  "flipkart.com", "Electronics, fashion & more"),
+                ("Meesho",    "meesho.com",   "Budget & reseller shopping"),
+                ("Myntra",    "myntra.com",   "Fashion & clothing"),
+                ("Ajio",      "ajio.com",     "Reliance fashion store"),
+                ("Nykaa",     "nykaa.com",    "Beauty & cosmetics"),
+                ("Snapdeal",  "snapdeal.com", "Deals & discounts"),
+                ("Tata CLiQ", "tatacliq.com", "Tata shopping platform"),
+                ("eBay",      "ebay.com",     "Global buy & sell marketplace"),
+                ("SHEIN",     "shein.com",    "Trendy affordable fashion"),
+            ],
+            "💳 Finance & Payments": [
+                ("PhonePe",  "phonepe.com",  "UPI payments & insurance"),
+                ("Paytm",    "paytm.com",    "Wallet, UPI & bill pay"),
+                ("CRED",     "cred.club",    "Credit card rewards & payments"),
+                ("PayPal",   "paypal.com",   "International payments"),
+                ("Razorpay", "razorpay.com", "Business payments gateway"),
+                ("Groww",    "groww.in",     "Mutual funds & stocks"),
+                ("Zerodha",  "zerodha.com",  "Stock trading & investing"),
+                ("Upstox",   "upstox.com",   "Stock market investing"),
+                ("MobiKwik", "mobikwik.com", "Wallet & Buy Now Pay Later"),
+                ("Coin DCX", "coindcx.com",  "Cryptocurrency trading"),
+            ],
+            "🍔 Food & Delivery": [
+                ("Swiggy",    "swiggy.com",    "Food delivery & Instamart"),
+                ("Zomato",    "zomato.com",    "Food delivery & dining out"),
+                ("BigBasket", "bigbasket.com", "Grocery home delivery"),
+                ("Blinkit",   "blinkit.com",   "10-minute grocery delivery"),
+                ("Zepto",     "zepto.app",     "Quick commerce delivery"),
+                ("Dunzo",     "dunzo.in",      "Delivery & daily errands"),
+                ("Dominos",   "dominos.co.in", "Pizza delivery"),
+                ("Starbucks", "starbucks.com", "Coffee ordering & rewards"),
+            ],
+            "✈️ Travel & Transport": [
+                ("Uber",        "uber.com",       "Cab booking"),
+                ("Ola",         "olacabs.com",    "Cab, auto & rentals"),
+                ("Rapido",      "rapido.bike",    "Bike taxi & auto"),
+                ("MakeMyTrip",  "makemytrip.com", "Flights & hotels"),
+                ("IRCTC",       "irctc.co.in",    "Train tickets"),
+                ("Airbnb",      "airbnb.com",     "Unique stays worldwide"),
+                ("Booking.com", "booking.com",    "Hotel & accommodation"),
+                ("RedBus",      "redbus.in",      "Bus ticket booking"),
+                ("IndiGo",      "goindigo.in",    "Airline booking"),
+                ("Yatra",       "yatra.com",      "Flights, hotels & buses"),
+            ],
+            "🧠 Productivity": [
+                ("Notion",     "notion.so",      "Notes, wikis & databases"),
+                ("Slack",      "slack.com",      "Team messaging & files"),
+                ("Zoom",       "zoom.us",        "Video meetings & webinars"),
+                ("Trello",     "trello.com",     "Boards & project tracking"),
+                ("Todoist",    "todoist.com",    "Task manager & to-do lists"),
+                ("Evernote",   "evernote.com",   "Notes & web clipping"),
+                ("Dropbox",    "dropbox.com",    "File sync & sharing"),
+                ("1Password",  "1password.com",  "Password manager"),
+                ("Asana",      "asana.com",      "Team project management"),
+                ("Canva",      "canva.com",      "Design & presentations"),
+                ("Grammarly",  "grammarly.com",  "Writing & grammar assistant"),
+                ("Figma",      "figma.com",      "UI/UX design tool"),
+            ],
+            "👨‍💻 Development": [
+                ("GitHub",         "github.com",          "Code repos, PRs & issues"),
+                ("GitLab",         "gitlab.com",          "DevOps & CI/CD pipelines"),
+                ("Stack Overflow", "stackoverflow.com",   "Programming Q&A community"),
+                ("Replit",         "replit.com",          "Online coding IDE"),
+                ("Vercel",         "vercel.com",          "Deploy web apps fast"),
+                ("Docker",         "docker.com",          "App containerisation"),
+                ("Postman",        "postman.com",         "API testing & docs"),
+                ("Jira",           "atlassian.com",       "Issue & sprint tracking"),
+                ("VS Code",        "code.visualstudio.com","Popular code editor"),
+                ("Netlify",        "netlify.com",         "Frontend deployment"),
+                ("Hugging Face",   "huggingface.co",      "AI models & datasets"),
+            ],
+            "🎮 Gaming": [
+                ("Steam",         "steampowered.com",     "PC gaming store"),
+                ("PUBG Mobile",   "pubg.com",             "Battle royale mobile"),
+                ("Free Fire",     "ff.garena.com",        "Mobile battle royale"),
+                ("Roblox",        "roblox.com",           "User-created games platform"),
+                ("Minecraft",     "minecraft.net",        "Block-building survival"),
+                ("Fortnite",      "epicgames.com",        "Battle royale & creative"),
+                ("COD Mobile",    "callofduty.com",       "Call of Duty mobile"),
+                ("Clash of Clans","supercell.com",        "Strategy & base building"),
+                ("Clash Royale",  "supercell.com",        "Card battle arena"),
+                ("Among Us",      "innersloth.com",       "Social deduction game"),
+                ("Genshin Impact","genshin.hoyoverse.com","Open-world RPG"),
+                ("PlayStation",   "playstation.com",      "Console gaming platform"),
+                ("Epic Games",    "epicgames.com",        "PC game store & launcher"),
+            ],
+            "📚 Education": [
+                ("Duolingo",    "duolingo.com",     "Language learning & streaks"),
+                ("Khan Academy","khanacademy.org",  "Free courses & practice"),
+                ("Coursera",    "coursera.org",     "University courses online"),
+                ("BYJU'S",      "byjus.com",        "India's top learning app"),
+                ("Unacademy",   "unacademy.com",    "Competitive exam prep"),
+                ("Vedantu",     "vedantu.com",      "Live online tutoring"),
+                ("Udemy",       "udemy.com",        "Courses in any skill"),
+                ("Brainly",     "brainly.com",      "Student Q&A community"),
+                ("Quizlet",     "quizlet.com",      "Flashcards & study sets"),
+                ("Chegg",       "chegg.com",        "Homework help & textbooks"),
+                ("Skillshare",  "skillshare.com",   "Creative skills & projects"),
+            ],
+            "🏃 Health & Fitness": [
+                ("Google Fit",     "fit.google.com",   "Activity tracking & goals"),
+                ("Samsung Health", "samsung.com",       "Wellness tracking"),
+                ("Headspace",      "headspace.com",     "Meditation & sleep"),
+                ("Calm",           "calm.com",          "Relaxation & mindfulness"),
+                ("Strava",         "strava.com",        "Running & cycling tracking"),
+                ("PharmEasy",      "pharmeasy.in",      "Medicine delivery"),
+                ("1mg",            "1mg.com",           "Health & medicine delivery"),
+                ("Practo",         "practo.com",        "Doctor appointments online"),
+                ("Nike Run Club",  "nike.com",          "Running app & coaching"),
+                ("MyFitnessPal",   "myfitnesspal.com",  "Calorie & nutrition tracker"),
+            ],
+            "📰 News & Info": [
+                ("Inshorts",       "inshorts.com",     "60-word news summaries"),
+                ("Times of India", "timesofindia.com", "India's top newspaper"),
+                ("NDTV",           "ndtv.com",         "Breaking news & live TV"),
+                ("BBC News",       "bbc.com",          "World & UK news"),
+                ("CNN",            "cnn.com",          "US & world news"),
+                ("The Hindu",      "thehindu.com",     "Quality Indian journalism"),
+                ("Flipboard",      "flipboard.com",    "Magazine-style news feed"),
+                ("Wikipedia",      "wikipedia.org",    "Free online encyclopedia"),
+                ("Feedly",         "feedly.com",       "RSS & newsletter reader"),
+            ],
+            "☁️ Cloud & Other": [
+                ("iCloud",     "icloud.com",     "Apple cloud storage & sync"),
+                ("Box",        "box.com",        "Business file storage"),
+                ("pCloud",     "pcloud.com",     "Secure lifetime cloud storage"),
+                ("LastPass",   "lastpass.com",   "Password vault"),
+                ("Bitwarden",  "bitwarden.com",  "Open-source password manager"),
+                ("Authy",      "authy.com",      "Two-factor authentication app"),
+                ("Proton Mail","proton.me",      "Encrypted private email"),
+                ("Brave",      "brave.com",      "Privacy-first web browser"),
+                ("DuckDuckGo", "duckduckgo.com", "Private search engine"),
+            ],
+        }
+        _cur_apps = set(st.session_state.get("connected_apps", []))
+        _new_sel = []
+        _gidx = 0
+        _tf_q = st.session_state.get("_tf_app_search", "").lower().strip()
+        _any_shown = False
+        for _cat, _cat_apps in _APPS_CATALOG.items():
+            _filtered = [(_cn,_cd,_cdesc) for _cn,_cd,_cdesc in _cat_apps
+                        if not _tf_q or _tf_q in _cn.lower()]
+            if not _filtered:
+                continue
+            _any_shown = True
+            st.markdown(
+                f"<div style='font-size:.78rem;color:#aaaaaa;font-weight:700;"
+                f"letter-spacing:1px;margin:16px 0 6px'>{_cat}</div>",
+                unsafe_allow_html=True
+            )
+            _gcols = st.columns(4)
+            for _ci, (_cn, _cd, _cdesc) in enumerate(_filtered):
+                with _gcols[_ci % 4]:
+                    st.markdown(
+                        f"<img src='https://www.google.com/s2/favicons?domain={_cd}&sz=24' "
+                        f"style='width:20px;height:20px;border-radius:4px;margin-bottom:1px'>",
+                        unsafe_allow_html=True
+                    )
+                    if st.checkbox(
+                        _cn, value=_cn in _cur_apps,
+                        key=f"_tf_cb_{_gidx}", help=_cdesc,
+                    ):
+                        _new_sel.append(_cn)
+                _gidx += 1
+        if _tf_q and not _any_shown:
+            st.caption(f"No apps found for '{_tf_q}'")
+
+        st.markdown("---")
+        _sav1, _sav2 = st.columns([3, 2])
+        _sel_txt = f"{len(_new_sel)} app(s) selected" if _new_sel else "None selected"
+        _sav1.markdown(f"<div style='font-size:.74rem;color:#6b7a99;padding-top:10px'>"
+                      f"{'✅ ' if _new_sel else ''}{_sel_txt}</div>", unsafe_allow_html=True)
+        if _sav2.button("💾 Save & Go to Chat", type="primary",
+                        use_container_width=True, key="_tf_save_btn"):
+            st.session_state.connected_apps = _new_sel
+            _save_connected_apps(_new_sel)
+            st.session_state.show_titan_features = False
+            st.rerun()
+
+    elif "Ask About a Website" in _tf_sel:
+        st.markdown("""<div style='font-size:.88rem;color:#e8e8e8;font-weight:600;margin-bottom:4px'>
+        🌐 Ask About a Website</div>
+        <div style='font-size:.76rem;color:#6b7a99;margin-bottom:16px;line-height:1.75'>
+        Paste any website URL below. Titan Ultra will read the page and answer
+        any question you have about it — prices, info, summaries, anything!</div>""",
+        unsafe_allow_html=True)
+
+        def _tf_web_ask(q, content, url):
+            from groq import Groq as _Gw
+            _cw = _Gw(api_key=st.session_state.api_key)
+            _sys_w = (
+                "You are Titan Ultra. The user has shared a website with you and asked a question. "
+                "Answer clearly, helpfully, and in simple words based on the website content. "
+                "Be enthusiastic and encouraging!"
+            )
+            _msg_w = (f"{q}\n\n[WEBSITE: {url}]\n\n{content[:5500]}\n\n"
+                      f"Answer from the above website content.")
+            for _mdl in ["openai/gpt-oss-120b","openai/gpt-oss-20b","qwen/qwen3.8-27b"]:
                 try:
-                    with DDGS() as _ddgs:
-                        for _r in _ddgs.text(_q, max_results=3):
-                            _t = _r.get("title", "").strip()
-                            if _t:
-                                _headlines.append(f"[{_cat}] {_t}")
+                    _r = _cw.chat.completions.create(
+                        model=_mdl,
+                        messages=[{"role":"system","content":_sys_w},
+                                  {"role":"user","content":_msg_w}],
+                        max_tokens=2048, temperature=0.4,
+                    )
+                    return _r.choices[0].message.content or ""
                 except Exception:
-                    pass
-    except Exception:
-        pass
-    return _headlines
+                    continue
+            return "Sorry, could not get an answer. Please try again."
 
-# ── Fetch headlines — only block on first page load, instant on all message reruns ──
-_ticker_lines = []
-if "_ticker_prefetched" not in st.session_state:
-    # First script run this session (page load) — fetch now, store in session
-    st.session_state["_ticker_prefetched"] = True
-    try:
-        _ticker_lines = _ticker_fetch_headlines()
-        st.session_state["_ticker_data"] = _ticker_lines
-    except Exception:
-        st.session_state["_ticker_data"] = []
-else:
-    # Every subsequent rerun (message sent, button clicked) — instant, no DDG queries
-    _ticker_lines = st.session_state.get("_ticker_data", [])
+        _url_inp = st.text_input(
+            "Website URL:", placeholder="https://example.com or paste any link here",
+            key="_tf_url_inp", label_visibility="visible"
+        )
+        _load_col, _clear_col = st.columns([3, 1])
+        if _load_col.button("🔍 Load & Read Website", key="_tf_url_load", use_container_width=True):
+            if _url_inp.strip():
+                with st.spinner("🌐 Reading website..."):
+                    try:
+                        import requests as _rqw
+                        from bs4 import BeautifulSoup as _BSw
+                        _rw = _rqw.get(
+                            _url_inp.strip(), timeout=12,
+                            headers={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                        )
+                        _sw = _BSw(_rw.text, "html.parser")
+                        for _tw in _sw(["script","style","nav","footer","head","iframe"]):
+                            _tw.decompose()
+                        _txt_w = _sw.get_text(separator="\n", strip=True)[:7000]
+                        st.session_state["_tf_web_url"]     = _url_inp.strip()
+                        st.session_state["_tf_web_content"] = _txt_w
+                        st.session_state["_tf_web_chat"]    = []
+                        st.rerun()
+                    except Exception as _ew:
+                        st.error(f"Could not load website: {_ew}")
+            else:
+                st.warning("Paste a URL first")
+        if _clear_col.button("🗑 Clear", key="_tf_web_clear", use_container_width=True):
+            st.session_state.pop("_tf_web_url", None)
+            st.session_state.pop("_tf_web_content", None)
+            st.session_state.pop("_tf_web_chat", None)
+            st.rerun()
 
-if _ticker_lines:
-    _ticker_text = "   ◆   ".join(_ticker_lines)
-    # Escape for safe HTML embedding
-    _ticker_safe = _ticker_text.replace("'", "&#39;").replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;')
-    _ticker_dur  = max(30, len(_ticker_lines) * 6)  # speed scales with content
-    st.markdown(f"""
-<style>
-@keyframes ticker-scroll {{
-    0%   {{ transform: translateX(100%); }}
-    100% {{ transform: translateX(-100%); }}
-}}
-.titan-ticker-wrap {{
-    width:100%; overflow:hidden; background:linear-gradient(90deg,#060d18,#0a0618,#060d18);
-    border-top:1px solid #1a0f44; border-bottom:1px solid #1a0f44;
-    padding:6px 0; margin:0 0 10px; position:relative;
-}}
-.titan-ticker-label {{
-    position:absolute; left:0; top:0; bottom:0; z-index:2;
-    background:linear-gradient(90deg,#7c3aed,#a855f7);
-    color:#fff; font-family:Orbitron,monospace; font-size:.6rem;
-    font-weight:900; letter-spacing:2px; padding:0 10px;
-    display:flex; align-items:center; white-space:nowrap;
-}}
-.titan-ticker-track {{
-    display:inline-block; white-space:nowrap;
-    animation:ticker-scroll {_ticker_dur}s linear infinite;
-    color:#00e5d0; font-size:.72rem; font-family:Inter,sans-serif; padding-left:120px;
-}}
-.titan-ticker-track span {{ color:#c9d8f0; margin:0 2px; }}
-</style>
-<div class="titan-ticker-wrap">
-    <div class="titan-ticker-label">📡 LIVE</div>
-    <div class="titan-ticker-track">{_ticker_safe}</div>
-</div>
-""", unsafe_allow_html=True)
+        if st.session_state.get("_tf_web_content"):
+            _wurl = st.session_state["_tf_web_url"]
+            st.markdown(
+                f"<div style='background:#0a1a0a;border:1px solid #22c55e;border-radius:8px;"
+                f"padding:8px 12px;font-size:.72rem;color:#4ade80;margin:10px 0'>"
+                f"✅ Loaded: <b>{_wurl[:70]}</b></div>",
+                unsafe_allow_html=True
+            )
+            with st.expander("📄 Preview page content", expanded=False):
+                st.text(st.session_state["_tf_web_content"][:800] + "…")
 
-# ── Auto-reload page every 3 minutes so ticker always shows fresh news ─────────
-st.html("""
-<script>
-(function(){
-    var _tr = window.sessionStorage.getItem('__titan_ticker_reload');
-    var _now = Date.now();
-    if(!_tr) { window.sessionStorage.setItem('__titan_ticker_reload', _now); }
-    setTimeout(function(){
-        window.sessionStorage.removeItem('__titan_ticker_reload');
-        window.parent.location.reload();
-    }, 180000);  // 3 minutes
-})();
-</script>
-""")
+            _wc_hist = st.session_state.get("_tf_web_chat", [])
+            for _wm in _wc_hist:
+                with st.chat_message(_wm["role"]):
+                    st.markdown(_wm["content"])
+
+            _web_q = st.chat_input("Ask anything about this website...", key="_tf_web_ci")
+            if _web_q:
+                _wc_hist.append({"role":"user","content":_web_q})
+                st.session_state["_tf_web_chat"] = _wc_hist
+                with st.chat_message("user"):
+                    st.markdown(_web_q)
+                with st.chat_message("assistant"):
+                    with st.spinner("Titan Ultra is reading..."):
+                        _w_ans = _tf_web_ask(
+                            _web_q,
+                            st.session_state["_tf_web_content"],
+                            _wurl
+                        )
+                    st.markdown(_w_ans)
+                _wc_hist.append({"role":"assistant","content":_w_ans})
+                st.session_state["_tf_web_chat"] = _wc_hist
+                st.rerun()
+
+    st.stop()
 
 # ── Always parse flashcards from latest AI response ───────────────────────────
 if True:
@@ -2008,7 +3183,7 @@ if True:
              padding:8px 16px;background:rgba(255,255,255,0.04);
              border-radius:10px;margin-bottom:12px;'>
           <span style='color:rgba(255,255,255,0.45);font-size:12px;'>
-            Card <b style='color:#c9d8f0'>{_pos+1}</b> / {_fc_n}
+            Card <b style='color:#e8e8e8'>{_pos+1}</b> / {_fc_n}
           </span>
           <span>
             <span style='color:#a6e3a1;font-size:12px;font-weight:700;'>✓ Known: {_n_known}</span>
@@ -2127,8 +3302,53 @@ if True:
                   <span style='color:#a6e3a1;font-size:.9rem;'>A: {_b_s}</span>
                 </div>""", unsafe_allow_html=True)
 
-# ── Live Weather (always available, expands when data is fetched) ─────────────
-with st.expander("🌤️ Live Weather Search", expanded=bool(st.session_state.weather_data)):
+# ── Live Weather fetch: runs when user asks weather in chat ───────────────────
+_auto_wq = st.session_state.pop("weather_query", "")
+if _auto_wq:
+    try:
+        import urllib.parse as _urlp2
+        _awq = _auto_wq.strip()
+        _ALIAS2 = {"bangalore":"Bengaluru","bombay":"Mumbai","calcutta":"Kolkata",
+                   "madras":"Chennai","poona":"Pune","baroda":"Vadodara",
+                   "mysore":"Mysuru","mangalore":"Mangaluru","trivandrum":"Thiruvananthapuram",
+                   "allahabad":"Prayagraj","benares":"Varanasi","cochin":"Kochi"}
+        _awq_resolved = _ALIAS2.get(_awq.lower(), _awq)
+        _wurl2 = f"https://wttr.in/{_urlp2.quote(_awq_resolved + ', India')}?format=j1"
+        _wgeo2 = requests.get(_wurl2, timeout=12, headers={"User-Agent":"Mozilla/5.0"}).json()
+        if "nearest_area" in _wgeo2:
+            _area2  = _wgeo2["nearest_area"][0]
+            _wlat2  = float(_area2["latitude"])
+            _wlon2  = float(_area2["longitude"])
+            _wname2 = ", ".join(filter(None,[
+                _area2["areaName"][0]["value"],
+                _area2.get("region",[{"value":""}])[0]["value"],
+                _area2["country"][0]["value"],
+            ]))
+            _om2 = requests.get(
+                f"https://api.open-meteo.com/v1/forecast"
+                f"?latitude={_wlat2}&longitude={_wlon2}"
+                f"&current=temperature_2m,relative_humidity_2m,apparent_temperature,"
+                f"weathercode,wind_speed_10m,wind_direction_10m,windgusts_10m,"
+                f"cloud_cover,visibility,dewpoint_2m,is_day"
+                f"&daily=temperature_2m_max,temperature_2m_min,weathercode,"
+                f"precipitation_probability_max,uv_index_max,sunrise,sunset"
+                f"&timezone=Asia%2FKolkata&forecast_days=7&models=best_match",
+                timeout=10).json()
+            try:
+                _aqd2 = requests.get(
+                    f"https://air-quality-api.open-meteo.com/v1/air-quality"
+                    f"?latitude={_wlat2}&longitude={_wlon2}&current=european_aqi,pm10,pm2_5",
+                    timeout=8).json()
+            except Exception:
+                _aqd2 = {}
+            st.session_state.weather_name = _wname2
+            st.session_state.weather_data = _om2
+            st.session_state.weather_aqi  = _aqd2
+    except Exception:
+        pass
+
+# ── Live Weather UI (hidden from home — ask in chat: "weather in [city]") ──────
+if False and st.expander("🌤️ Live Weather Search", expanded=bool(st.session_state.weather_data)):
     # ── Live Weather ──────────────────────────────────────────────────────────
 
     def _wmo_info(code):
@@ -2465,7 +3685,7 @@ with st.expander("🌤️ Live Weather Search", expanded=bool(st.session_state.w
         st.markdown(f"""
         <div style='background:rgba(137,180,250,0.08);border:1px solid rgba(137,180,250,0.22);
              border-radius:12px;padding:14px 18px;margin-top:6px;'>
-          <p style='color:#c9d8f0;font-size:13px;line-height:1.65;margin:0;'>
+          <p style='color:#e8e8e8;font-size:13px;line-height:1.65;margin:0;'>
             🌤️ <b>{st.session_state.weather_name}</b> — {_wdesc}, {_temp}°C (feels {_feels}°C).
             Humidity {_hum}%, wind {_wspd} km/h {_wdir}, UV index {_uv}.
             Rain chance {_rainc}%.<br><br>{_tip}</p>
@@ -2475,9 +3695,44 @@ with st.expander("🌤️ Live Weather Search", expanded=bool(st.session_state.w
 
 
 
+def _is_system_health_request(text):
+    t = text.lower()
+    return any(k in t for k in (
+        'check my system', 'check system', 'system health', 'system check',
+        'check hardware', 'hardware health', 'system scan', 'scan my system',
+        'check my pc', 'pc health', 'laptop health', 'show my laptop',
+        'check inside', 'inside system', 'inside my laptop', 'laptop internals',
+        'check my laptop', 'system damage', 'any damage', 'damage in system',
+        'damage in my', 'check for damage', 'show damage', 'show system',
+        'hardware check', 'laptop check', 'computer health', 'cpu temperature',
+        'check temperature', 'check ram', 'check storage', 'check battery',
+        'show my pc', 'show my computer', 'inside of my pc', 'inside of my laptop',
+        'pc internals', 'computer internals', 'inside my computer', 'inside my pc',
+        'show pc inside', 'pc inside', 'laptop inside', 'inside part',
+        'scan system', 'scan pc', 'scan laptop', 'scan computer',
+        'check my computer', 'check inside my', 'show inside', 'view inside',
+        'what is inside my', 'what inside my', 'how is my system',
+        'how is my pc', 'how is my laptop', 'how is my computer',
+        'is my pc ok', 'is my laptop ok', 'is my system ok',
+        'any errors in my system', 'any errors in my pc', 'error in system',
+        'diagram of my', 'show a diagram of my', 'show diagram of my',
+        'system diagram', 'pc diagram', 'laptop diagram', 'inside diagram',
+        'show my system', 'show my pc health', 'show my laptop health',
+        'my system status', 'my pc status', 'my laptop status',
+        'how much ram', 'how many ram', 'my ram', 'total ram', 'ram size',
+        'how many cpu', 'cpu cores', 'my cpu', 'my processor', 'cpu model',
+        'my laptop name', 'laptop name', 'laptop model', 'computer model', 'pc model',
+        'my pc name', 'my computer name', 'name of my laptop', 'name of my pc',
+        'what laptop', 'what pc', 'which laptop', 'which pc',
+        'disk space', 'storage space', 'free space', 'how much storage',
+    ))
+
+
 # ── Animated Diagrams (AI-generated) ─────────────────────────────────────────
 def _is_diagram_request(text):
     t = text.lower()
+    if _is_system_health_request(text):
+        return False
     return any(k in t for k in [
         'diagram','structure of','layers of','how does','how do','show me','draw',
         'illustrate','explain the structure','explain how','model of','system of',
@@ -2549,19 +3804,6 @@ def _generate_diagram_html(user_query):
 
 
 # ── Chat messages (shown in ALL modes) ───────────────────────────────────────
-def _is_system_health_request(text):
-    t = text.lower()
-    return any(k in t for k in (
-        'check my system', 'check system', 'system health', 'system check',
-        'check hardware', 'hardware health', 'system scan', 'scan my system',
-        'check my pc', 'pc health', 'laptop health', 'show my laptop',
-        'check inside', 'inside system', 'inside my laptop', 'laptop internals',
-        'check my laptop', 'system damage', 'any damage', 'damage in system',
-        'damage in my', 'check for damage', 'show damage', 'show system',
-        'hardware check', 'laptop check', 'computer health', 'cpu temperature',
-        'check temperature', 'check ram', 'check storage', 'check battery',
-    ))
-
 _msgs_list = cur_msgs()
 _last_asst_content = ""
 for _mi, msg in enumerate(_msgs_list):
@@ -2574,29 +3816,30 @@ for _mi, msg in enumerate(_msgs_list):
                 _shkey_d = _hlib_sh.md5(_prev["content"].encode()).hexdigest()
                 _sh_diag_html = st.session_state.get("_sys_health_cache", {}).get(_shkey_d, "")
                 if _sh_diag_html:
-                    _sh_escaped = _html_esc_sh.escape(_sh_diag_html, quote=True)
                     st.markdown(
-                        f'<iframe srcdoc="{_sh_escaped}" width="100%" height="400" '
-                        f'style="border:none;background:#070d1a;display:block;border-radius:12px;'
-                        f'margin:8px 0;" scrolling="no"></iframe>',
+                        "<div style='font-size:.72rem;color:#a78bfa;letter-spacing:2px;"
+                        "margin:6px 0 4px;font-weight:bold'>🖥️ YOUR PC HEALTH DIAGRAM — "
+                        "<span style='color:#00cc66'>GREEN = Good</span> · "
+                        "<span style='color:#ffaa00'>YELLOW = Warning</span> · "
+                        "<span style='color:#ff3333'>RED = Problem</span></div>",
                         unsafe_allow_html=True
                     )
+                    import streamlit.components.v1 as _cv1_sh
+                    _cv1_sh.html(_sh_diag_html, height=430, scrolling=False)
             # Animated diagram
             if _prev["role"] == "user" and _is_diagram_request(_prev["content"]):
                 import hashlib as _hlib_d, html as _html_esc_d
                 _dkey = _hlib_d.md5(_prev["content"].encode()).hexdigest()
                 _dhtml = st.session_state.diagram_cache.get(_dkey, "")
                 if _dhtml:
-                    _escaped = _html_esc_d.escape(_dhtml, quote=True)
-                    st.markdown(
-                        f'<iframe srcdoc="{_escaped}" width="100%" height="380" '
-                        f'style="border:none;background:#05080f;display:block;border-radius:12px;'
-                        f'margin:8px 0;" scrolling="no"></iframe>',
-                        unsafe_allow_html=True
-                    )
+                    import streamlit.components.v1 as _cv1_d
+                    _cv1_d.html(_dhtml, height=390, scrolling=False)
         # Strip ASCII art from AI response when a diagram is shown
         import re as _re_diag
         _content_show = msg["content"]
+        # Hide raw DALL-E image marker (image is rendered above)
+        if _re_diag.match(r'^\[DALLE_IMAGE:[a-f0-9]+\]$', _content_show.strip()):
+            _content_show = ""
         if msg["role"] == "assistant" and _mi > 0:
             _prev2 = _msgs_list[_mi - 1]
             if _prev2["role"] == "user" and _is_diagram_request(_prev2["content"]):
@@ -2748,15 +3991,6 @@ if st.session_state.get("_pending_pdf"):
         st.session_state["_pending_pdf"] = None
         st.rerun()
 
-# ── Welcome cards ─────────────────────────────────────────────────────────────
-if not cur_msgs():
-    cols = st.columns(3)
-    for i, (icon, text) in enumerate(QUICK_ACTIONS):
-        with cols[i % 3]:
-            if st.button(f"{icon} {text}", use_container_width=True, key=f"_qa_{i}"):
-                st.session_state.quick_q = text
-                st.rerun()
-
 # Attach + Voice popovers are rendered in the sidebar (below the Memory expander).
 temp = 0.7  # full reasoning quality always — matches Claude Pro depth
 
@@ -2792,6 +4026,9 @@ def _is_search_request(text):
         'today','this week','this month','this year','2024','2025','2026',
         'new release','just released','just launched','announced',
         'update on','status of','price of','cost of',
+        'weather','temperature','forecast','humidity','rain today',
+        'aqi','air quality','will it rain','cold today','hot today',
+        'weather in','weather at','climate in',
     ))
 
 _TRUSTED_DOMAINS = [
@@ -2835,6 +4072,7 @@ def _web_search(query, max_results=8):
         with DDGS() as ddgs:
             for r in ddgs.text(query, max_results=max_results * 2):
                 raw.append(r)
+        # Prefer trusted domains, filter scam URLs
         trusted = [r for r in raw if _is_trusted_url(r.get('href',''))]
         chosen = trusted if trusted else raw
         results = []
@@ -3025,11 +4263,13 @@ def _run_system_health():
     import platform as _pl
     _d = {
         'cpu_percent': 0, 'cpu_temp': None, 'cpu_cores': 1,
+        'cpu_name': _pl.processor() or 'Unknown CPU',
         'ram_percent': 0, 'ram_used_gb': 0, 'ram_total_gb': 0,
         'disk_percent': 0, 'disk_used_gb': 0, 'disk_total_gb': 0, 'disk_status': 'OK',
         'battery_percent': None, 'battery_plugged': None,
         'gpu_name': None, 'gpu_temp': None,
         'os': _pl.system(), 'machine': _pl.node(),
+        'laptop_model': 'Unknown',
     }
     try:
         try:
@@ -3062,6 +4302,22 @@ def _run_system_health():
         if _bat:
             _d['battery_percent'] = round(_bat.percent, 1)
             _d['battery_plugged'] = _bat.power_plugged
+    except Exception:
+        pass
+    try:
+        import subprocess as _sm
+        _mr = _sm.run(['wmic', 'computersystem', 'get', 'model'], capture_output=True, text=True, timeout=5)
+        _lines = [l.strip() for l in _mr.stdout.splitlines() if l.strip() and l.strip().lower() != 'model']
+        if _lines:
+            _d['laptop_model'] = _lines[0]
+    except Exception:
+        pass
+    try:
+        import subprocess as _sc
+        _cr = _sc.run(['wmic', 'cpu', 'get', 'name'], capture_output=True, text=True, timeout=5)
+        _clines = [l.strip() for l in _cr.stdout.splitlines() if l.strip() and l.strip().lower() != 'name']
+        if _clines:
+            _d['cpu_name'] = _clines[0]
     except Exception:
         pass
     try:
@@ -3143,6 +4399,8 @@ def _render_system_diagram(d):
         diag_html = f'<table style="width:100%;font-size:12px;border-collapse:collapse;color:#eee">{rows}</table>'
     gpu_lbl = d.get('gpu_name', 'GPU N/A')
     cpu_temp_lbl = f"{d['cpu_temp']:.0f}°C" if d.get('cpu_temp') else 'Temp N/A'
+    cpu_name_short = (d.get('cpu_name') or 'CPU')[:22]
+    laptop_model_lbl = (d.get('laptop_model') or d['machine'])[:28]
     return f"""<!DOCTYPE html>
 <html><head>
 <style>
@@ -3153,24 +4411,26 @@ body{{margin:0;background:#070d1a;font-family:'Courier New',monospace;color:#ccc
 .warn{{animation:pulse 1s ease-in-out infinite}}
 </style>
 </head><body>
-<svg width="640" height="330" viewBox="0 0 640 330">
-  <rect x="10" y="10" width="620" height="310" rx="10" fill="#080e1c" stroke="#1e2d45" stroke-width="2"/>
+<svg width="640" height="345" viewBox="0 0 640 345">
+  <rect x="10" y="10" width="620" height="325" rx="10" fill="#080e1c" stroke="#1e2d45" stroke-width="2"/>
   <g stroke="#111c2e" stroke-width="0.5">
     <line x1="10" y1="75" x2="630" y2="75"/>
     <line x1="10" y1="200" x2="630" y2="200"/>
-    <line x1="10" y1="280" x2="630" y2="280"/>
-    <line x1="215" y1="10" x2="215" y2="320"/>
-    <line x1="430" y1="10" x2="430" y2="320"/>
+    <line x1="10" y1="285" x2="630" y2="285"/>
+    <line x1="215" y1="10" x2="215" y2="335"/>
+    <line x1="430" y1="10" x2="430" y2="335"/>
   </g>
-  <text x="18" y="22" fill="#1e2d45" font-size="8">TITAN ULTRA · SYSTEM HEALTH BOARD · {d['machine']}</text>
+  <text x="18" y="22" fill="#40E0D0" font-size="9" font-weight="bold">🖥 {laptop_model_lbl}</text>
+  <text x="18" y="34" fill="#1e2d45" font-size="7">TITAN ULTRA · SYSTEM HEALTH BOARD · {d['machine']}</text>
 
   <!-- CPU -->
-  <rect x="25" y="28" width="170" height="145" rx="6" fill="#0a111e" stroke="{cc}" stroke-width="2.5" class="{'warn' if d['cpu_percent']>=85 else ''}"/>
-  <rect x="40" y="42" width="140" height="116" rx="4" fill="#0d1525" stroke="{cc}" stroke-width="1" opacity="0.5"/>
-  <rect x="65" y="58" width="90" height="74" rx="3" fill="#0f1e30" stroke="{cc}" stroke-width="1.5"/>
-  <text x="110" y="93" text-anchor="middle" fill="{cc}" font-size="12" font-weight="bold">CPU {d['cpu_percent']}%</text>
-  <text x="110" y="110" text-anchor="middle" fill="{tc}" font-size="10">{cpu_temp_lbl}</text>
-  <text x="110" y="128" text-anchor="middle" fill="#445" font-size="8">{d['cpu_cores']} cores</text>
+  <rect x="25" y="42" width="170" height="145" rx="6" fill="#0a111e" stroke="{cc}" stroke-width="2.5" class="{'warn' if d['cpu_percent']>=85 else ''}"/>
+  <rect x="40" y="56" width="140" height="116" rx="4" fill="#0d1525" stroke="{cc}" stroke-width="1" opacity="0.5"/>
+  <rect x="65" y="72" width="90" height="74" rx="3" fill="#0f1e30" stroke="{cc}" stroke-width="1.5"/>
+  <text x="110" y="95" text-anchor="middle" fill="{cc}" font-size="11" font-weight="bold">CPU {d['cpu_percent']}%</text>
+  <text x="110" y="110" text-anchor="middle" fill="{tc}" font-size="9">{cpu_temp_lbl}</text>
+  <text x="110" y="125" text-anchor="middle" fill="{cc}" font-size="7">{cpu_name_short}</text>
+  <text x="110" y="138" text-anchor="middle" fill="#445" font-size="7">{d['cpu_cores']} cores</text>
   {''.join(f'<rect x="{25+i*12}" y="173" width="8" height="6" rx="1" fill="{cc}" opacity="0.4"/>' for i in range(14))}
   <text x="110" y="188" text-anchor="middle" fill="#334" font-size="7">CPU SOCKET</text>
 
@@ -3254,6 +4514,25 @@ def _is_system_health_request(text):
         'damage in my', 'check for damage', 'show damage', 'show system',
         'hardware check', 'laptop check', 'computer health', 'cpu temperature',
         'check temperature', 'check ram', 'check storage', 'check battery',
+        'show my pc', 'show my computer', 'inside of my pc', 'inside of my laptop',
+        'pc internals', 'computer internals', 'inside my computer', 'inside my pc',
+        'show pc inside', 'pc inside', 'laptop inside', 'inside part',
+        'scan system', 'scan pc', 'scan laptop', 'scan computer',
+        'check my computer', 'check inside my', 'show inside', 'view inside',
+        'what is inside my', 'what inside my', 'how is my system',
+        'how is my pc', 'how is my laptop', 'how is my computer',
+        'is my pc ok', 'is my laptop ok', 'is my system ok',
+        'any errors in my system', 'any errors in my pc', 'error in system',
+        'diagram of my', 'show a diagram of my', 'show diagram of my',
+        'system diagram', 'pc diagram', 'laptop diagram', 'inside diagram',
+        'show my system', 'show my pc health', 'show my laptop health',
+        'my system status', 'my pc status', 'my laptop status',
+        'how much ram', 'how many ram', 'my ram', 'total ram', 'ram size',
+        'how many cpu', 'cpu cores', 'my cpu', 'my processor', 'cpu model',
+        'my laptop name', 'laptop name', 'laptop model', 'computer model', 'pc model',
+        'my pc name', 'my computer name', 'name of my laptop', 'name of my pc',
+        'what laptop', 'what pc', 'which laptop', 'which pc',
+        'disk space', 'storage space', 'free space', 'how much storage',
     ))
 
 
@@ -3931,6 +5210,41 @@ def get_system():
     mem = st.session_state.get("titan_memory", {})
     if mem:
         base += "\n\nThings you remember about the user:\n" + "\n".join(f"- {k}: {v}" for k, v in mem.items())
+    # Connected apps
+    _conn = st.session_state.get("connected_apps", [])
+    if _conn:
+        base += (
+            f"\n\n━━━ CONNECTED APPS ━━━\n"
+            f"The user has connected these apps to Titan Ultra: {', '.join(_conn)}.\n"
+            f"RULES when they ask about a connected app:\n"
+            f"• DO NOT say 'open the app' or explain how to install/launch it.\n"
+            f"• Act like you are their personal expert guide INSIDE the app.\n"
+            f"• When asked 'what is in [app]?' — describe its key sections, features, "
+            f"what the user can do, tips, shortcuts, and personalised recommendations.\n"
+            f"• Example: 'what is in YouTube?' → explain Home feed, Shorts, Subscriptions, "
+            f"Watch History, playlists, trending, what to search for, etc.\n"
+            f"• Be enthusiastic and helpful like you ARE inside the app with them."
+        )
+    # Cross-session memory — include recent past chat content so AI remembers previous conversations
+    _ph_all = _load_history()
+    if _ph_all:
+        _ph_lines = []
+        for _ph in _ph_all[:3]:
+            _ph_msgs = _ph.get("messages", [])
+            if not _ph_msgs:
+                continue
+            _ph_title = _ph.get("title", "Chat")
+            _ph_date  = (_ph.get("date") or "")[:10]
+            _ph_lines.append(f"\n--- {_ph_title} ({_ph_date}) ---")
+            for _phm in _ph_msgs[-6:]:
+                _pr = "User" if _phm["role"] == "user" else "You (Titan)"
+                _pc = str(_phm.get("content", ""))[:200]
+                _ph_lines.append(f"{_pr}: {_pc}")
+        if _ph_lines:
+            base += ("\n\n━━━ YOUR MEMORY OF PAST CHATS ━━━\n"
+                     "You remember these previous conversations with this user. "
+                     "Use this to stay consistent and maintain continuity:\n"
+                     + "\n".join(_ph_lines))
     # Auto-detect language and instruct AI to reply in same language
     _msgs_check = cur_msgs()
     if _msgs_check:
@@ -4107,19 +5421,37 @@ def call_groq(messages):
     if _use_vision:
         _fallback_chain = _get_groq_vision_models(st.session_state.api_key)
     else:
-        _auto = _smart_pick(messages)
-        _fallback_chain = [
-            _auto,
-            "openai/gpt-oss-120b",
-            "openai/gpt-oss-20b",
-            "qwen/qwen3.8-27b",
-            "meta-llama/llama-4-maverick-17b-128e-instruct",
-            "moonshotai/kimi-k2-instruct",
-            "deepseek-r1-distill-llama-70b",
-            "llama-3.3-70b-versatile",
-            "gemma2-9b-it",
-            "llama-3.1-8b-instant",
-        ]
+        _titan_mode = st.session_state.get("_titan_mode", "normal")
+        if _titan_mode == "fast":
+            _fallback_chain = [
+                "openai/gpt-oss-20b",
+                "meta-llama/llama-4-maverick-17b-128e-instruct",
+                "llama-3.3-70b-versatile",
+                "gemma2-9b-it",
+                "llama-3.1-8b-instant",
+            ]
+        elif _titan_mode == "think":
+            _fallback_chain = [
+                "deepseek-r1-distill-llama-70b",
+                "openai/gpt-oss-120b",
+                "moonshotai/kimi-k2-instruct",
+                "meta-llama/llama-4-maverick-17b-128e-instruct",
+                "llama-3.3-70b-versatile",
+            ]
+        else:
+            _auto = _smart_pick(messages)
+            _fallback_chain = [
+                _auto,
+                "openai/gpt-oss-120b",
+                "openai/gpt-oss-20b",
+                "qwen/qwen3.8-27b",
+                "meta-llama/llama-4-maverick-17b-128e-instruct",
+                "moonshotai/kimi-k2-instruct",
+                "deepseek-r1-distill-llama-70b",
+                "llama-3.3-70b-versatile",
+                "gemma2-9b-it",
+                "llama-3.1-8b-instant",
+            ]
     _seen = set()
     _chain = [m for m in _fallback_chain if not (m in _seen or _seen.add(m))]
 
@@ -4197,11 +5529,179 @@ def call_groq(messages):
     _last_msg = str(_last_err)[:300] if _last_err else "Unknown error"
     raise RuntimeError(f"❌ All models failed. Last error: {_last_msg}")
 
+def _ollama_options(model_name: str) -> dict:
+    """Return speed-optimised generation options for each model."""
+    m = model_name.lower()
+    if "qwen" in m:
+        # Qwen3 fast mode: /no_think disables hidden chain-of-thought so the
+        # first token arrives immediately. Step-by-step quality comes from the
+        # system prompt, not slow internal reasoning.
+        return {
+            "num_ctx":        8192,    # plenty for any question, loads fast
+            "num_predict":    4096,    # long complete answers
+            "temperature":    0.7,
+            "top_p":          0.9,
+            "top_k":          40,
+            "repeat_penalty": 1.1,
+            "num_gpu":        -1,      # all GPU layers (auto CPU if no GPU)
+            "num_batch":      512,     # process 512 tokens at once — faster
+            "f16_kv":         True,    # FP16 KV-cache — saves RAM, faster
+        }
+    elif "moondream" in m:
+        return {
+            "num_ctx":        4096,
+            "num_predict":    1024,
+            "temperature":    0.3,
+            "top_p":          0.9,
+            "num_gpu":        -1,
+            "num_batch":      512,
+            "f16_kv":         True,
+        }
+    else:
+        return {
+            "num_ctx":        8192,
+            "num_predict":    4096,
+            "temperature":    0.7,
+            "top_p":          0.9,
+            "repeat_penalty": 1.1,
+            "num_gpu":        -1,
+            "num_batch":      512,
+            "f16_kv":         True,
+        }
+
+def _inject_thinking(messages: list, model_name: str) -> list:
+    """For Qwen3: inject /no_think so it skips hidden reasoning and answers immediately."""
+    if "qwen" not in model_name.lower():
+        return messages
+    msgs = [m.copy() for m in messages]
+    for i in range(len(msgs) - 1, -1, -1):
+        if msgs[i]["role"] == "user":
+            content = msgs[i]["content"]
+            if isinstance(content, str):
+                # strip any old /think or /no_think prefix first
+                stripped = content.strip()
+                for prefix in ("/think\n", "/no_think\n", "/think ", "/no_think "):
+                    if stripped.startswith(prefix):
+                        stripped = stripped[len(prefix):]
+                msgs[i]["content"] = "/no_think\n" + stripped
+            break
+    return msgs
+
+def _strip_think_tags(text: str) -> str:
+    """Remove <think>...</think> blocks that Qwen3 sometimes exposes."""
+    import re as _re_th
+    return _re_th.sub(r"<think>.*?</think>", "", text, flags=_re_th.DOTALL).strip()
+
+def call_ollama(messages, ollama_model=None):
+    import time as _t_ol
+    _model = ollama_model or model_id
+    full   = _build_full(messages, trim=20)
+    full   = _inject_thinking(full, _model)
+    # If there is a pending vision image, attach it to the last user message
+    _vis = st.session_state.get("pending_vision")
+    if _vis and full and full[-1]["role"] == "user":
+        _last = full[-1].copy()
+        _txt = _last["content"] if isinstance(_last["content"], str) else str(_last["content"])
+        if not _txt or _txt.startswith("[Image attached"):
+            _txt = "Read and write every single word visible in this image. Even if blurry, try your best. The text may be in any language — Hindi, English, Telugu, Tamil, Urdu, etc. Write the text exactly as it appears, then describe the image."
+        _last["content"] = _txt
+        _last["images"] = [_vis["b64"]]
+        full[-1] = _last
+    _url   = "http://localhost:11434/api/chat"
+    _payload = {"model": _model, "messages": full, "stream": False,
+                "options": _ollama_options(_model)}
+    for _attempt in range(3):
+        try:
+            r = requests.post(_url, json=_payload, timeout=600)
+            r.raise_for_status()
+            _data = r.json()
+            # Ollama /api/chat returns {"message": {"role":"assistant","content":"..."}}
+            content = (
+                _data.get("message", {}).get("content")
+                or _data.get("response")  # /api/generate fallback
+                or ""
+            )
+            if not content:
+                raise RuntimeError("Ollama returned an empty response.")
+            return _strip_think_tags(content)
+        except requests.exceptions.ConnectionError:
+            if _attempt < 2:
+                _t_ol.sleep(3)
+                continue
+            raise RuntimeError(
+                "❌ Ollama is not running.\n"
+                "Fix: open a terminal and run:  ollama serve\n"
+                "Then try again."
+            )
+        except requests.exceptions.Timeout:
+            if _attempt < 2:
+                _t_ol.sleep(5)
+                continue
+            raise RuntimeError(
+                f"⏳ Ollama timed out on model '{_model}'.\n"
+                "The model may still be loading — wait 30 seconds and try again.\n"
+                f"Or run a lighter model: ollama pull qwen2.5:3b"
+            )
+        except RuntimeError:
+            raise
+        except Exception as e:
+            raise RuntimeError(f"❌ Ollama error: {e}")
+
 def _do_ai_call(api_msgs):
-    return call_groq(api_msgs)
+    global ollama_models, ollama_reachable
+
+    def _wake_ollama():
+        global ollama_models, ollama_reachable
+        if start_ollama_background():
+            check_ollama.clear()
+            _r, _m = check_ollama()
+            st.session_state.ollama_reachable = _r
+            st.session_state.ollama_models = _m
+            ollama_reachable, ollama_models = _r, _m
+            return _r
+        return False
+
+    def _best_ollama_model():
+        """Return first available Ollama model name."""
+        return ollama_models[0] if ollama_models else None
+
+    if provider == "🔁 Auto (Smart Switch)":
+        # ── Internet available: ALWAYS use Groq. call_groq handles all retries internally. ──
+        if _has_internet() and st.session_state.api_key:
+            return call_groq(api_msgs)
+        # ── No internet: use Ollama ───────────────────────────────────────────
+        if not ollama_reachable:
+            _wake_ollama()
+        _om = _best_ollama_model()
+        if _om:
+            return call_ollama(api_msgs, ollama_model=_om)
+        if ollama_reachable:
+            raise RuntimeError(
+                "📥 Ollama is running but no models are installed.\n"
+                "In the sidebar, click 'Pull Qwen 3' or 'Pull Moondream'."
+            )
+        raise RuntimeError(
+            "📡 No internet and Ollama is not running.\n"
+            "Connect to the internet or install Ollama for offline use."
+        )
+
+    elif provider == "Groq":
+        return call_groq(api_msgs)
+
+    else:  # Ollama (Offline)
+        if not ollama_reachable:
+            _wake_ollama()
+        _om = _best_ollama_model()
+        if not _om:
+            raise RuntimeError(
+                "📥 No offline models installed yet.\n"
+                "In the sidebar click 'Pull Qwen 3' or 'Pull Moondream'."
+            )
+        # In Ollama-only mode, model_id is already the selected Ollama model
+        return call_ollama(api_msgs, ollama_model=model_id)
 
 # ── Chat input ────────────────────────────────────────────────────────────────
-q_val = st.session_state.pop("quick_q","") or voice_text
+q_val      = st.session_state.pop("quick_q","") or voice_text
 
 if _USER_HIT_LIMIT:
     _usage_data_cur = _load_usage_data()
@@ -4216,7 +5716,7 @@ if _USER_HIT_LIMIT:
   <div id="tu_msg" style="margin-top:14px;font-size:.9rem;color:#6b7a99"></div>
 </div>
 <script>
-var rem={_remaining_secs};
+var rem = {_remaining_secs};
 function fmt(n){{return n.toString().padStart(2,'0');}}
 function tick(){{
   if(rem<=0){{
@@ -4228,25 +5728,324 @@ function tick(){{
   }}
   var h=Math.floor(rem/3600),m=Math.floor((rem%3600)/60),s=rem%60;
   document.getElementById('tu_timer').innerHTML=fmt(h)+':'+fmt(m)+':'+fmt(s);
-  rem--;setTimeout(tick,1000);
+  rem--;
+  setTimeout(tick,1000);
 }}
 tick();
 </script>
 """, height=160)
     st.stop()
 
-# Native paperclip button INSIDE the chat box (Gemini-style attach button)
-_chat_result = st.chat_input(
-    "Message TITAN ULTRA...",
-    accept_file=True,
-    key="_chat_input_main",
-)
-if _chat_result:
-    user_input = _chat_result.text or None
-    if _chat_result.files:
-        uploaded_file = _chat_result.files[0]
+# Chat input only shown during active chat (home screen has its own centered input)
+if cur_msgs():
+    _cmode = st.session_state.get("_titan_mode", "normal")
+    _chat_ph = ("⚡ Fast Mode — Message TITAN ULTRA..." if _cmode == "fast"
+                else "🧠 Thinking Mode — Message TITAN ULTRA..." if _cmode == "think"
+                else "Message TITAN ULTRA...")
+    _chat_result = st.chat_input(
+        _chat_ph,
+        accept_file=True,
+        key="_chat_input_main",
+    )
+    if _chat_result:
+        user_input = _chat_result.text or None
+        if _chat_result.files:
+            uploaded_file = _chat_result.files[0]
+    else:
+        user_input = None
 else:
+    _chat_result = None
     user_input = None
+
+# Hidden mode-setter buttons — CSS hides on home screen; JS hides in chat mode
+_hid_fast   = st.button("__TITAN_SET_FAST__",   key="_hid_mode_fast")
+_hid_think  = st.button("__TITAN_SET_THINK__",  key="_hid_mode_think")
+_hid_normal = st.button("__TITAN_SET_NORMAL__", key="_hid_mode_normal")
+if _hid_fast:
+    st.session_state._titan_mode = "fast";   st.rerun()
+if _hid_think:
+    st.session_state._titan_mode = "think";  st.rerun()
+if _hid_normal:
+    st.session_state._titan_mode = "normal"; st.rerun()
+
+# Pick up message submitted from the home screen centered input
+if not user_input and st.session_state.get("_home_pending"):
+    user_input = st.session_state.pop("_home_pending")
+
+# Pick up file attached from home screen + menu
+if not uploaded_file and st.session_state.get("_home_upload_pending"):
+    uploaded_file = st.session_state.pop("_home_upload_pending")
+
+# ── Ctrl+V screenshot paste handler ──────────────────────────────────────────
+import streamlit.components.v1 as _cv1_paste
+_cv1_paste.html("""<script>
+(function(){
+    var pd=window.parent.document;
+    if(pd.__titanPasteReady) return;
+    pd.__titanPasteReady=true;
+    pd.addEventListener('paste',function(ev){
+        var items=(ev.clipboardData||window.clipboardData||{}).items;
+        if(!items) return;
+        for(var i=0;i<items.length;i++){
+            var it=items[i];
+            if(it.kind==='file' && it.type.indexOf('image/')===0){
+                var f=it.getAsFile();
+                if(!f) continue;
+                var inp=pd.querySelector('[data-testid="stChatInput"] input[type="file"]');
+                if(!inp) inp=pd.querySelector('section[data-testid="stMain"] input[type="file"]');
+                if(!inp) continue;
+                var dt=new DataTransfer();
+                dt.items.add(f);
+                try{
+                    var proto=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'files');
+                    if(proto && proto.set) proto.set.call(inp,dt.files);
+                    else inp.files=dt.files;
+                }catch(e){ inp.files=dt.files; }
+                inp.dispatchEvent(new Event('change',{bubbles:true}));
+                inp.dispatchEvent(new InputEvent('input',{bubbles:true}));
+                ev.preventDefault();
+                break;
+            }
+        }
+    });
+})();
+</script>""", height=0)
+
+# ── + menu popup for chat bar ─────────────────────────────────────────────────
+import streamlit.components.v1 as _cv1_plus
+_cv1_plus.html("""<script>
+(function(){
+var pd=window.parent.document;
+if(pd.__titanPlusReady) return;
+pd.__titanPlusReady=true;
+
+// ── shared popup ─────────────────────────────────────────────────────────────
+var _s=pd.createElement('style');
+_s.textContent=
+'#tpop{display:none;position:fixed;background:#1a1a1a;border:1px solid #2a2a2a;'+
+'border-radius:14px;padding:8px;z-index:99999;min-width:170px;'+
+'box-shadow:0 6px 24px rgba(0,0,0,0.7);flex-direction:column;gap:4px;}'+
+'.tpb{background:#222222;color:#e8e8e8;border:1px solid #2a2a2a;border-radius:8px;'+
+'padding:9px 14px;cursor:pointer;text-align:left;font-size:13px;'+
+'font-family:"Segoe UI",sans-serif;width:100%;display:block;}'+
+'.tpb:hover{background:#2e2e2e;border-color:#555555;}'+
+'.tpb.tpb-on{background:#2e2e2e;border-color:#888888;color:#ffffff;}';
+pd.head.appendChild(_s);
+
+var _pw=pd.createElement('div');
+_pw.innerHTML='<div id="tpop">'+
+'<button class="tpb" data-act="photos">📷  Photos</button>'+
+'<button class="tpb" data-act="files">📎  Files</button>'+
+'<hr style="border:none;border-top:1px solid #2d2d40;margin:4px 0">'+
+'<button class="tpb" id="tpb-fast">⚡  Fast Mode</button>'+
+'<button class="tpb" id="tpb-think">🧠  Thinking Mode</button>'+
+'</div>';
+pd.body.appendChild(_pw);
+var _pop=pd.getElementById('tpop');
+var _popAnchor=null; // which button opened the popup
+
+function _refreshModeUI(){
+    var mode=localStorage.getItem('titan_mode')||'normal';
+    var fb=pd.getElementById('tpb-fast'),tb=pd.getElementById('tpb-think');
+    if(!fb||!tb) return;
+    fb.className='tpb'+(mode==='fast'?' tpb-on':'');
+    fb.textContent=(mode==='fast'?'⚡  Fast Mode ✓':'⚡  Fast Mode');
+    tb.className='tpb'+(mode==='think'?' tpb-on':'');
+    tb.textContent=(mode==='think'?'🧠  Thinking Mode ✓':'🧠  Thinking Mode');
+}
+
+function _openPopup(anchorEl){
+    _popAnchor=anchorEl;
+    _refreshModeUI();
+    // Show Photos/Files only in chat mode
+    var inChat=!!pd.querySelector('[data-testid="stChatInput"]');
+    pd.querySelectorAll('#tpop .tpb[data-act]').forEach(function(b){b.style.display=inChat?'block':'none';});
+    var hr=pd.querySelector('#tpop hr');
+    if(hr) hr.style.display=inChat?'block':'none';
+    var r=anchorEl.getBoundingClientRect();
+    _pop.style.left=r.left+'px';
+    _pop.style.bottom=(pd.documentElement.clientHeight-r.top+8)+'px';
+    _pop.style.top='auto';
+    _pop.style.display='flex';
+}
+
+function _clickHiddenBtn(txt){
+    var all=pd.querySelectorAll('button');
+    for(var i=0;i<all.length;i++){
+        if(all[i].textContent.trim()===txt){all[i].click();return true;}
+    }
+    return false;
+}
+
+_pop.addEventListener('click',function(e){
+    var btn=e.target.closest('.tpb');
+    if(!btn) return;
+    var act=btn.getAttribute('data-act')||btn.id;
+    if(act==='photos'||act==='files'){
+        var fi=pd.querySelector('[data-testid="stChatInput"] input[type="file"]');
+        if(fi){if(act==='photos')fi.setAttribute('accept','image/*');else fi.removeAttribute('accept');fi.click();}
+    } else if(act==='tpb-fast'){
+        var cur=localStorage.getItem('titan_mode')||'normal';
+        var next=cur==='fast'?'normal':'fast';
+        localStorage.setItem('titan_mode',next);
+        _clickHiddenBtn(next==='fast'?'__TITAN_SET_FAST__':'__TITAN_SET_NORMAL__');
+        _refreshModeUI();
+    } else if(act==='tpb-think'){
+        var cur=localStorage.getItem('titan_mode')||'normal';
+        var next=cur==='think'?'normal':'think';
+        localStorage.setItem('titan_mode',next);
+        _clickHiddenBtn(next==='think'?'__TITAN_SET_THINK__':'__TITAN_SET_NORMAL__');
+        _refreshModeUI();
+    }
+    _pop.style.display='none';
+    e.stopPropagation();
+});
+pd.addEventListener('click',function(e){
+    if(_pop.style.display!=='none' && !_pop.contains(e.target) && e.target!==_popAnchor)
+        _pop.style.display='none';
+});
+
+// ── Chat screen: hook the + inside st.chat_input ─────────────────────────────
+function _hookChatPlus(){
+    var ci=pd.querySelector('[data-testid="stChatInput"]');
+    if(!ci) return;
+    var plusBtn=ci.querySelector('button');
+    if(!plusBtn||plusBtn.__titanHooked) return;
+    plusBtn.__titanHooked=true;
+    plusBtn.addEventListener('click',function(e){
+        e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+        if(_pop.style.display==='flex'){_pop.style.display='none';}
+        else{_openPopup(plusBtn);}
+    },true);
+}
+
+// ── Unified Think button refresh ──────────────────────────────────────────────
+function _refreshThinkBtns(){
+    var mode=localStorage.getItem('titan_mode')||'normal';
+    var on=(mode==='think');
+    ['home-think-btn','chat-think-btn'].forEach(function(id){
+        var b=pd.getElementById(id);
+        if(!b) return;
+        b.textContent=on?'🧠 Think ✓':'🧠 Think';
+        b.style.color=on?'#ffffff':'#888888';
+        b.style.borderColor=on?'#ffffff':'#444444';
+        b.style.background=on?'rgba(255,255,255,0.08)':'transparent';
+    });
+    _refreshModeUI();
+}
+
+// ── Home screen: inject + and Think INSIDE the text input ─────────────────────
+function _injectHomePlus(){
+    if(pd.querySelector('[data-testid="stChatMessage"]')) return;
+    var inp=pd.querySelector('[data-testid="stMain"] [data-testid="stTextInput"] input');
+    if(!inp||inp.__titanHomePlusInjected) return;
+    inp.__titanHomePlusInjected=true;
+    var wrap=inp.parentElement;
+    while(wrap && wrap.getAttribute('data-testid')!=='stTextInput') wrap=wrap.parentElement;
+    if(!wrap) wrap=inp.parentElement;
+    wrap.style.position='relative';
+
+    // ── + button (left) ──
+    var plus=pd.createElement('button');
+    plus.id='home-plus-icon';
+    plus.textContent='+';
+    plus.style.cssText='position:absolute;left:16px;top:50%;transform:translateY(-50%);'+
+        'background:transparent;border:none;color:#888888;font-size:1.3rem;cursor:pointer;'+
+        'z-index:10;padding:0;line-height:1;font-weight:300;transition:color .15s;';
+    plus.addEventListener('mouseover',function(){plus.style.color='#ffffff';});
+    plus.addEventListener('mouseout',function(){plus.style.color='#888888';});
+    plus.addEventListener('click',function(e){
+        e.preventDefault();e.stopPropagation();
+        if(_pop.style.display==='flex'){_pop.style.display='none';}
+        else{_openPopup(plus);}
+    });
+    wrap.appendChild(plus);
+
+    // ── Think button (right) ──
+    var mode=localStorage.getItem('titan_mode')||'normal';
+    var on=(mode==='think');
+    var tb=pd.createElement('button');
+    tb.id='home-think-btn';
+    tb.textContent=on?'🧠 Think ✓':'🧠 Think';
+    tb.style.cssText='position:absolute;right:16px;top:50%;transform:translateY(-50%);'+
+        'background:'+(on?'rgba(255,255,255,0.08)':'transparent')+';'+
+        'border:1px solid '+(on?'#ffffff':'#444444')+';'+
+        'color:'+(on?'#ffffff':'#888888')+';'+
+        'font-size:0.82rem;border-radius:20px;padding:5px 14px;cursor:pointer;'+
+        'z-index:10;transition:all .15s;white-space:nowrap;font-family:"Segoe UI",sans-serif;';
+    tb.addEventListener('click',function(e){
+        e.preventDefault();e.stopPropagation();
+        var cur=localStorage.getItem('titan_mode')||'normal';
+        var next=cur==='think'?'normal':'think';
+        localStorage.setItem('titan_mode',next);
+        _clickHiddenBtn(next==='think'?'__TITAN_SET_THINK__':'__TITAN_SET_NORMAL__');
+        _refreshThinkBtns();
+    });
+    wrap.appendChild(tb);
+}
+
+// ── Chat screen: inject visible Think button inside st.chat_input ─────────────
+function _injectChatThink(){
+    var ci=pd.querySelector('[data-testid="stChatInput"]');
+    if(!ci||ci.__titanThinkInjected) return;
+    if(!ci.querySelector('textarea')) return;
+    ci.__titanThinkInjected=true;
+    var mode=localStorage.getItem('titan_mode')||'normal';
+    var on=(mode==='think');
+    var tb=pd.createElement('button');
+    tb.id='chat-think-btn';
+    tb.textContent=on?'🧠 Think ✓':'🧠 Think';
+    tb.style.cssText='position:absolute;right:52px;bottom:14px;'+
+        'background:'+(on?'rgba(255,255,255,0.08)':'transparent')+';'+
+        'border:1px solid '+(on?'#ffffff':'#444444')+';'+
+        'color:'+(on?'#ffffff':'#888888')+';'+
+        'font-size:0.82rem;border-radius:20px;padding:5px 14px;cursor:pointer;'+
+        'z-index:10;transition:all .15s;white-space:nowrap;font-family:"Segoe UI",sans-serif;';
+    tb.addEventListener('click',function(e){
+        e.preventDefault();e.stopPropagation();
+        var cur=localStorage.getItem('titan_mode')||'normal';
+        var next=cur==='think'?'normal':'think';
+        localStorage.setItem('titan_mode',next);
+        _clickHiddenBtn(next==='think'?'__TITAN_SET_THINK__':'__TITAN_SET_NORMAL__');
+        _refreshThinkBtns();
+    });
+    ci.appendChild(tb);
+}
+
+// ── Hide mode buttons in chat mode (home screen hides them via CSS) ───────────
+function _hideModeBtns(){
+    if(!pd.querySelector('[data-testid="stChatMessage"]')) return;
+    var _hide=['TITAN_SET_FAST','TITAN_SET_THINK','TITAN_SET_NORMAL'];
+    pd.querySelectorAll('button').forEach(function(b){
+        if(_hide.indexOf(b.textContent.trim())>=0){
+            var el=b;
+            for(var i=0;i<2;i++){
+                if(!el) break;
+                el.style.setProperty('display','none','important');
+                el.style.setProperty('height','0','important');
+                el.style.setProperty('overflow','hidden','important');
+                el.style.setProperty('margin','0','important');
+                el.style.setProperty('padding','0','important');
+                el=el.parentElement;
+            }
+        }
+    });
+}
+
+var _obs=new MutationObserver(function(){
+    _hookChatPlus();
+    _injectHomePlus();
+    _injectChatThink();
+    _hideModeBtns();
+});
+_obs.observe(pd.body,{childList:true,subtree:true});
+_hookChatPlus();
+_injectHomePlus();
+_injectChatThink();
+_hideModeBtns();
+_refreshModeUI();
+})();
+</script>""", height=0)
 
 # Process the file the user attached via the "+" popover
 _current_vision = None
@@ -4303,6 +6102,39 @@ if uploaded_file:
     except Exception:
         file_content = f"[File: {uploaded_file.name}]"
 st.session_state.pending_vision = _current_vision
+
+# ── Inline PDF conversion: image + "convert to pdf" → download button ─────────
+if _current_vision and user_input and any(
+    kw in user_input.lower() for kw in ("convert to pdf", "convert this to pdf",
+                                         "make pdf", "to pdf", "image to pdf",
+                                         "screenshot to pdf", "convert pdf")
+):
+    try:
+        from PIL import Image as _PILpdf
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Image as _RLImg
+        _raw_bytes = _current_vision["bytes"]
+        _img_pil = _PILpdf.open(io.BytesIO(_raw_bytes))
+        if _img_pil.mode not in ("RGB","L"): _img_pil = _img_pil.convert("RGB")
+        _ibuf = io.BytesIO()
+        _img_pil.save(_ibuf, format="PNG"); _ibuf.seek(0)
+        _pbuf = io.BytesIO()
+        _pdoc = SimpleDocTemplate(_pbuf, pagesize=A4,
+                                  leftMargin=20, rightMargin=20,
+                                  topMargin=20, bottomMargin=20)
+        _pw = A4[0] - 40; _ph = A4[1] - 40
+        _iw, _ih = _img_pil.size
+        _sc = min(_pw / _iw, _ph / _ih)
+        _pdoc.build([_RLImg(_ibuf, width=_iw*_sc, height=_ih*_sc)])
+        _pbuf.seek(0)
+        _pname = _current_vision.get("name","image").rsplit(".",1)[0] + ".pdf"
+        st.success(f"Done! Your PDF is ready: **{_pname}**")
+        st.download_button("Download PDF", _pbuf.getvalue(),
+                           _pname, "application/pdf", key="_chat_pdf_dl")
+        st.session_state.pending_vision = None
+    except Exception as _pdferr:
+        st.error(f"Could not convert: {_pdferr}")
+    st.stop()
 
 if not user_input and q_val:
     user_input = q_val
@@ -4418,12 +6250,33 @@ if user_input:
             # System Health Diagram — full hardware scan with visual diagram
             _sys_health_html = ""
             if _is_system_health_request(user_input):
-                with st.spinner("🔬 Scanning system hardware..."):
+                with st.spinner("🔬 Scanning your system…"):
                     _sh_data = _run_system_health()
                     import hashlib as _hsh_sys
                     _shkey = _hsh_sys.md5(user_input.encode()).hexdigest()
                     _sys_health_html = _render_system_diagram(_sh_data)
                     st.session_state["_sys_health_cache"][_shkey] = _sys_health_html
+                _issues = []
+                if _sh_data['cpu_percent'] >= 85: _issues.append(f"CPU overloaded ({_sh_data['cpu_percent']}%)")
+                if _sh_data['ram_percent'] >= 85: _issues.append(f"RAM almost full ({_sh_data['ram_percent']}%)")
+                if _sh_data['disk_percent'] >= 85: _issues.append(f"Disk almost full ({_sh_data['disk_percent']}%)")
+                if _sh_data['disk_status'] == 'WARNING': _issues.append("Disk health warning")
+                if _sh_data.get('cpu_temp') and _sh_data['cpu_temp'] >= 88: _issues.append(f"CPU very hot ({_sh_data['cpu_temp']:.0f}°C)")
+                if _sh_data.get('battery_percent') is not None and _sh_data['battery_percent'] < 20 and not _sh_data.get('battery_plugged'): _issues.append(f"Battery low ({_sh_data['battery_percent']}%)")
+                _status = "✅ **All good — no problems found.**" if not _issues else "⚠️ **Issues found:** " + " | ".join(_issues)
+                _summary = (
+                    f"**Device:** {_sh_data.get('laptop_model','Unknown')}  \n"
+                    f"**CPU:** {_sh_data.get('cpu_name','Unknown')} — {_sh_data['cpu_percent']}% used  \n"
+                    f"**RAM:** {_sh_data['ram_used_gb']}GB / {_sh_data['ram_total_gb']}GB ({_sh_data['ram_percent']}%)  \n"
+                    f"**Disk:** {_sh_data['disk_used_gb']}GB / {_sh_data['disk_total_gb']}GB ({_sh_data['disk_percent']}%)  \n"
+                    + (f"**Battery:** {_sh_data['battery_percent']}% ({'Charging' if _sh_data.get('battery_plugged') else 'On battery'})  \n" if _sh_data.get('battery_percent') is not None else "")
+                    + (f"**GPU:** {_sh_data['gpu_name']}  \n" if _sh_data.get('gpu_name') else "")
+                    + f"\n{_status}"
+                )
+                msgs = cur_msgs()
+                msgs.append({"role": "assistant", "content": _summary})
+                set_msgs(msgs)
+                st.rerun()
 
             # PC Diagnostics — auto-run when user reports PC issue
             _pc_diag = ""
@@ -4443,6 +6296,22 @@ if user_input:
                 with st.spinner("🔍 Searching the web..."):
                     _search_results = _web_search(user_input)
 
+            # Connected app live search — auto-fetch when user asks about a connected app
+            _conn_app_results = ""
+            if not _search_results and not _youtube_context and not _url_context:
+                _conn_apps_list = st.session_state.get("connected_apps", [])
+                _mentioned_app  = next(
+                    (app for app in _conn_apps_list if app.lower() in user_input.lower()),
+                    None
+                )
+                if _mentioned_app:
+                    import datetime as _cadt
+                    _ca_date = _cadt.date.today().isoformat()
+                    with st.spinner(f"🔍 Fetching live data from {_mentioned_app}…"):
+                        _conn_app_results = _web_search(
+                            f"{_mentioned_app} {user_input} {_ca_date}", max_results=10
+                        )
+
             # Generate animated diagram if requested
             if _is_diagram_request(user_input):
                 import hashlib as _hlib_gen
@@ -4459,16 +6328,17 @@ if user_input:
                     _sys_diag_ctx = ""
                     if _sys_health_html and '_sh_data' in dir():
                         _sys_diag_ctx = (
-                            f"System Health Scan Results:\n"
-                            f"CPU: {_sh_data['cpu_percent']}% usage"
+                            f"REAL-TIME System Health Scan — answer ONLY from this data, do NOT guess:\n"
+                            f"Device: {_sh_data.get('laptop_model','Unknown')} ({_sh_data['machine']})\n"
+                            f"OS: {_sh_data['os']}\n"
+                            f"CPU: {_sh_data.get('cpu_name','Unknown')} — {_sh_data['cpu_percent']}% usage, {_sh_data['cpu_cores']} cores"
                             + (f", {_sh_data['cpu_temp']:.0f}°C" if _sh_data.get('cpu_temp') else "") + "\n"
-                            f"RAM: {_sh_data['ram_percent']}% ({_sh_data['ram_used_gb']}GB / {_sh_data['ram_total_gb']}GB)\n"
-                            f"Disk: {_sh_data['disk_percent']}% ({_sh_data['disk_used_gb']}GB / {_sh_data['disk_total_gb']}GB) — Status: {_sh_data['disk_status']}\n"
+                            f"RAM: {_sh_data['ram_used_gb']}GB used / {_sh_data['ram_total_gb']}GB total ({_sh_data['ram_percent']}%)\n"
+                            f"Disk: {_sh_data['disk_used_gb']}GB used / {_sh_data['disk_total_gb']}GB total ({_sh_data['disk_percent']}%) — Status: {_sh_data['disk_status']}\n"
                             + (f"Battery: {_sh_data['battery_percent']}% ({'charging' if _sh_data.get('battery_plugged') else 'on battery'})\n" if _sh_data.get('battery_percent') is not None else "")
                             + (f"GPU: {_sh_data['gpu_name']}, {_sh_data['gpu_temp']:.0f}°C\n" if _sh_data.get('gpu_name') else "")
-                            + f"OS: {_sh_data['os']} · Device: {_sh_data['machine']}"
                         )
-                    _extra = _youtube_context or _url_context or _deep_results or _sys_diag_ctx or _pc_diag or _error_context or _search_results
+                    _extra = _youtube_context or _url_context or _deep_results or _sys_diag_ctx or _pc_diag or _error_context or _conn_app_results or _search_results
                     if _extra:
                         _src_label = (
                             "YouTube transcript" if _youtube_context else
@@ -4477,6 +6347,7 @@ if user_input:
                             "live system health scan data" if _sys_diag_ctx else
                             "live PC diagnostic data" if _pc_diag else
                             "error solution search results" if _error_context else
+                            f"live {_mentioned_app} data" if _conn_app_results else
                             "web search results"
                         )
                         _api_msgs[-1]["content"] = (
@@ -4491,8 +6362,3 @@ if user_input:
                 except Exception as e:
                     st.error(f"❌ Error: {e}")
 
-# ── Footer ────────────────────────────────────────────────────────────────────
-st.divider()
-st.markdown("""<div style='text-align:center;font-size:.6rem;color:#1a2a3a;letter-spacing:3px;padding:4px'>
-🔱 TITAN ULTRA · GROQ ACCELERATED · VOICE INPUT · PC CONTROL
-</div>""", unsafe_allow_html=True)
