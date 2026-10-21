@@ -9,53 +9,39 @@ st.set_page_config(page_title="TITAN ULTRA", page_icon="🔱",
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&display=swap');
-
-@keyframes titanflow { to { background-position:400% center; } }
-@keyframes rainbowborder {
-    0%{border-color:#ff0000} 14%{border-color:#ff6b00} 28%{border-color:#ffd000}
-    42%{border-color:#00e5ff} 57%{border-color:#a855f7} 71%{border-color:#ec4899}
-    85%{border-color:#22c55e} 100%{border-color:#ff0000}
-}
-@keyframes btnrainbow {
-    0%  {border-color:#ff0000;box-shadow:0 0 8px #ff000055}
-    14% {border-color:#ff6b00;box-shadow:0 0 8px #ff6b0055}
-    28% {border-color:#ffd000;box-shadow:0 0 8px #ffd00055}
-    42% {border-color:#00e5ff;box-shadow:0 0 8px #00e5ff55}
-    57% {border-color:#a855f7;box-shadow:0 0 8px #a855f755}
-    71% {border-color:#ec4899;box-shadow:0 0 8px #ec489955}
-    85% {border-color:#22c55e;box-shadow:0 0 8px #22c55e55}
-    100%{border-color:#ff0000;box-shadow:0 0 8px #ff000055}
-}
-@keyframes tridentSpin {
-    0%  {filter:hue-rotate(0deg)   brightness(1.6) saturate(2) drop-shadow(0 0 20px #f59e0b)}
-    100%{filter:hue-rotate(360deg) brightness(1.6) saturate(2) drop-shadow(0 0 20px #f59e0b)}
+@keyframes tridentGlow {
+    0%   {filter:hue-rotate(0deg)   brightness(2) saturate(3) drop-shadow(0 0 18px #ff4444)}
+    17%  {filter:hue-rotate(60deg)  brightness(2) saturate(3) drop-shadow(0 0 18px #ffaa00)}
+    33%  {filter:hue-rotate(120deg) brightness(2) saturate(3) drop-shadow(0 0 18px #44ff44)}
+    50%  {filter:hue-rotate(180deg) brightness(2) saturate(3) drop-shadow(0 0 18px #00eeff)}
+    67%  {filter:hue-rotate(240deg) brightness(2) saturate(3) drop-shadow(0 0 18px #4488ff)}
+    83%  {filter:hue-rotate(300deg) brightness(2) saturate(3) drop-shadow(0 0 18px #ff44ff)}
+    100% {filter:hue-rotate(360deg) brightness(2) saturate(3) drop-shadow(0 0 18px #ff4444)}
 }
 
 html, body, [data-testid="stAppViewContainer"] {
-    background:#05080f !important; color:#c9d8f0 !important;
+    background:#0d0d0d !important; color:#e8e8e8 !important;
 }
 [data-testid="stSidebar"] {
-    background:linear-gradient(160deg,#06091a,#0a0618 50%,#060d18) !important;
-    border-right:2px solid #a855f7 !important;
-    animation:rainbowborder 4s linear infinite !important;
+    background:#111111 !important;
+    border-right:1px solid #2a2a2a !important;
+    min-width:260px !important;
 }
 [data-testid="stSidebar"] p,[data-testid="stSidebar"] span,
-[data-testid="stSidebar"] label,[data-testid="stSidebar"] li { color:#c9d8f0 !important; }
+[data-testid="stSidebar"] label,[data-testid="stSidebar"] li { color:#e8e8e8 !important; }
 .stButton>button {
-    background:linear-gradient(135deg,#1a0f44,#0f1a2c) !important;
-    color:#e0d0ff !important; border:1px solid #7c3aed !important;
+    background:#1a1a1a !important;
+    color:#e8e8e8 !important; border:1px solid #2a2a2a !important;
     border-radius:10px !important; transition:all .2s !important;
-    animation:btnrainbow 4s linear infinite !important;
 }
 .stButton>button:hover {
-    background:linear-gradient(135deg,#4c1d95,#1e3a5f) !important;
-    transform:translateY(-1px) !important; box-shadow:0 0 20px #a855f755 !important;
+    background:#242424 !important;
+    transform:translateY(-1px) !important;
 }
 [data-testid="stSidebar"] .stButton { width:100% !important; }
 [data-testid="stSidebar"] .stButton>button {
-    font-size:0.85rem !important;
-    padding:7px 10px !important;
+    font-size:15px !important;
+    padding:8px 12px !important;
     min-height:0 !important;
     height:auto !important;
     line-height:1.4 !important;
@@ -145,14 +131,19 @@ section[data-testid="stSidebar"] > div > div {
     padding-top:0 !important;
     margin-top:0 !important;
 }
+/* ── Hide both avatars ── */
+[data-testid="stChatMessageAvatarUser"],
+[data-testid="stChatMessageAvatarAssistant"] {
+    display: none !important;
+}
 [data-testid="stChatMessage"] {
     background:transparent !important;
     border:none !important;
-    border-bottom:1px solid #1a1a2e !important;
+    border-bottom:1px solid #1a1a1a !important;
     border-radius:0 !important;
     animation:none !important;
     margin:2px 0 !important;
-    padding:8px 0 !important;
+    padding:10px 0 !important;
 }
 /* Use full available width — no wasted space on left/right */
 section[data-testid="stMain"] .block-container {
@@ -160,28 +151,59 @@ section[data-testid="stMain"] .block-container {
     padding-left:1.5rem !important;
     padding-right:1.5rem !important;
 }
-[data-testid="stChatInput"] textarea { background:#060d18 !important; color:#c9d8f0 !important; }
+[data-testid="stChatInput"] textarea {
+    background:#111111 !important; color:#e8e8e8 !important;
+    font-size:1rem !important; padding:20px 140px 20px 52px !important;
+    min-height:56px !important; line-height:1.6 !important;
+    resize:none !important;
+}
 [data-testid="stChatInput"] {
-    background:#060d18 !important; border-radius:14px !important;
-    border:1px solid #4c1d95 !important;
-    animation:rainbowborder 4s linear infinite !important;
+    background:#111111 !important; border-radius:28px !important;
+    border:1px solid #2a2a2a !important; min-height:72px !important;
+    padding:0 !important; position:relative !important;
+}
+[data-testid="stChatInput"]:focus-within {
+    border-color:#444444 !important;
+    box-shadow:none !important;
+    outline:none !important;
+}
+/* Kill Streamlit's red focus outline on ALL inputs */
+[data-testid="stChatInput"] *:focus,
+[data-testid="stChatInput"] *:focus-within,
+[data-testid="stChatInput"] *:focus-visible {
+    outline:none !important;
+    box-shadow:none !important;
+    border-color:#444444 !important;
+}
+[data-testid="stTextInput"] input:focus,
+[data-testid="stTextInput"] *:focus-within {
+    outline:none !important;
+    box-shadow:none !important;
+    border-color:#444444 !important;
+}
+/* Make the bottom bar area match ChatGPT width */
+[data-testid="stBottom"] .block-container {
+    max-width:720px !important;
+    margin:0 auto !important;
+    padding-left:1rem !important;
+    padding-right:1rem !important;
 }
 [data-testid="stSelectbox"]>div>div {
-    background:#060d18 !important; color:#c9d8f0 !important;
-    border:1px solid #7c3aed !important; border-radius:8px !important;
+    background:#111111 !important; color:#e8e8e8 !important;
+    border:1px solid #2a2a2a !important; border-radius:8px !important;
 }
 [data-testid="stTextInput"] input {
-    background:#060d18 !important; color:#c9d8f0 !important;
-    border:1px solid #4c1d95 !important; border-radius:8px !important;
+    background:#111111 !important; color:#e8e8e8 !important;
+    border:1px solid #2a2a2a !important; border-radius:8px !important;
 }
 [data-testid="stExpander"] {
-    background:#0a0618 !important; border:1px solid transparent !important;
-    border-radius:10px !important; animation:rainbowborder 3s linear infinite !important;
+    background:#111111 !important; border:1px solid #2a2a2a !important;
+    border-radius:10px !important;
 }
-hr { border-color:#4c1d95 !important; }
-p, li { color:#c9d8f0 !important; }
-::-webkit-scrollbar { width:6px; background:#05080f; }
-::-webkit-scrollbar-thumb { background:linear-gradient(180deg,#a855f7,#ec4899); border-radius:3px; }
+hr { border-color:#2a2a2a !important; }
+p, li { color:#e8e8e8 !important; }
+::-webkit-scrollbar { width:6px; background:#0d0d0d; }
+::-webkit-scrollbar-thumb { background:#333333; border-radius:3px; }
 /* Assistant answers in italic */
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) [data-testid="stMarkdownContainer"] p,
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) [data-testid="stMarkdownContainer"] li,
@@ -194,27 +216,36 @@ p, li { color:#c9d8f0 !important; }
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stMarkdownContainer"] span {
     font-style: normal !important;
 }
-/* ── USER bubble: right side ── */
+/* ── USER message: right side, dark bubble ── */
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
-    flex-direction: row-reverse !important;
+    justify-content: flex-end !important;
     align-items: flex-start !important;
+    flex-direction: row !important;
 }
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stMarkdownContainer"] {
-    background: #0f1730 !important;
-    border: 1px solid #2a1050 !important;
+    background: #1e1e1e !important;
+    border: none !important;
     border-radius: 18px 4px 18px 18px !important;
-    padding: 10px 16px !important;
-    max-width: 68% !important;
-    margin-left: auto !important;
-    text-align: right !important;
+    padding: 10px 18px !important;
+    max-width: 65% !important;
+    margin-left: 0 !important;
+    text-align: left !important;
 }
-/* ── ASSISTANT answer: full width from left ── */
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stMarkdownContainer"] p {
+    color: #e0e0e0 !important;
+    font-style: normal !important;
+}
+/* ── ASSISTANT answer: full width from left, no bubble ── */
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) {
+    justify-content: flex-start !important;
     align-items: flex-start !important;
 }
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) [data-testid="stMarkdownContainer"] {
     width: 100% !important;
     max-width: 100% !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 /* Remove the line / gradient above chat bar */
 [data-testid="stBottom"] > div:first-child {
@@ -224,53 +255,39 @@ p, li { color:#c9d8f0 !important; }
     border-top:none !important; background:transparent !important;
     box-shadow:none !important;
 }
-/* Scroll chat to bottom — new messages anchor at bottom */
-[data-testid="stMain"] {
-    scroll-behavior:smooth !important;
-}
+[data-testid="stMain"] { scroll-behavior:smooth !important; }
 html:has([data-testid="stChatMessage"]) section[data-testid="stMain"] {
-    display:flex !important;
-    flex-direction:column !important;
-    justify-content:flex-end !important;
+    display:flex !important; flex-direction:column !important; justify-content:flex-end !important;
 }
 /* ── HOME SCREEN: hide sticky bottom bar & center content ── */
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stBottom"] {
     display:none !important;
 }
-html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container,
-html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container > [data-testid="stVerticalBlock"] {
-    display:flex !important;
-    flex-direction:column !important;
-    justify-content:center !important;
-    min-height:calc(100vh - 80px) !important;
-    padding-top:0 !important;
-    padding-bottom:0 !important;
+html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container {
+    padding-top:0 !important; padding-bottom:0 !important;
 }
 /* ── HOME SCREEN: hide ALL stButton elements (they're all internal hidden ones) ── */
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stButton"] {
-    display: none !important;
-    height: 0 !important;
-    overflow: hidden !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    display: none !important; height: 0 !important;
+    overflow: hidden !important; margin: 0 !important; padding: 0 !important;
 }
-/* ── HOME SCREEN: tall clean chat-like input ── */
+/* ── HOME SCREEN: tall ChatGPT-style input ── */
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] input {
-    background:#0f1117 !important;
-    color:#c9d8f0 !important;
-    border:1px solid #2d2d40 !important;
-    border-radius:14px !important;
-    padding:22px 20px !important;
-    font-size:1rem !important;
-    box-shadow:none !important;
-    animation:none !important;
+    background:#111111 !important; color:#e8e8e8 !important;
+    border:1px solid #2a2a2a !important; border-radius:28px !important;
+    padding:0 130px 0 52px !important; font-size:1rem !important;
+    height:64px !important; box-shadow:none !important; animation:none !important;
+    box-sizing:border-box !important;
+}
+html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] [data-baseweb="input"] {
+    height:64px !important; border-radius:28px !important;
+    background:#111111 !important; border:none !important;
 }
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] input:focus {
-    border-color:#4a4a6a !important;
-    outline:none !important;
+    border-color:#444444 !important; outline:none !important;
 }
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] input::placeholder {
-    color:#404055 !important;
+    color:#555555 !important;
 }
 /* Hide Streamlit's label gap above the home input */
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] label {
@@ -278,6 +295,10 @@ html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testi
 }
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] {
     margin-top:0 !important;
+}
+/* Center home input column at ChatGPT-like width */
+html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="column"]:nth-child(2) {
+    max-width:680px !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -908,7 +929,7 @@ def _registry_ready():
     return (REGISTRY_GIST_ID  != "PASTE_YOUR_GIST_ID_HERE" and
             REGISTRY_TOKEN != "PASTE_YOUR_GIST_TOKEN_HERE")
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=3600)
 def _fetch_registry_cached():
     try:
         _r = requests.get(
@@ -1158,10 +1179,10 @@ OLLAMA_SUGGESTED = {
     "moondream":  "👁️ Moondream — Vision · Fast",
 }
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=3600)
 def check_ollama():
     try:
-        r = requests.get("http://localhost:11434/api/tags", timeout=5)
+        r = requests.get("http://localhost:11434/api/tags", timeout=1)
         if r.status_code == 200:
             return True, [m["name"] for m in r.json().get("models", [])]
     except Exception:
@@ -1216,17 +1237,8 @@ def pull_ollama_model(name):
     except Exception:
         return False
 
-if "ollama_models" not in st.session_state:
-    _r, _m = check_ollama()
-    if not _r:
-        # Auto-launch Ollama on first run if it's installed
-        if start_ollama_background():
-            check_ollama.clear()
-            _r, _m = check_ollama()
-    st.session_state.ollama_reachable = _r
-    st.session_state.ollama_models = _m
-ollama_models = st.session_state.ollama_models
-ollama_reachable = st.session_state.get("ollama_reachable", False)
+ollama_models = []
+ollama_reachable = False
 
 # ── Internet check ────────────────────────────────────────────────────────────
 def _has_internet():
@@ -1291,10 +1303,8 @@ with st.sidebar:
     # ── Colored TITAN ULTRA header ────────────────────────────────────────────
     st.markdown("""
     <div style='padding:6px 10px 6px 10px;margin-top:0'>
-        <span style='background:linear-gradient(90deg,#00e5d0,#a855f7);
-        -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-        background-clip:text;font-weight:900;font-size:1.05rem;
-        letter-spacing:2px;font-family:Orbitron,monospace'>🔱 TITAN ULTRA</span>
+        <span style='color:#ffffff;font-weight:700;font-size:1.05rem;
+        letter-spacing:1.5px;font-family:"Segoe UI",sans-serif'>🔱 TITAN ULTRA</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1310,50 +1320,6 @@ with st.sidebar:
         st.session_state.tasks_mode = False
         st.session_state.show_titan_features = False
         st.rerun()
-
-    if st.button("+  launch titan code", use_container_width=True, key="_nav_tc"):
-        import subprocess as _sp
-        from pathlib import Path as _Path
-        _tc_path = _Path.home() / "Documents" / "important" / "TITAN_CODE.py"
-        if _tc_path.exists():
-            _bat = _Path.home() / ".titan_ultra" / "launch_titan_code.bat"
-            _bat.parent.mkdir(parents=True, exist_ok=True)
-            _bat.write_text(f'@echo off\ntitle TITAN CODE\ncolor 0B\npython "{_tc_path}"\npause\n', encoding="utf-8")
-            _sp.Popen(f'start "TITAN CODE" "{_bat}"', shell=True)
-        else:
-            st.error("TITAN CODE not found.")
-
-    if _IS_OWNER:
-        if st.button("⬆  push update to github", use_container_width=True, key="_nav_gh"):
-            import subprocess as _ghsp, shutil as _ghsh
-            from pathlib import Path as _ghPath
-            _git_dir = _ghPath("D:/T.U")
-            _src_dir = _ghPath.home() / "Documents" / "important"
-            _ver_file = _git_dir / "version.txt"
-            try:
-                _cur_ver = int(_ver_file.read_text().strip()) if _ver_file.exists() else 40
-                _new_ver = _cur_ver + 1
-                _ver_file.write_text(str(_new_ver))
-            except Exception:
-                _new_ver = "?"
-            for _fn in ("TITAN_ULTRA.py", "TITAN_CODE.py"):
-                _sf = _src_dir / _fn
-                if _sf.exists():
-                    _ghsh.copy2(str(_sf), str(_git_dir / _fn))
-            _git_cmds = [
-                f'git -C "{_git_dir}" add TITAN_ULTRA.py TITAN_CODE.py version.txt',
-                f'git -C "{_git_dir}" commit -m "Update v{_new_ver}"',
-                f'git -C "{_git_dir}" push origin master',
-            ]
-            _git_ok = True
-            for _cmd in _git_cmds:
-                _r = _ghsp.run(_cmd, shell=True, capture_output=True, text=True)
-                if _r.returncode != 0 and "nothing to commit" not in _r.stdout + _r.stderr:
-                    st.error(f"Git error: {_r.stderr.strip()}")
-                    _git_ok = False
-                    break
-            if _git_ok:
-                st.toast(f"Pushed v{_new_ver}!")
 
     _tf_label = "←  back to chat" if st.session_state.show_titan_features else "⊞  titan features"
     if st.button(_tf_label, use_container_width=True, key="_nav_tf"):
@@ -1392,7 +1358,7 @@ with st.sidebar:
             st.session_state.show_titan_features = False
         st.rerun()
 
-    _task_label = "←  back to chat" if st.session_state.tasks_mode else "⊞  tasks"
+    _task_label = "←  back to chat" if st.session_state.tasks_mode else "⊞  titan tasks"
     if st.button(_task_label, use_container_width=True, key="_nav_tasks"):
         st.session_state.tasks_mode = not st.session_state.tasks_mode
         if st.session_state.tasks_mode:
@@ -1548,11 +1514,12 @@ else:
     _greet_text = _phrase.replace("{name}", "").strip().rstrip(",?").strip()
 
 if not cur_msgs():
+    st.markdown("<div style='height:28vh'></div>", unsafe_allow_html=True)
     st.markdown(f"""
 <div id="titan-greeting" style='text-align:center;margin-bottom:28px'>
     <div style='display:flex;align-items:center;justify-content:center;gap:16px'>
-        <span style='font-size:2rem;animation:tridentSpin 3s linear infinite;display:inline-block'>🔱</span>
-        <span style='font-family:"Segoe UI","Inter","Helvetica Neue",sans-serif;font-size:1.55rem;font-weight:600;color:#ffffff;letter-spacing:0.5px'>{_greet_text}</span>
+        <span style='font-size:2rem;animation:tridentGlow 3s linear infinite;display:inline-block'>🔱</span>
+        <span style='font-family:"Segoe UI","Inter","Helvetica Neue",sans-serif;font-size:1.75rem;font-weight:600;color:#ffffff;letter-spacing:0.3px'>{_greet_text}</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -1563,7 +1530,6 @@ if not cur_msgs():
     with _hc2:
         _mode = st.session_state.get("_titan_mode", "normal")
         _ph = ("⚡ Fast Mode active — Message TITAN ULTRA..." if _mode == "fast"
-               else "🧠 Thinking Mode active — Message TITAN ULTRA..." if _mode == "think"
                else "Message TITAN ULTRA...")
         _home_q = st.text_input("", placeholder=_ph,
                                  label_visibility="collapsed",
@@ -1578,7 +1544,7 @@ mode_key = "chat"  # unified — auto-detected from input
 
 # ── Features & Tools (hidden from home — accessible via sidebar) ──────────────
 if False and st.expander("⚙️ Features & Tools"):
-    st.markdown("<div style='font-size:.75rem;color:#a855f7;letter-spacing:2px;margin-bottom:8px'>SPEED MODE</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:.75rem;color:#aaaaaa;letter-spacing:2px;margin-bottom:8px'>SPEED MODE</div>", unsafe_allow_html=True)
     fc1, fc2 = st.columns(2)
     with fc1:
         if st.button("⚡ Fast", use_container_width=True, key="_ft_fast",
@@ -1589,9 +1555,9 @@ if False and st.expander("⚙️ Features & Tools"):
                      help="Deep step-by-step reasoning"):
             st.session_state.speed = "think"; st.rerun()
     active = "⚡ Fast" if st.session_state.speed == "fast" else "🧠 Thinking"
-    st.markdown(f"<div style='font-size:.72rem;color:#4a6a8f;text-align:center;margin-top:4px'>Active: <b style='color:#c9d8f0'>{active}</b></div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='font-size:.72rem;color:#4a6a8f;text-align:center;margin-top:4px'>Active: <b style='color:#e8e8e8'>{active}</b></div>", unsafe_allow_html=True)
 
-    st.markdown("<div style='font-size:.75rem;color:#a855f7;letter-spacing:2px;margin:14px 0 8px'>QUICK ACTIONS</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:.75rem;color:#aaaaaa;letter-spacing:2px;margin:14px 0 8px'>QUICK ACTIONS</div>", unsafe_allow_html=True)
 
     _exam_active = st.session_state.chat_active_tool == "exam"
     if st.button("📝 Exam Paper" + (" ✓" if _exam_active else ""), use_container_width=True, key="tool_exam_btn"):
@@ -1783,9 +1749,7 @@ if st.session_state.schedule_mode:
     from pathlib import Path as _SchPath
 
     st.markdown("""
-    <h2 style='background:linear-gradient(90deg,#00e5d0,#a855f7);
-    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-    background-clip:text;font-family:Orbitron,monospace;font-weight:900;
+    <h2 style='color:#ffffff;font-family:Orbitron,monospace;font-weight:900;
     font-size:1.4rem;letter-spacing:2px;margin-bottom:2px'>◷ Schedule</h2>
     <p style='color:#4a5568;font-size:.8rem;margin-top:0'>
     Titan asks you 5 questions every day — a popup appears automatically, you type your answer.</p>
@@ -1835,7 +1799,7 @@ if st.session_state.schedule_mode:
             st.markdown(
                 "<div style='color:#4a5568;font-size:.78rem;padding-top:6px'>"
                 "Scheduler not running. It starts automatically when you add a schedule,<br>"
-                "or click Start below. Runs silently at <b style='color:#a855f7'>9 am · 11 am · 1 pm · 4 pm · 7 pm</b>.</div>",
+                "or click Start below. Runs silently at <b style='color:#aaaaaa'>9 am · 11 am · 1 pm · 4 pm · 7 pm</b>.</div>",
                 unsafe_allow_html=True)
     with _sc2:
         if st.button("▶  Start / Restart", key="_sch_launch", use_container_width=True):
@@ -1993,7 +1957,7 @@ if st.session_state.schedule_mode:
                         _q_col1, _q_col2 = st.columns([3,2])
                         with _q_col1:
                             st.markdown(
-                                f"<div style='color:#c9d8f0;font-size:.82rem'><b>Q{_qi+1}.</b> {_qa['q']}</div>",
+                                f"<div style='color:#e8e8e8;font-size:.82rem'><b>Q{_qi+1}.</b> {_qa['q']}</div>",
                                 unsafe_allow_html=True)
                         with _q_col2:
                             if _qa.get("a"):
@@ -2031,7 +1995,7 @@ if st.session_state.schedule_mode:
                         for _pqa in _day_qa:
                             if _pqa.get("a"):
                                 st.markdown(
-                                    f"<div style='color:#c9d8f0;font-size:.78rem;margin-left:8px'>"
+                                    f"<div style='color:#e8e8e8;font-size:.78rem;margin-left:8px'>"
                                     f"<b>Q:</b> {_pqa['q']}</div>"
                                     f"<div style='color:#00e5d0;font-size:.78rem;margin-left:8px'>"
                                     f"<b>A:</b> {_pqa['a']}</div>",
@@ -2065,9 +2029,7 @@ if st.session_state.tasks_mode:
     import datetime as _tdt, uuid as _tuuid
 
     st.markdown("""
-    <h2 style='background:linear-gradient(90deg,#00e5d0,#a855f7);
-    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-    background-clip:text;font-family:Orbitron,monospace;font-weight:900;
+    <h2 style='color:#ffffff;font-family:Orbitron,monospace;font-weight:900;
     font-size:1.4rem;letter-spacing:2px;margin-bottom:2px'>⊞ Tasks</h2>
     <p style='color:#4a5568;font-size:.8rem;margin-top:0'>
     Tell Titan what to fetch for you daily — sales, news, prices, anything. Opens inside Titan Ultra.</p>
@@ -2208,8 +2170,8 @@ if st.session_state.tasks_mode:
                     _save_tasks(_tk_data)
 
             st.markdown(
-                f"<div style='background:#060d18;border-left:3px solid #00e5d0;"
-                f"border-radius:8px;padding:12px 16px;margin:8px 0;color:#c9d8f0;"
+                f"<div style='background:#111111;border-left:3px solid #00e5d0;"
+                f"border-radius:8px;padding:12px 16px;margin:8px 0;color:#e8e8e8;"
                 f"font-size:.88rem;white-space:pre-wrap;line-height:1.6'>"
                 f"<div style='color:#00e5d0;font-size:.7rem;font-weight:700;"
                 f"letter-spacing:1px;margin-bottom:6px'>TODAY — {_tk_today}</div>"
@@ -2257,9 +2219,7 @@ if st.session_state.tasks_mode:
 # ══════════════════════════════════════════════════════════════════════════════
 if st.session_state.library_mode:
     st.markdown("""
-    <h2 style='background:linear-gradient(90deg,#00e5d0,#a855f7);
-    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-    background-clip:text;font-family:Orbitron,monospace;font-weight:900;
+    <h2 style='color:#ffffff;font-family:Orbitron,monospace;font-weight:900;
     font-size:1.4rem;letter-spacing:2px;margin-bottom:4px'>📚 Library</h2>
     <p style='color:#4a5568;font-size:.8rem;margin-top:0'>Search all your saved chats</p>
     """, unsafe_allow_html=True)
@@ -2687,7 +2647,7 @@ if st.session_state.notebook_mode:
 if st.session_state.get("show_titan_features"):
 
     st.markdown("""<div style='text-align:center;padding:20px 0 8px'>
-    <div style='font-family:Orbitron,monospace;font-size:1.5rem;color:#a855f7;
+    <div style='font-family:Orbitron,monospace;font-size:1.5rem;color:#aaaaaa;
     letter-spacing:4px;font-weight:700'>⚡ TITAN FEATURES</div>
     <div style='color:#6b7a99;font-size:.8rem;margin-top:6px'>
     Supercharge Titan Ultra with powerful add-ons</div></div>""", unsafe_allow_html=True)
@@ -2701,7 +2661,7 @@ if st.session_state.get("show_titan_features"):
     st.markdown("---")
 
     if "Connect Apps" in _tf_sel:
-        st.markdown("""<div style='font-size:.88rem;color:#c9d8f0;font-weight:600;margin-bottom:4px'>
+        st.markdown("""<div style='font-size:.88rem;color:#e8e8e8;font-weight:600;margin-bottom:4px'>
         🔗 Connect Apps with Titan Ultra</div>
         <div style='font-size:.76rem;color:#6b7a99;margin-bottom:12px;line-height:1.75'>
         Select the apps you use. Titan Ultra will remember them and act as your expert guide
@@ -2783,8 +2743,8 @@ if st.session_state.get("show_titan_features"):
                 _logo_html += (
                     f"<div style='display:inline-flex;flex-direction:column;align-items:center;"
                     f"margin:4px 6px;gap:3px'>"
-                    f"<div style='position:relative;width:42px;height:42px;background:#0a0618;"
-                    f"border:2px solid #a855f7;border-radius:10px;display:flex;"
+                    f"<div style='position:relative;width:42px;height:42px;background:#111111;"
+                    f"border:2px solid #333333;border-radius:10px;display:flex;"
                     f"align-items:center;justify-content:center'>"
                     f"<img src='https://www.google.com/s2/favicons?domain={_ld}&sz=32' "
                     f"style='width:28px;height:28px;border-radius:6px'>"
@@ -2792,14 +2752,14 @@ if st.session_state.get("show_titan_features"):
                     f"border-radius:50%;width:14px;height:14px;display:flex;align-items:center;"
                     f"justify-content:center;font-size:9px'>✓</span>"
                     f"</div>"
-                    f"<span style='font-size:.55rem;color:#a855f7;max-width:50px;text-align:center;"
+                    f"<span style='font-size:.55rem;color:#aaaaaa;max-width:50px;text-align:center;"
                     f"overflow:hidden;white-space:nowrap;text-overflow:ellipsis'>{_la}</span>"
                     f"</div>"
                 )
             st.markdown(
-                f"<div style='background:#06091a;border:1px solid #a855f7;border-radius:10px;"
+                f"<div style='background:#111111;border:1px solid #333333;border-radius:10px;"
                 f"padding:10px 12px;margin-bottom:14px'>"
-                f"<div style='font-size:.68rem;color:#a855f7;font-weight:700;margin-bottom:8px'>"
+                f"<div style='font-size:.68rem;color:#aaaaaa;font-weight:700;margin-bottom:8px'>"
                 f"🔱 + ⚡ Connected to Titan Ultra ({len(_already)})</div>"
                 f"<div style='display:flex;flex-wrap:wrap'>{_logo_html}</div></div>",
                 unsafe_allow_html=True
@@ -3029,7 +2989,7 @@ if st.session_state.get("show_titan_features"):
                 continue
             _any_shown = True
             st.markdown(
-                f"<div style='font-size:.78rem;color:#a855f7;font-weight:700;"
+                f"<div style='font-size:.78rem;color:#aaaaaa;font-weight:700;"
                 f"letter-spacing:1px;margin:16px 0 6px'>{_cat}</div>",
                 unsafe_allow_html=True
             )
@@ -3063,7 +3023,7 @@ if st.session_state.get("show_titan_features"):
             st.rerun()
 
     elif "Ask About a Website" in _tf_sel:
-        st.markdown("""<div style='font-size:.88rem;color:#c9d8f0;font-weight:600;margin-bottom:4px'>
+        st.markdown("""<div style='font-size:.88rem;color:#e8e8e8;font-weight:600;margin-bottom:4px'>
         🌐 Ask About a Website</div>
         <div style='font-size:.76rem;color:#6b7a99;margin-bottom:16px;line-height:1.75'>
         Paste any website URL below. Titan Ultra will read the page and answer
@@ -3222,7 +3182,7 @@ if True:
              padding:8px 16px;background:rgba(255,255,255,0.04);
              border-radius:10px;margin-bottom:12px;'>
           <span style='color:rgba(255,255,255,0.45);font-size:12px;'>
-            Card <b style='color:#c9d8f0'>{_pos+1}</b> / {_fc_n}
+            Card <b style='color:#e8e8e8'>{_pos+1}</b> / {_fc_n}
           </span>
           <span>
             <span style='color:#a6e3a1;font-size:12px;font-weight:700;'>✓ Known: {_n_known}</span>
@@ -3724,7 +3684,7 @@ if False and st.expander("🌤️ Live Weather Search", expanded=bool(st.session
         st.markdown(f"""
         <div style='background:rgba(137,180,250,0.08);border:1px solid rgba(137,180,250,0.22);
              border-radius:12px;padding:14px 18px;margin-top:6px;'>
-          <p style='color:#c9d8f0;font-size:13px;line-height:1.65;margin:0;'>
+          <p style='color:#e8e8e8;font-size:13px;line-height:1.65;margin:0;'>
             🌤️ <b>{st.session_state.weather_name}</b> — {_wdesc}, {_temp}°C (feels {_feels}°C).
             Humidity {_hum}%, wind {_wspd} km/h {_wdir}, UV index {_uv}.
             Rain chance {_rainc}%.<br><br>{_tip}</p>
@@ -5778,8 +5738,10 @@ tick();
 # Chat input only shown during active chat (home screen has its own centered input)
 if cur_msgs():
     _cmode = st.session_state.get("_titan_mode", "normal")
+    if _cmode == "think":
+        _cmode = "normal"
+        st.session_state._titan_mode = "normal"
     _chat_ph = ("⚡ Fast Mode — Message TITAN ULTRA..." if _cmode == "fast"
-                else "🧠 Thinking Mode — Message TITAN ULTRA..." if _cmode == "think"
                 else "Message TITAN ULTRA...")
     _chat_result = st.chat_input(
         _chat_ph,
@@ -5798,12 +5760,9 @@ else:
 
 # Hidden mode-setter buttons — CSS hides on home screen; JS hides in chat mode
 _hid_fast   = st.button("__TITAN_SET_FAST__",   key="_hid_mode_fast")
-_hid_think  = st.button("__TITAN_SET_THINK__",  key="_hid_mode_think")
 _hid_normal = st.button("__TITAN_SET_NORMAL__", key="_hid_mode_normal")
 if _hid_fast:
     st.session_state._titan_mode = "fast";   st.rerun()
-if _hid_think:
-    st.session_state._titan_mode = "think";  st.rerun()
 if _hid_normal:
     st.session_state._titan_mode = "normal"; st.rerun()
 
@@ -5861,14 +5820,14 @@ pd.__titanPlusReady=true;
 // ── shared popup ─────────────────────────────────────────────────────────────
 var _s=pd.createElement('style');
 _s.textContent=
-'#tpop{display:none;position:fixed;background:#0d1117;border:1px solid #2d2d40;'+
+'#tpop{display:none;position:fixed;background:#1a1a1a;border:1px solid #2a2a2a;'+
 'border-radius:14px;padding:8px;z-index:99999;min-width:170px;'+
-'box-shadow:0 6px 24px rgba(0,0,0,0.6);flex-direction:column;gap:4px;}'+
-'.tpb{background:#1a1a2e;color:#e8e8e8;border:1px solid #2d2d40;border-radius:8px;'+
+'box-shadow:0 6px 24px rgba(0,0,0,0.7);flex-direction:column;gap:4px;}'+
+'.tpb{background:#222222;color:#e8e8e8;border:1px solid #2a2a2a;border-radius:8px;'+
 'padding:9px 14px;cursor:pointer;text-align:left;font-size:13px;'+
 'font-family:"Segoe UI",sans-serif;width:100%;display:block;}'+
-'.tpb:hover{background:#2a1a4e;border-color:#7c3aed;}'+
-'.tpb.tpb-on{background:#3b0764;border-color:#a855f7;color:#a855f7;}';
+'.tpb:hover{background:#2e2e2e;border-color:#555555;}'+
+'.tpb.tpb-on{background:#2e2e2e;border-color:#888888;color:#ffffff;}';
 pd.head.appendChild(_s);
 
 var _pw=pd.createElement('div');
@@ -5877,7 +5836,6 @@ _pw.innerHTML='<div id="tpop">'+
 '<button class="tpb" data-act="files">📎  Files</button>'+
 '<hr style="border:none;border-top:1px solid #2d2d40;margin:4px 0">'+
 '<button class="tpb" id="tpb-fast">⚡  Fast Mode</button>'+
-'<button class="tpb" id="tpb-think">🧠  Thinking Mode</button>'+
 '</div>';
 pd.body.appendChild(_pw);
 var _pop=pd.getElementById('tpop');
@@ -5885,26 +5843,25 @@ var _popAnchor=null; // which button opened the popup
 
 function _refreshModeUI(){
     var mode=localStorage.getItem('titan_mode')||'normal';
-    var fb=pd.getElementById('tpb-fast'),tb=pd.getElementById('tpb-think');
-    if(!fb||!tb) return;
+    var fb=pd.getElementById('tpb-fast');
+    if(!fb) return;
     fb.className='tpb'+(mode==='fast'?' tpb-on':'');
-    fb.textContent=(mode==='fast'?'⚡  Fast Mode ✓':'⚡  Fast Mode');
-    tb.className='tpb'+(mode==='think'?' tpb-on':'');
-    tb.textContent=(mode==='think'?'🧠  Thinking Mode ✓':'🧠  Thinking Mode');
+    fb.textContent=(mode==='fast'?'⚡  Fast Mode ✓':'⚡  Fast Mode');
 }
 
 function _openPopup(anchorEl){
     _popAnchor=anchorEl;
     _refreshModeUI();
-    // Show Photos/Files only in chat mode
-    var inChat=!!pd.querySelector('[data-testid="stChatInput"]');
-    pd.querySelectorAll('#tpop .tpb[data-act]').forEach(function(b){b.style.display=inChat?'block':'none';});
-    var hr=pd.querySelector('#tpop hr');
-    if(hr) hr.style.display=inChat?'block':'none';
     var r=anchorEl.getBoundingClientRect();
+    var vh=pd.documentElement.clientHeight;
     _pop.style.left=r.left+'px';
-    _pop.style.bottom=(pd.documentElement.clientHeight-r.top+8)+'px';
-    _pop.style.top='auto';
+    if(r.top>120){
+        _pop.style.bottom=(vh-r.top+8)+'px';
+        _pop.style.top='auto';
+    }else{
+        _pop.style.top=(r.bottom+8)+'px';
+        _pop.style.bottom='auto';
+    }
     _pop.style.display='flex';
 }
 
@@ -5921,19 +5878,13 @@ _pop.addEventListener('click',function(e){
     if(!btn) return;
     var act=btn.getAttribute('data-act')||btn.id;
     if(act==='photos'||act==='files'){
-        var fi=pd.querySelector('[data-testid="stChatInput"] input[type="file"]');
+        var fi=pd.querySelector('[data-testid="stChatInput"] input[type="file"]')||pd.querySelector('input[type="file"]');
         if(fi){if(act==='photos')fi.setAttribute('accept','image/*');else fi.removeAttribute('accept');fi.click();}
     } else if(act==='tpb-fast'){
         var cur=localStorage.getItem('titan_mode')||'normal';
         var next=cur==='fast'?'normal':'fast';
         localStorage.setItem('titan_mode',next);
         _clickHiddenBtn(next==='fast'?'__TITAN_SET_FAST__':'__TITAN_SET_NORMAL__');
-        _refreshModeUI();
-    } else if(act==='tpb-think'){
-        var cur=localStorage.getItem('titan_mode')||'normal';
-        var next=cur==='think'?'normal':'think';
-        localStorage.setItem('titan_mode',next);
-        _clickHiddenBtn(next==='think'?'__TITAN_SET_THINK__':'__TITAN_SET_NORMAL__');
         _refreshModeUI();
     }
     _pop.style.display='none';
@@ -5958,40 +5909,51 @@ function _hookChatPlus(){
     },true);
 }
 
-// ── Home screen: inject + icon INSIDE the text input ─────────────────────────
+// ── Unified Think button refresh ──────────────────────────────────────────────
+function _refreshThinkBtns(){
+    _refreshModeUI();
+}
+
+// ── Home screen: inject + and Think INSIDE the text input ─────────────────────
 function _injectHomePlus(){
-    if(pd.querySelector('[data-testid="stChatMessage"]')) return; // chat screen, skip
+    if(pd.querySelector('[data-testid="stChatMessage"]')) return;
     var inp=pd.querySelector('[data-testid="stMain"] [data-testid="stTextInput"] input');
     if(!inp||inp.__titanHomePlusInjected) return;
     inp.__titanHomePlusInjected=true;
-    inp.style.paddingLeft='44px';
     var wrap=inp.parentElement;
     while(wrap && wrap.getAttribute('data-testid')!=='stTextInput') wrap=wrap.parentElement;
     if(!wrap) wrap=inp.parentElement;
     wrap.style.position='relative';
-    var btn=pd.createElement('button');
-    btn.id='home-plus-icon';
-    btn.textContent='+';
-    btn.style.cssText='position:absolute;left:14px;top:50%;transform:translateY(-50%);'+
-        'background:transparent;border:none;color:#6b7a99;font-size:1.3rem;cursor:pointer;'+
+
+    // ── + button (left) ──
+    var plus=pd.createElement('button');
+    plus.id='home-plus-icon';
+    plus.textContent='+';
+    plus.style.cssText='position:absolute;left:16px;top:50%;transform:translateY(-50%);'+
+        'background:transparent;border:none;color:#888888;font-size:1.3rem;cursor:pointer;'+
         'z-index:10;padding:0;line-height:1;font-weight:300;transition:color .15s;';
-    btn.addEventListener('mouseover',function(){btn.style.color='#a855f7';});
-    btn.addEventListener('mouseout',function(){btn.style.color='#6b7a99';});
-    btn.addEventListener('click',function(e){
+    plus.addEventListener('mouseover',function(){plus.style.color='#ffffff';});
+    plus.addEventListener('mouseout',function(){plus.style.color='#888888';});
+    plus.addEventListener('click',function(e){
         e.preventDefault();e.stopPropagation();
         if(_pop.style.display==='flex'){_pop.style.display='none';}
-        else{_openPopup(btn);}
+        else{_openPopup(plus);}
     });
-    wrap.appendChild(btn);
+    wrap.appendChild(plus);
+
 }
+
+// ── Chat screen: inject visible Think button inside st.chat_input ─────────────
+function _injectChatThink(){}
 
 // ── Hide mode buttons in chat mode (home screen hides them via CSS) ───────────
 function _hideModeBtns(){
-    var _hide=['__TITAN_SET_FAST__','__TITAN_SET_THINK__','__TITAN_SET_NORMAL__'];
+    if(!pd.querySelector('[data-testid="stChatMessage"]')) return;
+    var _hide=['TITAN_SET_FAST','TITAN_SET_THINK','TITAN_SET_NORMAL'];
     pd.querySelectorAll('button').forEach(function(b){
         if(_hide.indexOf(b.textContent.trim())>=0){
             var el=b;
-            for(var i=0;i<4;i++){
+            for(var i=0;i<2;i++){
                 if(!el) break;
                 el.style.setProperty('display','none','important');
                 el.style.setProperty('height','0','important');
@@ -6007,13 +5969,36 @@ function _hideModeBtns(){
 var _obs=new MutationObserver(function(){
     _hookChatPlus();
     _injectHomePlus();
+    _injectChatThink();
     _hideModeBtns();
 });
 _obs.observe(pd.body,{childList:true,subtree:true});
 _hookChatPlus();
 _injectHomePlus();
+_injectChatThink();
 _hideModeBtns();
 _refreshModeUI();
+
+// ── Ctrl+V paste image into chat ─────────────────────────────────────────────
+pd.addEventListener('paste',function(e){
+    var items=e.clipboardData&&e.clipboardData.items;
+    if(!items) return;
+    for(var i=0;i<items.length;i++){
+        if(items[i].type.indexOf('image')!==-1){
+            var file=items[i].getAsFile();
+            if(!file) continue;
+            var fi=pd.querySelector('[data-testid="stChatInput"] input[type="file"]')
+                  ||pd.querySelector('input[type="file"]');
+            if(!fi) continue;
+            var dt=new DataTransfer();
+            dt.items.add(new File([file],'pasted_image.png',{type:file.type||'image/png'}));
+            fi.files=dt.files;
+            fi.dispatchEvent(new Event('change',{bubbles:true}));
+            e.preventDefault();
+            break;
+        }
+    }
+});
 })();
 </script>""", height=0)
 
