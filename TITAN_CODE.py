@@ -488,12 +488,12 @@ def _detect_question_type(text: str) -> str:
 
 def _route_to_model(question_type: str, prompt: str, history: list) -> str:
     routing = {{
-        "coding":      ["groq:llama-3.3-70b-versatile", "claude:claude-haiku-4-5", "groq:mixtral-8x7b-32768"],
-        "creative":    ["claude:claude-sonnet-4-5", "gemini:gemini-1.5-pro", "groq:llama-3.3-70b-versatile"],
-        "math":        ["gemini:gemini-1.5-pro", "claude:claude-sonnet-4-5", "groq:llama-3.3-70b-versatile"],
-        "translation": ["gemini:gemini-1.5-flash", "groq:llama-3.3-70b-versatile", "claude:claude-haiku-4-5"],
-        "summary":     ["groq:llama-3.1-8b-instant", "gemini:gemini-1.5-flash", "claude:claude-haiku-4-5"],
-        "general":     ["groq:llama-3.3-70b-versatile", "gemini:gemini-1.5-flash", "claude:claude-haiku-4-5"],
+        "coding":      ["groq:qwen/qwen3.8-27b", "claude:claude-haiku-4-5", "groq:openai/gpt-oss-120b"],
+        "creative":    ["groq:qwen/qwen3.8-27b", "claude:claude-sonnet-4-5", "groq:openai/gpt-oss-120b"],
+        "math":        ["groq:qwen/qwen3.8-27b", "claude:claude-sonnet-4-5", "groq:openai/gpt-oss-120b"],
+        "translation": ["groq:qwen/qwen3.8-27b", "groq:openai/gpt-oss-120b", "claude:claude-haiku-4-5"],
+        "summary":     ["groq:qwen/qwen3.8-27b", "groq:openai/gpt-oss-120b", "claude:claude-haiku-4-5"],
+        "general":     ["groq:qwen/qwen3.8-27b", "groq:openai/gpt-oss-120b", "claude:claude-haiku-4-5"],
         "image":       ["pollinations"],
     }}
     for model_id in routing.get(question_type, routing["general"]):
@@ -641,7 +641,7 @@ PYTHON MASTERY (all versions 3.8–3.13):
 
 GROQ API (expert):
 - Install: pip install groq
-- Models: llama-3.3-70b-versatile, llama-3.1-8b-instant, mixtral-8x7b-32768, gemma2-9b-it
+- Models: llama-3.3-70b-versatile, llama3-8b-8192, mixtral-8x7b-32768, gemma2-9b-it
 - Streaming: stream=True with for chunk in response: chunk.choices[0].delta.content
 - Function calling: tools=[...], tool_choice="auto"
 - System prompts, temperature, max_tokens, stop sequences
@@ -950,6 +950,29 @@ User: {USER}
 System: {platform.system()} {platform.release()} · Python {platform.python_version()} · Groq API + Ollama (local)
 """
 
+# Compact system prompt sent to API (keeps token count low)
+SYSTEM_SHORT = f"""You are TITAN CODE {VERSION} — a powerful AI coding assistant. User: {USER}.
+
+CRITICAL — FILE FORMAT (always use this, no exceptions):
+### APP_NAME: Name Here
+### FILE: filename.py
+```python
+...complete working code...
+```
+The ### APP_NAME: line MUST come first. Then ### FILE: blocks. Without this format files cannot be saved.
+
+RULES FOR EVERY BUILD:
+- Write complete, fully working code. Never write placeholders or partial code.
+- PYGAME games: smooth 60fps, particle effects, HUD, splash screen, save/load scores to JSON.
+- TKINTER apps: use ttkbootstrap (theme="darkly"), custom colors, keyboard shortcuts, status bar.
+- WEB apps: dark mode, CSS animations, responsive layout.
+- ALL apps: animated splash screen, error handling, help menu (F1), progress indicators.
+- Games must be fully playable with AI opponent if applicable.
+- Always import everything needed. Never assume imports exist.
+
+If asked to build something, output ONLY the ### APP_NAME / ### FILE blocks. No explanation before or after.
+"""
+
 def ask(question, extra="", plan_mode=False):
     global _token_count
     if not API_KEY:
@@ -968,26 +991,50 @@ def ask(question, extra="", plan_mode=False):
 
     _save_checkpoint()
     _history.append({"role": "user", "content": prompt})
-    hist = _history[-30:]
+    hist = _history[-6:]
 
     client     = Groq(api_key=API_KEY)
     last_error = ""
-    for model in [
-        "openai/gpt-oss-120b",
-        "openai/gpt-oss-20b",
-        "qwen/qwen3.8-27b",
-        "meta-llama/llama-4-maverick-17b-128e-instruct",
-        "moonshotai/kimi-k2-instruct",
-        "deepseek-r1-distill-llama-70b",
-        "llama-3.3-70b-versatile",
-        "gemma2-9b-it",
-        "llama-3.1-8b-instant",
-    ]:
+
+    # Auto-detect working models from this key (cached per session)
+    if not hasattr(ask, "_working_models"):
+        _CANDIDATES = [
+            "qwen/qwen3.8-27b",
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+            "meta-llama/llama-4-maverick-17b-128e-instruct",
+            "moonshotai/kimi-k2-instruct",
+            "deepseek-r1-distill-llama-70b",
+            "llama-3.3-70b-versatile",
+            "llama3-70b-8192",
+            "llama3-8b-8192",
+        ]
+        try:
+            _avail = {m.id for m in client.models.list().data}
+            _filtered = [m for m in _CANDIDATES if m in _avail]
+            _working = []
+            for _m in _filtered:
+                try:
+                    _tr = client.chat.completions.create(
+                        model=_m,
+                        messages=[{"role": "user", "content": "hi"}],
+                        max_tokens=5
+                    )
+                    if (_tr.choices[0].message.content or "").strip():
+                        _working.append(_m)
+                        break
+                except Exception:
+                    pass
+            ask._working_models = _working if _working else _filtered if _filtered else _CANDIDATES
+        except Exception:
+            ask._working_models = _CANDIDATES
+
+    for model in ask._working_models:
         try:
             r = client.chat.completions.create(
                 model=model,
-                messages=[{"role": "system", "content": SYSTEM}] + hist,
-                max_tokens=8192,
+                messages=[{"role": "system", "content": SYSTEM_SHORT}] + hist,
+                max_tokens=4096,
                 temperature=0.2,
             )
             ans = (r.choices[0].message.content or "").strip()
