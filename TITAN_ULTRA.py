@@ -262,16 +262,8 @@ html:has([data-testid="stChatMessage"]) section[data-testid="stMain"] {
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stBottom"] {
     display:none !important;
 }
-html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] {
-    display:flex !important; flex-direction:column !important; justify-content:center !important;
-    min-height:calc(100vh - 48px) !important;
-}
 html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container {
     padding-top:0 !important; padding-bottom:0 !important;
-    min-height:0 !important; width:100% !important;
-}
-html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container > [data-testid="stVerticalBlock"] {
-    width:100% !important;
 }
 /* ── HOME SCREEN: hide ALL stButton elements (they're all internal hidden ones) ── */
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stButton"] {
@@ -1521,6 +1513,7 @@ else:
     _greet_text = _phrase.replace("{name}", "").strip().rstrip(",?").strip()
 
 if not cur_msgs():
+    st.markdown("<div style='height:28vh'></div>", unsafe_allow_html=True)
     st.markdown(f"""
 <div id="titan-greeting" style='text-align:center;margin-bottom:28px'>
     <div style='display:flex;align-items:center;justify-content:center;gap:16px'>
