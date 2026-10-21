@@ -5834,7 +5834,6 @@ _pw.innerHTML='<div id="tpop">'+
 '<button class="tpb" data-act="files">📎  Files</button>'+
 '<hr style="border:none;border-top:1px solid #2d2d40;margin:4px 0">'+
 '<button class="tpb" id="tpb-fast">⚡  Fast Mode</button>'+
-'<button class="tpb" id="tpb-think">🧠  Thinking Mode</button>'+
 '</div>';
 pd.body.appendChild(_pw);
 var _pop=pd.getElementById('tpop');
