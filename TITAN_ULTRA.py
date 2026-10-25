@@ -40,8 +40,8 @@ html, body, [data-testid="stAppViewContainer"] {
 }
 [data-testid="stSidebar"] .stButton { width:100% !important; }
 [data-testid="stSidebar"] .stButton>button {
-    font-size:15px !important;
-    padding:8px 12px !important;
+    font-size:16px !important;
+    padding:10px 14px !important;
     min-height:0 !important;
     height:auto !important;
     line-height:1.4 !important;
@@ -5914,8 +5914,31 @@ function _refreshThinkBtns(){
     _refreshModeUI();
 }
 
-// ── Home screen: no + button (clean input like Image 1) ──────────────────────
-function _injectHomePlus(){}
+// ── Home screen: inject + INSIDE the text input ──────────────────────────────
+function _injectHomePlus(){
+    if(pd.querySelector('[data-testid="stChatMessage"]')) return;
+    var inp=pd.querySelector('[data-testid="stMain"] [data-testid="stTextInput"] input');
+    if(!inp||inp.__titanHomePlusInjected) return;
+    inp.__titanHomePlusInjected=true;
+    var wrap=inp.parentElement;
+    while(wrap && wrap.getAttribute('data-testid')!=='stTextInput') wrap=wrap.parentElement;
+    if(!wrap) wrap=inp.parentElement;
+    wrap.style.position='relative';
+    var plus=pd.createElement('button');
+    plus.id='home-plus-icon';
+    plus.textContent='+';
+    plus.style.cssText='position:absolute;left:16px;top:50%;transform:translateY(-50%);'+
+        'background:transparent;border:none;color:#888888;font-size:1.3rem;cursor:pointer;'+
+        'z-index:10;padding:0;line-height:1;font-weight:300;transition:color .15s;';
+    plus.addEventListener('mouseover',function(){plus.style.color='#ffffff';});
+    plus.addEventListener('mouseout',function(){plus.style.color='#888888';});
+    plus.addEventListener('click',function(e){
+        e.preventDefault();e.stopPropagation();
+        if(_pop.style.display==='flex'){_pop.style.display='none';}
+        else{_openPopup(plus);}
+    });
+    wrap.appendChild(plus);
+}
 
 // ── Chat screen: inject visible Think button inside st.chat_input ─────────────
 function _injectChatThink(){}
