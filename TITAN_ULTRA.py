@@ -25,6 +25,7 @@ html, body, [data-testid="stAppViewContainer"] {
 [data-testid="stSidebar"] {
     background:#111111 !important;
     border-right:1px solid #2a2a2a !important;
+    min-width:260px !important;
 }
 [data-testid="stSidebar"] p,[data-testid="stSidebar"] span,
 [data-testid="stSidebar"] label,[data-testid="stSidebar"] li { color:#e8e8e8 !important; }
@@ -39,8 +40,8 @@ html, body, [data-testid="stAppViewContainer"] {
 }
 [data-testid="stSidebar"] .stButton { width:100% !important; }
 [data-testid="stSidebar"] .stButton>button {
-    font-size:0.85rem !important;
-    padding:7px 10px !important;
+    font-size:15px !important;
+    padding:8px 12px !important;
     min-height:0 !important;
     height:auto !important;
     line-height:1.4 !important;
@@ -297,7 +298,7 @@ html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testi
 }
 /* Center home input column at ChatGPT-like width */
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="column"]:nth-child(2) {
-    max-width:760px !important;
+    max-width:680px !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -5737,8 +5738,10 @@ tick();
 # Chat input only shown during active chat (home screen has its own centered input)
 if cur_msgs():
     _cmode = st.session_state.get("_titan_mode", "normal")
+    if _cmode == "think":
+        _cmode = "normal"
+        st.session_state._titan_mode = "normal"
     _chat_ph = ("⚡ Fast Mode — Message TITAN ULTRA..." if _cmode == "fast"
-                else "🧠 Thinking Mode — Message TITAN ULTRA..." if _cmode == "think"
                 else "Message TITAN ULTRA...")
     _chat_result = st.chat_input(
         _chat_ph,
@@ -5850,9 +5853,15 @@ function _openPopup(anchorEl){
     _popAnchor=anchorEl;
     _refreshModeUI();
     var r=anchorEl.getBoundingClientRect();
+    var vh=pd.documentElement.clientHeight;
     _pop.style.left=r.left+'px';
-    _pop.style.bottom=(pd.documentElement.clientHeight-r.top+8)+'px';
-    _pop.style.top='auto';
+    if(r.top>120){
+        _pop.style.bottom=(vh-r.top+8)+'px';
+        _pop.style.top='auto';
+    }else{
+        _pop.style.top=(r.bottom+8)+'px';
+        _pop.style.bottom='auto';
+    }
     _pop.style.display='flex';
 }
 
@@ -5905,34 +5914,8 @@ function _refreshThinkBtns(){
     _refreshModeUI();
 }
 
-// ── Home screen: inject + and Think INSIDE the text input ─────────────────────
-function _injectHomePlus(){
-    if(pd.querySelector('[data-testid="stChatMessage"]')) return;
-    var inp=pd.querySelector('[data-testid="stMain"] [data-testid="stTextInput"] input');
-    if(!inp||inp.__titanHomePlusInjected) return;
-    inp.__titanHomePlusInjected=true;
-    var wrap=inp.parentElement;
-    while(wrap && wrap.getAttribute('data-testid')!=='stTextInput') wrap=wrap.parentElement;
-    if(!wrap) wrap=inp.parentElement;
-    wrap.style.position='relative';
-
-    // ── + button (left) ──
-    var plus=pd.createElement('button');
-    plus.id='home-plus-icon';
-    plus.textContent='+';
-    plus.style.cssText='position:absolute;left:16px;top:50%;transform:translateY(-50%);'+
-        'background:transparent;border:none;color:#888888;font-size:1.3rem;cursor:pointer;'+
-        'z-index:10;padding:0;line-height:1;font-weight:300;transition:color .15s;';
-    plus.addEventListener('mouseover',function(){plus.style.color='#ffffff';});
-    plus.addEventListener('mouseout',function(){plus.style.color='#888888';});
-    plus.addEventListener('click',function(e){
-        e.preventDefault();e.stopPropagation();
-        if(_pop.style.display==='flex'){_pop.style.display='none';}
-        else{_openPopup(plus);}
-    });
-    wrap.appendChild(plus);
-
-}
+// ── Home screen: no + button (clean input like Image 1) ──────────────────────
+function _injectHomePlus(){}
 
 // ── Chat screen: inject visible Think button inside st.chat_input ─────────────
 function _injectChatThink(){}
