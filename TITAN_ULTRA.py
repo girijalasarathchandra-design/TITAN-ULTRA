@@ -298,7 +298,8 @@ html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testi
 }
 /* Center home input column at ChatGPT-like width */
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="column"]:nth-child(2) {
-    max-width:680px !important;
+    max-width:min(760px, 90%) !important;
+    flex:1 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -758,7 +759,14 @@ _SCHEDULE_FILE = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__f
 _TASKS_FILE    = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__file__)), "titan_tasks.json")
 
 def _load_saved_key():
-    # Search multiple locations — works whether running from D:\T.U\ or ~/.titan_ultra\
+    # Streamlit Cloud secret takes priority — users never need to enter a key
+    try:
+        _sk = st.secrets.get("GROQ_API_KEY", "")
+        if _sk:
+            return _sk
+    except Exception:
+        pass
+    # Local fallback (owner's machine)
     _search = [
         _KEY_FILE,
         _os_key.path.join(_os_key.path.expanduser("~"), ".titan_ultra", ".titan_key"),
@@ -1449,26 +1457,27 @@ with st.sidebar:
     # ── Hidden settings at bottom (API key, owner unlock) ─────────────────────
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
     with st.expander("···", expanded=False):
-        key_in = st.text_input("API Key", type="password", label_visibility="collapsed",
-                               value=st.session_state.api_key, placeholder="Groq API key  gsk_...")
-        if key_in and key_in != st.session_state.api_key:
-            st.session_state.api_key = key_in
-            _save_key(key_in)
-            st.session_state.pop("_key_valid", None)
-        elif key_in:
-            st.session_state.api_key = key_in
-        if st.session_state.api_key and "_key_valid" not in st.session_state:
-            try:
-                _tc = Groq(api_key=st.session_state.api_key)
-                _tc.models.list()
-                st.session_state["_key_valid"] = True
-            except Exception as _ke:
-                _kes = str(_ke).lower()
-                st.session_state["_key_valid"] = False if any(
-                    x in _kes for x in ("auth","401","invalid","api key","unauthorized")
-                ) else True
-        if st.session_state.get("_key_valid") is False:
-            st.markdown("<div style='font-size:.65rem;color:#ef4444'>Invalid key</div>", unsafe_allow_html=True)
+        if _IS_OWNER:
+            key_in = st.text_input("API Key", type="password", label_visibility="collapsed",
+                                   value=st.session_state.api_key, placeholder="Groq API key  gsk_...")
+            if key_in and key_in != st.session_state.api_key:
+                st.session_state.api_key = key_in
+                _save_key(key_in)
+                st.session_state.pop("_key_valid", None)
+            elif key_in:
+                st.session_state.api_key = key_in
+            if st.session_state.api_key and "_key_valid" not in st.session_state:
+                try:
+                    _tc = Groq(api_key=st.session_state.api_key)
+                    _tc.models.list()
+                    st.session_state["_key_valid"] = True
+                except Exception as _ke:
+                    _kes = str(_ke).lower()
+                    st.session_state["_key_valid"] = False if any(
+                        x in _kes for x in ("auth","401","invalid","api key","unauthorized")
+                    ) else True
+            if st.session_state.get("_key_valid") is False:
+                st.markdown("<div style='font-size:.65rem;color:#ef4444'>Invalid key</div>", unsafe_allow_html=True)
         if not _IS_OWNER:
             _ul_code = st.text_input("", type="password", placeholder="Owner code",
                                      label_visibility="collapsed", key="_owner_unlock_input")
@@ -1526,7 +1535,7 @@ if not cur_msgs():
     if "_home_counter" not in st.session_state:
         st.session_state._home_counter = 0
 
-    _hc1, _hc2, _hc3 = st.columns([1, 4, 1])
+    _hc1, _hc2, _hc3 = st.columns([0.5, 5, 0.5])
     with _hc2:
         _mode = st.session_state.get("_titan_mode", "normal")
         _ph = ("⚡ Fast Mode active — Message TITAN ULTRA..." if _mode == "fast"
@@ -6113,7 +6122,7 @@ if user_input:
             _register_this_device(_v2)
 
     if not st.session_state.api_key and provider == "Groq":
-        st.error("❌ Please enter your Groq API key in the sidebar first.")
+        st.error("❌ Service unavailable. Please try again later.")
     else:
         content = user_input + (f"\n\n[File]:\n{file_content}" if file_content else "")
         msgs = cur_msgs()
