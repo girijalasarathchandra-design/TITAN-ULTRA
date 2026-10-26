@@ -1,4 +1,4 @@
-# TITAN_VERSION: 59
+# TITAN_VERSION: 69
 import streamlit as st
 from groq import Groq
 import requests, io, re, random as _random
@@ -1790,6 +1790,26 @@ if not _IS_OWNER and not st.session_state.get("user_registered"):
 .auth-toggle-btn button { background:transparent !important; border:none !important;
                           color:#7c3aed !important; font-size:.82rem !important;
                           padding:0 !important; text-decoration:underline !important; }
+/* Auth tab buttons — both visible, active tab highlighted purple */
+button[aria-label="Log In"],
+button[aria-label="Register"] {
+    background: rgba(255,255,255,0.06) !important;
+    border: 1px solid #3a3a5c !important;
+    color: #a0a0c0 !important;
+    border-radius: 10px !important;
+}
+button[aria-label="Log In"]:hover,
+button[aria-label="Register"]:hover {
+    background: rgba(124,58,237,0.15) !important;
+    color: #c4b5fd !important;
+    border-color: #7c3aed !important;
+}
+button[data-testid="baseButton-primary"][aria-label="Log In"],
+button[data-testid="baseButton-primary"][aria-label="Register"] {
+    background: #7c3aed !important;
+    color: #fff !important;
+    border-color: #7c3aed !important;
+}
 </style>
 <div class="auth-wrap">
   <div style='font-size:2.4rem;margin-bottom:10px'>🔱</div>
@@ -5495,28 +5515,57 @@ for _mi, msg in enumerate(_msgs_list):
     }} catch(e) {{ console.error('Speak error:', e); }}
   }});
   document.getElementById('cp').addEventListener('click',function(){{
-    navigator.clipboard.writeText(TEXT).then(function(){{
-      var c=document.getElementById('cp');
-      c.textContent='✓'; c.classList.add('done');
-      setTimeout(function(){{c.textContent='⧉';c.classList.remove('done');}},1500);
-    }}).catch(function(){{
-      var ta=document.createElement('textarea');
-      ta.value=TEXT; document.body.appendChild(ta); ta.select();
-      document.execCommand('copy'); document.body.removeChild(ta);
-      var c=document.getElementById('cp');
-      c.textContent='✓'; c.classList.add('done');
-      setTimeout(function(){{c.textContent='⧉';c.classList.remove('done');}},1500);
-    }});
+    var btn=document.getElementById('cp');
+    var orig=btn.textContent;
+    var pd=window.parent.document;
+    var sc=pd.createElement('script');
+    sc.textContent='(function(){{var t=document.createElement("textarea");t.value='+JSON.stringify(TEXT)+';t.style.cssText="position:fixed;top:-9999px;left:-9999px;opacity:0";document.body.appendChild(t);t.focus();t.select();try{{document.execCommand("copy");}}catch(e){{}}document.body.removeChild(t);}})();';
+    pd.head.appendChild(sc); sc.remove();
+    btn.textContent='✓'; btn.classList.add('done');
+    setTimeout(function(){{btn.textContent=orig;btn.classList.remove('done');}},1800);
   }});
   document.getElementById('sh').addEventListener('click',function(){{
-    if(navigator.share){{
-      navigator.share({{text:TEXT}}).catch(function(){{}});
-    }} else {{
-      navigator.clipboard.writeText(TEXT);
-      var s=document.getElementById('sh');
-      s.textContent='✓';
-      setTimeout(function(){{s.textContent='↗';}},1500);
-    }}
+    var TEXT_SH=TEXT;
+    var pd=window.parent.document;
+    var existingPopup=pd.getElementById('_titan_share_popup');
+    if(existingPopup){{existingPopup.remove();return;}}
+    var overlay=pd.createElement('div');
+    overlay.id='_titan_share_popup';
+    overlay.style.cssText='position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55)';
+    var box=pd.createElement('div');
+    box.style.cssText='background:#1a1a2e;border:1px solid #3a3a5c;border-radius:16px;padding:24px 28px;min-width:260px;box-shadow:0 8px 32px rgba(0,0,0,0.6);display:flex;flex-direction:column;gap:12px';
+    var title=pd.createElement('div');
+    title.textContent='Share answer';
+    title.style.cssText='color:#e8e8e8;font-size:15px;font-weight:600;margin-bottom:4px';
+    box.appendChild(title);
+    var items=[
+      ['📋  Copy text',function(){{
+        var sc2=pd.createElement('script');
+        sc2.textContent='(function(){{var t=document.createElement("textarea");t.value='+JSON.stringify(TEXT_SH)+';t.style.cssText="position:fixed;top:-9999px;opacity:0";document.body.appendChild(t);t.focus();t.select();try{{document.execCommand("copy");}}catch(e){{}}document.body.removeChild(t);}})();';
+        pd.head.appendChild(sc2);sc2.remove();
+        overlay.remove();
+      }}],
+      ['💬  WhatsApp',function(){{window.open('https://wa.me/?text='+encodeURIComponent(TEXT_SH),'_blank');overlay.remove();}}],
+      ['✈️  Telegram',function(){{window.open('https://t.me/share/url?text='+encodeURIComponent(TEXT_SH),'_blank');overlay.remove();}}],
+      ['📧  Email',function(){{window.open('mailto:?body='+encodeURIComponent(TEXT_SH),'_blank');overlay.remove();}}]
+    ];
+    items.forEach(function(item){{
+      var btn2=pd.createElement('button');
+      btn2.textContent=item[0];
+      btn2.style.cssText='background:#2a2a3e;color:#e8e8e8;border:1px solid #3a3a5c;border-radius:10px;padding:10px 16px;font-size:14px;cursor:pointer;text-align:left;width:100%';
+      btn2.onmouseover=function(){{btn2.style.background='#3a3a5e';}};
+      btn2.onmouseout=function(){{btn2.style.background='#2a2a3e';}};
+      btn2.onclick=item[1];
+      box.appendChild(btn2);
+    }});
+    var cancel=pd.createElement('button');
+    cancel.textContent='Cancel';
+    cancel.style.cssText='background:transparent;color:#888;border:none;font-size:13px;cursor:pointer;margin-top:4px';
+    cancel.onclick=function(){{overlay.remove();}};
+    box.appendChild(cancel);
+    overlay.onclick=function(e){{if(e.target===overlay)overlay.remove();}};
+    overlay.appendChild(box);
+    pd.body.appendChild(overlay);
   }});
   document.querySelectorAll('.rxn').forEach(function(btn){{
     btn.addEventListener('click',function(){{
