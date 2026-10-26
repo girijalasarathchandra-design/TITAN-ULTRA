@@ -1484,28 +1484,39 @@ if not _IS_OWNER and not st.session_state.get("user_registered"):
     st.markdown("""
 <style>
 .reg-wrap { display:flex; flex-direction:column; align-items:center;
-            justify-content:center; min-height:80vh; }
+            justify-content:center; min-height:55vh; text-align:center; }
+.reg-label { color:#e8e8e8 !important; font-size:0.85rem !important;
+             font-weight:600 !important; margin-bottom:4px !important;
+             display:block !important; text-align:left !important; }
 </style>
 <div class="reg-wrap">
-  <div style='font-size:2.2rem;margin-bottom:8px'>🔱</div>
-  <div style='font-size:1.6rem;font-weight:700;color:#fff;margin-bottom:4px'>Welcome to Titan Ultra</div>
-  <div style='font-size:.85rem;color:#666;margin-bottom:28px'>Enter your details to get started</div>
+  <div style='font-size:2.4rem;margin-bottom:10px'>🔱</div>
+  <div style='font-size:1.65rem;font-weight:700;color:#fff;margin-bottom:6px'>Welcome to Titan Ultra</div>
+  <div style='font-size:.85rem;color:#555;margin-bottom:0'>Enter your details to get started</div>
 </div>
 """, unsafe_allow_html=True)
     _rc1, _rc2, _rc3 = st.columns([1, 2, 1])
     with _rc2:
-        _reg_name  = st.text_input("Your name", placeholder="e.g. Rahul Sharma", key="_reg_name_input")
-        _reg_email = st.text_input("Your email", placeholder="e.g. rahul@gmail.com", key="_reg_email_input")
-        if st.button("Get Started →", key="_reg_submit", use_container_width=True):
-            if _reg_name.strip() and _reg_email.strip() and "@" in _reg_email:
-                st.session_state.user_registered = True
-                st.session_state.user_name_reg   = _reg_name.strip()
-                st.session_state.user_email_reg  = _reg_email.strip()
-                if not st.session_state.titan_memory.get("name"):
-                    st.session_state.titan_memory["name"] = _reg_name.strip().split()[0]
-                st.rerun()
-            else:
-                st.error("Please enter a valid name and email.")
+        with st.form("_reg_form", clear_on_submit=False):
+            st.markdown("<span class='reg-label'>Name</span>", unsafe_allow_html=True)
+            _reg_name = st.text_input("", placeholder="e.g. Rahul Sharma",
+                                      key="_reg_name_input", label_visibility="collapsed")
+            st.markdown("<span class='reg-label' style='margin-top:10px;display:block'>Email</span>",
+                        unsafe_allow_html=True)
+            _reg_email = st.text_input("", placeholder="e.g. rahul@gmail.com",
+                                       key="_reg_email_input", label_visibility="collapsed")
+            st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+            _reg_submitted = st.form_submit_button("Get Started →", use_container_width=True)
+            if _reg_submitted:
+                if _reg_name.strip() and _reg_email.strip() and "@" in _reg_email:
+                    st.session_state.user_registered = True
+                    st.session_state.user_name_reg   = _reg_name.strip()
+                    st.session_state.user_email_reg  = _reg_email.strip()
+                    if not st.session_state.titan_memory.get("name"):
+                        st.session_state.titan_memory["name"] = _reg_name.strip().split()[0]
+                    st.rerun()
+                else:
+                    st.error("Please enter your name and a valid email address.")
     st.stop()
 
 # ── Upgrade Pricing Page ──────────────────────────────────────────────────────
@@ -6538,26 +6549,53 @@ def call_groq(messages):
             ]
         else:
             _auto = _smart_pick(messages)
-            _fallback_chain = [
-                _auto,
-                "openai/gpt-oss-120b",
-                "openai/gpt-oss-20b",
-                "qwen/qwen3.8-27b",
-                "meta-llama/llama-4-maverick-17b-128e-instruct",
-                "moonshotai/kimi-k2-instruct",
-                "deepseek-r1-distill-llama-70b",
-                "llama-3.3-70b-versatile",
-                "gemma2-9b-it",
-                "llama-3.1-8b-instant",
-            ]
+            _cur_tier = st.session_state.get("titan_tier", "basic")
+            if _cur_tier == "basic":
+                _fallback_chain = [
+                    "openai/gpt-oss-20b",
+                    "qwen/qwen3.8-27b",
+                    "openai/gpt-oss-120b",
+                    "meta-llama/llama-4-maverick-17b-128e-instruct",
+                    "llama-3.3-70b-versatile",
+                    "gemma2-9b-it",
+                    "llama-3.1-8b-instant",
+                ]
+            elif _cur_tier == "max":
+                _fallback_chain = [
+                    "deepseek-r1-distill-llama-70b",
+                    "openai/gpt-oss-120b",
+                    "moonshotai/kimi-k2-instruct",
+                    "meta-llama/llama-4-maverick-17b-128e-instruct",
+                    "llama-3.3-70b-versatile",
+                    "gemma2-9b-it",
+                    "llama-3.1-8b-instant",
+                ]
+            else:  # pro
+                _fallback_chain = [
+                    _auto,
+                    "openai/gpt-oss-120b",
+                    "openai/gpt-oss-20b",
+                    "qwen/qwen3.8-27b",
+                    "meta-llama/llama-4-maverick-17b-128e-instruct",
+                    "moonshotai/kimi-k2-instruct",
+                    "deepseek-r1-distill-llama-70b",
+                    "llama-3.3-70b-versatile",
+                    "gemma2-9b-it",
+                    "llama-3.1-8b-instant",
+                ]
     _seen = set()
     _chain = [m for m in _fallback_chain if not (m in _seen or _seen.add(m))]
 
     import time as _time
 
-    # ── Token budgets per pass — shrink tokens each round to consume less quota ──
-    # Pass 0: full power. Pass 1+: progressively lighter to stay under per-minute limits.
-    _token_budgets = [16384, 12000, 8192, 6000, 4096, 2048]
+    # ── Token budgets per pass — tier-aware so quality difference is real ────────
+    _cur_tier_tok = st.session_state.get("titan_tier", "basic") if not _use_vision else "pro"
+    if _cur_tier_tok == "basic":
+        _token_budgets = [4096, 3000, 2048, 1500]
+    elif _cur_tier_tok == "max":
+        _token_budgets = [32768, 24000, 16384, 8192, 4096, 2048]
+    else:  # pro
+        _token_budgets = [16384, 12000, 8192, 6000, 4096, 2048]
 
     _last_err = None
     _current_full = full
