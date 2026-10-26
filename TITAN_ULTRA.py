@@ -1,4 +1,4 @@
-# TITAN_VERSION: 69
+# TITAN_VERSION: 73
 import streamlit as st
 from groq import Groq
 import requests, io, re, random as _random
@@ -486,20 +486,50 @@ SYSTEM = (
     "   FORMATTING RULE — DO NOT use backtick inline code (like `this`) in normal explanations.\n"
     "   Only use code blocks or inline code when the user EXPLICITLY asks for code or a command.\n"
     "   When referring to technical terms in a normal explanation, write them in plain text or bold — NOT in backticks.\n\n"
-    "4. BE CHEERFUL AND ENCOURAGING — Always be warm, enthusiastic, and uplifting.\n"
+    "4. JOYFUL OPENER — Start EVERY answer with a short, excited, warm phrase. Never skip this. Mix these up:\n"
+    "   'Let's get started! 🎯'  |  'Oh this is exciting! Let's dive in! 🚀'  |  'Great question! Here we go! ⚡'\n"
+    "   'Absolutely! Let's do this! 🔥'  |  'Love this! Let's get into it! 💡'  |  'Yes! Let's figure this out! 🎯'\n"
+    "   For coding: always say 'Let's start building! 🚀' or 'Let's code this together! 💻'\n"
+    "   For explaining: 'Great question! Let me break this down for you! 💡'\n"
+    "   NEVER start with a boring opener. The user must feel pumped up from the first word.\n\n"
+    "5. BE CHEERFUL AND ENCOURAGING — Always be warm, enthusiastic, and uplifting.\n"
     "   React with genuine excitement to good questions: 'What an incredible question!', "
     "'You've hit the nail on the head!', 'That is absolutely brilliant!', 'Wow, great thinking!'.\n"
     "   Make the user feel smart, valued, and motivated. Be their biggest fan.\n\n"
-    "5. EVERY SENTENCE MUST ADD VALUE — No padding. No repeating the question back.\n"
+    "6. EVERY SENTENCE MUST ADD VALUE — No padding. No repeating the question back.\n"
     "   DO include context, examples, analogies that make the answer genuinely useful.\n\n"
-    "4. IDENTIFY THE SOURCE — If the question is about a book, movie, game, or show:\n"
+    "7. IDENTIFY THE SOURCE — If the question is about a book, movie, game, or show:\n"
     "   Silently identify which one it is before answering.\n"
     "   Use the correct names, characters, and details from that specific source.\n"
     "   Never mix up details from different books or make things up.\n\n"
-    "5. ALWAYS USE SIMPLE, EASY WORDS — Write like a smart friend explaining to someone for the first time.\n"
+    "8. ALWAYS USE SIMPLE, EASY WORDS — Write like a smart friend explaining to someone for the first time.\n"
     "   Always use plain, everyday language. Never use complex technical jargon unless the user asks for it.\n"
     "   If a hard word is needed, explain it in simple words right after.\n"
     "   Short sentences. Easy to read. Anyone should be able to understand your answer.\n\n"
+    "9. PYTHON CODE — SUPER SIMPLE STEP BY STEP — When user asks for ANY Python code, program, or game:\n"
+    "   ALWAYS use this EXACT simple format. No virtual environments. No troubleshooting. No complex steps. JUST THIS:\n\n"
+    "   Start with: 'Let's start building! 🚀 Just follow these steps one by one:'\n\n"
+    "   ✅ Step 1 — Open Notepad\n"
+    "   Just say: 'Open Notepad on your computer (search for Notepad in the Start menu)'\n\n"
+    "   ✅ Step 2 — Paste the code\n"
+    "   Say: 'Copy and paste this entire code into Notepad:'\n"
+    "   Then give the COMPLETE, WORKING code in a code block.\n\n"
+    "   ✅ Step 3 — Save the file\n"
+    "   Say: 'Save the file — click File → Save As → name it game.py → change Save as type to All Files → click Save'\n\n"
+    "   ✅ Step 4 — Install what you need (only if pygame or other library is needed)\n"
+    "   Say: 'Press Win + R on your keyboard → type cmd → press Enter. Then copy and paste this command and press Enter:'\n"
+    "   Then show the command in a code block: pip install pygame\n\n"
+    "   ✅ Step 5 — Run the game\n"
+    "   Say: 'In the same Command Prompt window, paste this and press Enter:'\n"
+    "   Show: python game.py (with the full path if needed, like: python C:\\Users\\YourName\\Desktop\\game.py)\n\n"
+    "   ✅ Step 6 — Play!\n"
+    "   Say exactly what the user will see and the controls. Example: 'A game window opens! Use the arrow keys to move. First to 5 points wins!'\n\n"
+    "   🎉 End with: 'You did it! Your game is running! Have fun! 🎮'\n\n"
+    "   RULES:\n"
+    "   • NEVER mention virtual environments, DLL errors, SDL drivers, or any technical troubleshooting.\n"
+    "   • NEVER use words like 'cd Desktop' — give the full simple instruction instead.\n"
+    "   • Each step must be ONE action. Simple. Clear. Anyone can follow it.\n"
+    "   • Always give COMPLETE, WORKING code. Never partial code.\n\n"
     "6. TURQUOISE COLOR FOR EXTREMELY IMPORTANT TEXT — When a part of your answer is extremely "
     "important (a key fact, a critical answer, a crucial term, a final result), wrap it in this exact HTML tag:\n"
     "   <span style='color:#40E0D0'>extremely important text here</span>\n"
@@ -5691,6 +5721,17 @@ if st.session_state.get("_pending_pdf_extract"):
         st.session_state.pop("_pending_pdf_extract", None)
         st.rerun()
 
+# ── Animated video (GIF) download button ─────────────────────────────────────
+if st.session_state.get("_pending_video_gif"):
+    _vgif_bytes, _vgif_name = st.session_state["_pending_video_gif"]
+    st.image(_vgif_bytes, caption="🎬 Your animated video — preview", use_column_width=True)
+    st.download_button("⬇️ Download Video (GIF)", _vgif_bytes,
+                       _vgif_name, "image/gif",
+                       key="_vid_gif_dl", use_container_width=True)
+    if st.button("✕ Dismiss", key="_vgif_dismiss"):
+        st.session_state.pop("_pending_video_gif", None)
+        st.rerun()
+
 # Attach + Voice popovers are rendered in the sidebar (below the Memory expander).
 temp = 0.7  # full reasoning quality always — matches Claude Pro depth
 
@@ -6875,7 +6916,265 @@ def _is_video_gen_request(q):
         "create animation", "generate animation", "make animation",
         "short video of", "video clip", "generate clip",
         "animate this", "create a clip of",
+        "video", "animate", "animation", "zoom", "pan", "cinematic",
     ])
+
+def _parse_video_effect(text):
+    import re as _re_ve
+    t = text.lower()
+    if any(w in t for w in ["ken burns", "cinematic", "film", "movie", "professional", "dramatic"]):
+        effect = "ken_burns"
+    elif any(w in t for w in ["zoom in", "zooming in", "close up", "closer", "zoom into"]):
+        effect = "zoom_in"
+    elif any(w in t for w in ["zoom out", "zooming out", "pull back", "pull away", "wider"]):
+        effect = "zoom_out"
+    elif any(w in t for w in ["pan right", "move right", "left to right", "slide right"]):
+        effect = "pan_right"
+    elif any(w in t for w in ["pan left", "move left", "right to left", "slide left"]):
+        effect = "pan_left"
+    elif any(w in t for w in ["pan up", "move up", "bottom to top", "slide up"]):
+        effect = "pan_up"
+    elif any(w in t for w in ["pan down", "move down", "top to bottom", "slide down"]):
+        effect = "pan_down"
+    elif any(w in t for w in ["pulse", "breathe", "breathing", "heartbeat"]):
+        effect = "pulse"
+    elif any(w in t for w in ["fade", "fade in", "appear", "emerge"]):
+        effect = "fade_in"
+    elif any(w in t for w in ["shake", "vibrate", "shaky", "tremble"]):
+        effect = "shake"
+    elif any(w in t for w in ["zoom", "slow zoom"]):
+        effect = "zoom_in"
+    elif any(w in t for w in ["pan", "slide", "scroll", "sweep"]):
+        effect = "pan_right"
+    else:
+        effect = "ken_burns"
+    speed = "medium"
+    if any(w in t for w in ["slow", "slowly", "gentle", "smooth", "soft"]):
+        speed = "slow"
+    elif any(w in t for w in ["fast", "quick", "rapid", "dynamic"]):
+        speed = "fast"
+    duration = 5
+    m = _re_ve.search(r'(\d+)\s*sec', t)
+    if m:
+        duration = min(max(int(m.group(1)), 2), 12)
+    zoom = {"slow": 0.22, "medium": 0.32, "fast": 0.45}.get(speed, 0.32)
+    return {"effect": effect, "duration": duration, "fps": 10, "zoom": zoom, "speed": speed}
+
+def _create_animated_gif(img_bytes, params):
+    from PIL import Image, ImageEnhance
+    import io, math
+    img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+    if img.width > 640:
+        r = 640 / img.width
+        img = img.resize((640, int(img.height * r)), Image.LANCZOS)
+    effect = params["effect"]
+    total_frames = params["duration"] * params["fps"]
+    zoom = params.get("zoom", 0.32)
+    w, h = img.size
+    frames = []
+    for i in range(total_frames):
+        t = i / max(total_frames - 1, 1)
+        if effect == "zoom_in":
+            sc = 1 + zoom * t
+            nw, nh = int(w / sc), int(h / sc)
+            l, tp = (w - nw) // 2, (h - nh) // 2
+            frame = img.crop((l, tp, l + nw, tp + nh)).resize((w, h), Image.LANCZOS)
+        elif effect == "zoom_out":
+            sc = (1 + zoom) - zoom * t
+            nw, nh = int(w / sc), int(h / sc)
+            l, tp = (w - nw) // 2, (h - nh) // 2
+            frame = img.crop((l, tp, l + nw, tp + nh)).resize((w, h), Image.LANCZOS)
+        elif effect == "pan_right":
+            mg = int(w * 0.22); l = int(mg * t)
+            frame = img.crop((l, 0, l + w - mg, h)).resize((w, h), Image.LANCZOS)
+        elif effect == "pan_left":
+            mg = int(w * 0.22); l = int(mg * (1 - t))
+            frame = img.crop((l, 0, l + w - mg, h)).resize((w, h), Image.LANCZOS)
+        elif effect == "pan_up":
+            mg = int(h * 0.22); tp = int(mg * (1 - t))
+            frame = img.crop((0, tp, w, tp + h - mg)).resize((w, h), Image.LANCZOS)
+        elif effect == "pan_down":
+            mg = int(h * 0.22); tp = int(mg * t)
+            frame = img.crop((0, tp, w, tp + h - mg)).resize((w, h), Image.LANCZOS)
+        elif effect == "ken_burns":
+            sc = 1 + zoom * t
+            nw, nh = int(w / sc), int(h / sc)
+            px, py = int(w * 0.06 * t), int(h * 0.03 * t)
+            l = max(0, min((w - nw) // 2 + px, w - nw))
+            tp = max(0, min((h - nh) // 2 + py, h - nh))
+            frame = img.crop((l, tp, l + nw, tp + nh)).resize((w, h), Image.LANCZOS)
+        elif effect == "pulse":
+            sc = 1 + 0.06 * math.sin(t * math.pi * 2)
+            nw, nh = int(w / sc), int(h / sc)
+            l, tp = (w - nw) // 2, (h - nh) // 2
+            frame = img.crop((l, tp, l + nw, tp + nh)).resize((w, h), Image.LANCZOS)
+        elif effect == "fade_in":
+            sc = 1.2 - 0.2 * t
+            nw, nh = int(w / sc), int(h / sc)
+            l, tp = (w - nw) // 2, (h - nh) // 2
+            frame = img.crop((l, tp, l + nw, tp + nh)).resize((w, h), Image.LANCZOS)
+            frame = ImageEnhance.Brightness(frame).enhance(min(1.0, t * 2.5))
+        elif effect == "shake":
+            import random; random.seed(i)
+            pad = 10
+            dx, dy = random.randint(-pad, pad), random.randint(-pad, pad)
+            l = max(0, min(pad + dx, 2 * pad)); tp = max(0, min(pad + dy, 2 * pad))
+            frame = img.crop((l, tp, l + w - 2 * pad, tp + h - 2 * pad)).resize((w, h), Image.LANCZOS)
+        else:
+            frame = img.copy()
+        frames.append(frame.quantize(colors=200, method=Image.Quantize.MEDIANCUT))
+    buf = io.BytesIO()
+    frames[0].save(buf, format="GIF", save_all=True, append_images=frames[1:],
+                   duration=int(1000 / params["fps"]), loop=0, optimize=True)
+    buf.seek(0)
+    return buf.getvalue()
+
+def _create_text_to_video(description, duration=5, fps=10):
+    """Pro/Max: generate cinematic animated video from any text description."""
+    from PIL import Image
+    import io, math, numpy as np, json as _json_tv, re as _re_tv
+
+    W, H = 480, 270
+    t_low = description.lower()
+
+    _pals = {
+        "sunset":      [(255,80,30),(255,150,0),(220,60,90),(255,200,100)],
+        "ocean":       [(0,50,150),(0,120,200),(0,200,190),(80,230,220)],
+        "forest":      [(20,60,20),(50,110,40),(90,160,70),(160,210,110)],
+        "night":       [(8,8,35),(25,15,70),(50,30,110),(90,60,170)],
+        "fire":        [(170,10,0),(240,80,0),(255,170,0),(255,230,60)],
+        "space":       [(5,5,20),(20,10,50),(40,20,90),(100,60,200)],
+        "gold":        [(140,100,0),(200,155,30),(245,200,80),(255,240,160)],
+        "rose":        [(170,20,60),(220,60,100),(250,120,150),(255,180,200)],
+        "snow":        [(180,210,240),(210,230,250),(235,245,255),(255,255,255)],
+        "desert":      [(190,130,50),(230,170,80),(255,205,110),(255,235,170)],
+        "sky":         [(80,130,230),(130,180,255),(190,220,255),(230,245,255)],
+        "cyber":       [(0,20,40),(0,80,180),(0,200,255),(100,255,255)],
+        "purple":      [(30,10,60),(80,20,140),(150,50,200),(200,120,255)],
+        "rainbow":     [(255,50,50),(255,180,0),(50,220,50),(50,100,255)],
+        "horror":      [(20,0,0),(80,10,10),(160,20,0),(255,60,20)],
+        "party":       [(255,50,150),(255,200,0),(50,200,255),(150,50,255)],
+        "luxury":      [(20,15,5),(80,60,10),(180,140,30),(255,220,100)],
+        "tech":        [(5,15,30),(10,60,100),(20,150,200),(80,220,255)],
+        "nature":      [(20,50,10),(60,120,30),(120,180,60),(200,230,120)],
+        "calm":        [(100,140,200),(140,180,230),(180,210,245),(220,235,255)],
+    }
+
+    # Ask Groq to classify the description into our palette + motion system
+    _tv_palette = "night"
+    _tv_motion = "wave"
+    _tv_speed = 1.0
+    try:
+        _tv_client = Groq(api_key=_GROQ_KEY)
+        _tv_resp = _tv_client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[{"role":"user","content":(
+                f'Analyze this video request and reply ONLY with valid JSON, no extra text:\n'
+                f'"{description}"\n\n'
+                f'Reply format: {{"palette":"sunset|ocean|forest|night|fire|space|gold|rose|snow|desert|sky|cyber|purple|rainbow|horror|party|luxury|tech|nature|calm","motion":"wave|spin|zoom|fade|diagonal","speed":"slow|medium|fast"}}\n'
+                f'Choose the palette that best matches the visual mood of the description.'
+            )}],
+            max_tokens=60, temperature=0
+        )
+        _tv_raw = _tv_resp.choices[0].message.content.strip()
+        _tv_json = _json_tv.loads(_re_tv.search(r'\{.*\}', _tv_raw, _re_tv.DOTALL).group())
+        _tv_palette = _tv_json.get("palette", "night")
+        _tv_motion  = _tv_json.get("motion", "wave")
+        _tv_spd_str = _tv_json.get("speed", "medium")
+        _tv_speed   = {"slow": 0.5, "medium": 1.0, "fast": 2.0}.get(_tv_spd_str, 1.0)
+        if _tv_palette not in _pals:
+            _tv_palette = "night"
+        if _tv_motion not in ("wave","spin","zoom","fade","diagonal"):
+            _tv_motion = "wave"
+    except Exception:
+        # Fallback: keyword detection
+        _kw_map = [
+            (["sunset","orange","warm","golden hour","dusk","dawn"], "sunset"),
+            (["ocean","sea","wave","water","river","lake","blue"], "ocean"),
+            (["forest","tree","leaf","green","nature","jungle","garden"], "forest"),
+            (["night","dark","shadow","mystery","gothic","noir","midnight"], "night"),
+            (["fire","flame","lava","burn","blaze","inferno"], "fire"),
+            (["space","galaxy","star","cosmos","universe","planet","nebula"], "space"),
+            (["gold","luxury","elegant","rich","shine","royal","diamond"], "luxury"),
+            (["love","heart","romantic","rose","valentine","pink","kiss"], "rose"),
+            (["snow","cold","winter","ice","arctic","blizzard","frost"], "snow"),
+            (["desert","sand","dune","sahara","dry","heat","mirage"], "desert"),
+            (["sky","cloud","heaven","bright","sunlight","day","blue sky"], "sky"),
+            (["cyber","digital","tech","ai","robot","neon","futuristic","matrix"], "cyber"),
+            (["purple","violet","magic","witch","fantasy","mystic"], "purple"),
+            (["rainbow","colorful","vibrant","bright","festival","fun"], "rainbow"),
+            (["horror","scary","blood","ghost","dark","demon","evil","haunted"], "horror"),
+            (["party","birthday","celebration","confetti","disco","dance","music"], "party"),
+            (["premium","classy","luxury","exclusive","vip","champagne"], "luxury"),
+            (["calm","peace","relax","meditation","zen","soft","gentle","serene"], "calm"),
+            (["lion","tiger","animal","jungle","wildlife","run","chase"], "forest"),
+            (["car","race","speed","drive","road","highway","fast"], "cyber"),
+            (["wedding","bride","bridal","marriage","ceremony"], "rose"),
+            (["sport","athlete","energy","power","gym","fitness"], "fire"),
+            (["city","building","urban","street","night city","lights"], "cyber"),
+        ]
+        for kws, pk in _kw_map:
+            if any(w in t_low for w in kws):
+                _tv_palette = pk; break
+        if any(w in t_low for w in ["spin","rotate","swirl","spiral","twist","vortex"]):
+            _tv_motion = "spin"
+        elif any(w in t_low for w in ["zoom","pulse","expand","radial","burst"]):
+            _tv_motion = "zoom"
+        elif any(w in t_low for w in ["fade","glow","dissolve"]):
+            _tv_motion = "fade"
+        elif any(w in t_low for w in ["diagonal","slant"]):
+            _tv_motion = "diagonal"
+        if any(w in t_low for w in ["slow","gentle","calm","peaceful"]):
+            _tv_speed = 0.5
+        elif any(w in t_low for w in ["fast","quick","rapid","intense"]):
+            _tv_speed = 2.0
+
+    pal = _pals.get(_tv_palette, _pals["night"])
+
+    _dm = _re_tv.search(r'(\d+)\s*sec', t_low)
+    if _dm:
+        duration = min(max(int(_dm.group(1)), 2), 12)
+
+    total = duration * fps
+    Y_g, X_g = np.mgrid[0:H, 0:W].astype(np.float32)
+    y_n = Y_g / H
+    x_n = X_g / W
+    cx, cy = W / 2.0, H / 2.0
+    dist_g = np.sqrt(((X_g - cx)/(W*0.7))**2 + ((Y_g - cy)/(H*0.7))**2).astype(np.float32)
+    angle_g = ((np.arctan2(Y_g - cy, X_g - cx) / (2*math.pi)) + 0.5).astype(np.float32) % 1.0
+    pal_arr = np.array(pal, dtype=np.float32)
+    N = len(pal_arr)
+
+    def _to_rgb(pct):
+        pct = np.clip(pct, 0, 1)
+        idx = pct * (N - 1)
+        lo = np.floor(idx).astype(np.int32)
+        hi = np.clip(lo + 1, 0, N - 1)
+        bl = (idx - lo)[..., None]
+        return np.clip(pal_arr[lo] + (pal_arr[hi] - pal_arr[lo]) * bl, 0, 255).astype(np.uint8)
+
+    frames = []
+    for i in range(total):
+        t = (i / max(total - 1, 1)) * _tv_speed
+        if _tv_motion == "wave":
+            wave = np.sin(Y_g * 0.06 + t * math.pi * 2).astype(np.float32) * 0.12
+            pct = (y_n + t * 0.5 + wave) % 1.0
+        elif _tv_motion == "zoom":
+            pct = (dist_g + t * 0.5) % 1.0
+        elif _tv_motion == "spin":
+            pct = (angle_g + t * 0.5) % 1.0
+        elif _tv_motion == "fade":
+            pct = np.full((H, W), (t * 0.5) % 1.0, dtype=np.float32)
+        else:
+            pct = ((x_n + y_n) * 0.5 + t * 0.5) % 1.0
+        frame = Image.fromarray(_to_rgb(pct), "RGB")
+        frames.append(frame.quantize(colors=128, method=Image.Quantize.MEDIANCUT))
+
+    buf = io.BytesIO()
+    frames[0].save(buf, format="GIF", save_all=True, append_images=frames[1:],
+                   duration=int(1000 / fps), loop=0, optimize=True)
+    buf.seek(0)
+    return buf.getvalue()
 
 def _is_pdf_extract_request(text):
     import re as _re_pdf
@@ -7067,7 +7366,11 @@ def get_system():
             "\n\n━━━ TITAN ULTRA PRO MODE ━━━\n"
             f"You are running in PRO mode with depth set to: {_pro_depth.upper()}.\n"
             + _depth_instr +
-            "\nAlways make the user feel they are getting premium-quality answers far beyond any free AI."
+            "\nAlways make the user feel they are getting premium-quality answers far beyond any free AI.\n\n"
+            "PRO PYTHON CODE RULE — When user asks for any Python program or game:\n"
+            "Give enhanced, feature-rich code with: colors, sound effects (math-generated), ball trail, "
+            "pause button, game over screen, win/lose conditions, smooth animations, and styled UI. "
+            "It must be noticeably more impressive than basic code. Still explain every step clearly."
         )
     elif _sys_tier == "max":
         base += (
@@ -7079,7 +7382,20 @@ def get_system():
             "Use structured sections with headers, bullet points, tables where useful — make answers look premium. "
             "The user is paying premium — they must feel every answer is worth more than they paid. "
             "Never give a shallow answer. Never truncate. Always go deep. "
-            "End with a 'Pro Insight' — one expert tip or hidden fact that most people don't know."
+            "End with a 'Pro Insight' — one expert tip or hidden fact that most people don't know.\n\n"
+            "MAX LANGUAGE RULE — Use the SIMPLEST, CLEAREST language possible for EVERYTHING. "
+            "Even complex answers must be so easy to read that a 10-year-old could follow along. "
+            "Short sentences. No big words. If a technical term is needed, explain it right away in one simple sentence. "
+            "The user should never have to re-read a sentence to understand it. "
+            "Think of yourself as a very smart teacher who makes everything feel easy and fun.\n\n"
+            "MAX PYTHON CODE RULE — When user asks for any Python program or game:\n"
+            "Give the most INCREDIBLE, feature-packed, professional-quality code ever written. "
+            "Include: multiple levels, particle effects, screen shake, sound effects (math-generated — no files needed), "
+            "moving obstacles, smooth animations, ball trail, paddle glow effects, win/lose/menu screens, "
+            "mouse and keyboard controls, level progression, score system, and stunning visual themes per level. "
+            "This must look and play like a real commercial game. "
+            "Then explain EVERY step in the SIMPLEST possible words — even a complete beginner should understand. "
+            "Add short, clear comments in the code itself so anyone reading it knows exactly what each part does."
         )
     mem = st.session_state.get("titan_memory", {})
     if mem:
@@ -8274,7 +8590,7 @@ if user_input:
                     set_msgs(msgs)
                     st.rerun()
 
-            # ── AI Image / Video generation (Pro + Max only) ─────────────────────
+            # ── AI Image generation (Pro + Max only) ────────────────────────────
             _gen_tier = st.session_state.get("titan_tier", "basic")
             if _gen_tier in ("pro", "max"):
                 if _is_image_gen_request(user_input):
@@ -8297,42 +8613,68 @@ if user_input:
                             )
                     msgs = cur_msgs(); msgs.append({"role":"assistant","content":_img_caption}); set_msgs(msgs)
                     st.rerun()
-                elif _is_video_gen_request(user_input):
-                    _fal_k = ""
-                    try: _fal_k = st.secrets.get("FAL_KEY", "")
-                    except Exception: pass
-                    if not _fal_k: _fal_k = st.session_state.get("fal_api_key", "")
-                    if not _fal_k:
-                        _vid_no_key = (
-                            "❌ **Video generation needs a fal.ai API key.**\n\n"
-                            "To enable video creation:\n"
-                            "1. Go to **fal.ai** and sign up for free\n"
-                            "2. Copy your API key from the dashboard\n"
-                            "3. Enter it in the **sidebar → Video API Key** field\n\n"
-                            "Then try again!"
+
+            # ── Video generation (Pro: text→video | Max: text→video + image→video) ──
+            if _is_video_gen_request(user_input):
+                if _gen_tier == "basic":
+                    _vid_locked = (
+                        "🎬 **Video creation is a Pro and Max feature.**\n\n"
+                        "Upgrade to **Pro** to generate cinematic videos from your descriptions, "
+                        "or **Max** to also animate your own photos into videos."
+                    )
+                    msgs = cur_msgs(); msgs.append({"role":"assistant","content":_vid_locked}); set_msgs(msgs)
+                    st.rerun()
+
+                elif _gen_tier == "pro":
+                    # Pro: text-to-video only (no image upload)
+                    with st.spinner("🎬 Creating your cinematic video…"):
+                        _vgif = _create_text_to_video(user_input)
+                    _vgif_fname = "titan_pro_video.gif"
+                    st.session_state["_pending_video_gif"] = (_vgif, _vgif_fname)
+                    _vid_caption = (
+                        "🎬 **Pro video created!** Cinematic animated video generated from your description.\n\n"
+                        "Download it below. Want a different style? Try:\n"
+                        "- *\"make it sunset colours, slow wave\"*\n"
+                        "- *\"dark space galaxy, spinning\"*\n"
+                        "- *\"ocean blue, radial zoom\"*"
+                    )
+                    msgs = cur_msgs(); msgs.append({"role":"user","content":user_input}); msgs.append({"role":"assistant","content":_vid_caption}); set_msgs(msgs)
+                    st.rerun()
+
+                elif _gen_tier == "max":
+                    _vid_img = st.session_state.get("_uploaded_img_bytes")
+                    if _vid_img:
+                        # Max + image uploaded: animate the image
+                        _vparams = _parse_video_effect(user_input)
+                        _effect_names = {
+                            "ken_burns": "Cinematic Ken Burns", "zoom_in": "Zoom In",
+                            "zoom_out": "Zoom Out", "pan_right": "Pan Right",
+                            "pan_left": "Pan Left", "pan_up": "Pan Up",
+                            "pan_down": "Pan Down", "pulse": "Pulse / Breathe",
+                            "fade_in": "Fade In", "shake": "Camera Shake",
+                        }
+                        _ename = _effect_names.get(_vparams["effect"], _vparams["effect"])
+                        with st.spinner(f"🎬 Animating your image — {_ename}, {_vparams['duration']}s…"):
+                            _vgif = _create_animated_gif(_vid_img, _vparams)
+                        _vgif_fname = f"titan_max_video_{_vparams['effect']}_{_vparams['duration']}s.gif"
+                        st.session_state["_pending_video_gif"] = (_vgif, _vgif_fname)
+                        _vid_caption = (
+                            f"🎬 **Max video created!** Effect: **{_ename}** · {_vparams['duration']}s · {_vparams['speed']} speed\n\n"
+                            f"Your image has been animated — download below.\n\n"
+                            f"Want a different effect? Ask — *\"zoom out\"*, *\"pan left\"*, *\"cinematic\"*, etc."
                         )
-                        msgs = cur_msgs(); msgs.append({"role":"assistant","content":_vid_no_key}); set_msgs(msgs)
-                        st.rerun()
                     else:
-                        with st.spinner("🎬 Creating your video… (takes 1–3 minutes)"):
-                            _vid_raw = re.sub(
-                                r'(?i)\b(generate|create|make|animate|produce)\b'
-                                r'\s*(?:a\s+|an\s+)?(?:video|animation|clip|short)\s*(?:of\s*)?',
-                                '', user_input, count=1).strip() or user_input
-                            _vid_url_r, _vid_err_r = _gen_video_fal(_vid_raw, is_max=(_gen_tier == "max"))
-                        if _vid_url_r:
-                            if _gen_tier == "max":
-                                _vid_caption = (
-                                    f"[TITAN_VIDEO:{_vid_url_r}]\n\n"
-                                    "🎬 **Max-tier video** — cinematic, photorealistic, "
-                                    "designed to look like real footage. No AI look!"
-                                )
-                            else:
-                                _vid_caption = f"[TITAN_VIDEO:{_vid_url_r}]\n\n🎬 **Pro-tier video created!**"
-                        else:
-                            _vid_caption = f"❌ Video generation failed: {_vid_err_r}\n\nTry again or describe your video differently."
-                        msgs = cur_msgs(); msgs.append({"role":"assistant","content":_vid_caption}); set_msgs(msgs)
-                        st.rerun()
+                        # Max but no image: text-to-video
+                        with st.spinner("🎬 Creating your cinematic video…"):
+                            _vgif = _create_text_to_video(user_input)
+                        _vgif_fname = "titan_max_video.gif"
+                        st.session_state["_pending_video_gif"] = (_vgif, _vgif_fname)
+                        _vid_caption = (
+                            "🎬 **Max video created!** Cinematic animated video from your description.\n\n"
+                            "Download below. To animate your own photo instead, upload an image first then ask again!"
+                        )
+                    msgs = cur_msgs(); msgs.append({"role":"user","content":user_input}); msgs.append({"role":"assistant","content":_vid_caption}); set_msgs(msgs)
+                    st.rerun()
 
             # Generate animated diagram if requested
             if _is_diagram_request(user_input):
