@@ -5927,11 +5927,11 @@ function _refreshThinkBtns(){
 function _injectHomePlus(){
     if(pd.querySelector('[data-testid="stChatMessage"]')) return;
     var inp=pd.querySelector('[data-testid="stMain"] [data-testid="stTextInput"] input');
-    if(!inp||inp.__titanHomePlusInjected) return;
-    inp.__titanHomePlusInjected=true;
+    if(!inp) return;
     var wrap=inp.parentElement;
     while(wrap && wrap.getAttribute('data-testid')!=='stTextInput') wrap=wrap.parentElement;
     if(!wrap) wrap=inp.parentElement;
+    if(wrap.querySelector('#home-plus-icon')) return;
     wrap.style.position='relative';
     var plus=pd.createElement('button');
     plus.id='home-plus-icon';
