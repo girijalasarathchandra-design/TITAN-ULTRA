@@ -1138,6 +1138,35 @@ def _save_registry(data):
     except Exception:
         pass
 
+def _load_subscription():
+    if not _registry_ready(): return {}
+    _reg = _load_registry()
+    return _reg.get(_get_device_id(), {}).get("subscription", {})
+
+def _save_subscription(tier, txn_id, email):
+    if not _registry_ready(): return
+    from datetime import datetime as _dtsub, timedelta as _tdsub
+    _reg = _load_registry()
+    _did = _get_device_id()
+    if _did not in _reg: _reg[_did] = {}
+    _now = _dtsub.now()
+    _reg[_did]["subscription"] = {
+        "tier": tier,
+        "started": _now.isoformat()[:10],
+        "expires": (_now + _tdsub(days=30)).isoformat()[:10],
+        "txn_id": txn_id,
+        "email": email,
+    }
+    _save_registry(_reg)
+
+def _clear_subscription():
+    if not _registry_ready(): return
+    _reg = _load_registry()
+    _did = _get_device_id()
+    if _did in _reg and "subscription" in _reg[_did]:
+        del _reg[_did]["subscription"]
+        _save_registry(_reg)
+
 def _register_this_device(name):
     if not _registry_ready() or not name:
         return
@@ -1320,6 +1349,27 @@ for k, v in [("api_key", _saved_key), ("titan_memory", _saved_memory),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
+
+# ── Subscription check — restore tier from Gist on every load ────────────────
+if not _IS_OWNER and not st.session_state.get("_sub_checked"):
+    _sub_data = _load_subscription()
+    st.session_state["_sub_checked"] = True
+    if _sub_data and _sub_data.get("expires"):
+        from datetime import date as _subdate
+        try:
+            _exp = _subdate.fromisoformat(_sub_data["expires"])
+            if _subdate.today() <= _exp:
+                st.session_state.titan_tier = _sub_data.get("tier", "basic")
+                st.session_state["_subscription_active"] = True
+                st.session_state["_subscription_expires"] = _sub_data["expires"]
+                st.session_state["_subscription_expired"] = False
+            else:
+                st.session_state.titan_tier = "basic"
+                st.session_state["_subscription_active"] = False
+                st.session_state["_subscription_expired"] = True
+                st.session_state["_expired_tier"] = _sub_data.get("tier", "pro").capitalize()
+        except Exception:
+            pass
 
 
 def cur_msgs():
@@ -1583,16 +1633,30 @@ def _render_upgrade_page():
     st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
     # Monthly / Yearly toggle
-    _billing = st.radio("Billing", ["Monthly", "Yearly  (save ~30%)"], horizontal=True,
+    _billing = st.radio("Billing", ["Monthly", "Yearly"], horizontal=True,
                         key="_upgrade_billing", label_visibility="collapsed")
-    _yearly = "Yearly" in _billing
-
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+    _yearly = _billing == "Yearly"
+    if _yearly:
+        st.markdown(
+            "<div style='text-align:center;font-size:.8rem;color:#22c55e;margin:4px 0 12px'>"
+            "💰 <b>Pro:</b> Save ₹1,500 &nbsp;·&nbsp; <b>Max:</b> Save ₹3,000 — with yearly billing</div>",
+            unsafe_allow_html=True)
+    else:
+        st.markdown(
+            "<div style='text-align:center;font-size:.78rem;color:#555;margin:4px 0 12px'>"
+            "Switch to Yearly and save ₹1,500 (Pro) or ₹3,000 (Max)</div>",
+            unsafe_allow_html=True)
 
     # Pricing
     _basic_price  = "₹0"
     _pro_price    = "₹3,999 / yr" if _yearly else "₹475 / mo"
-    _max_price    = "₹24,999 / yr" if _yearly else "₹2,500 / mo"
+    _max_price    = "₹26,999 / yr" if _yearly else "₹2,500 / mo"
+    _pro_save_html = ("<div style='color:#22c55e;font-size:.72rem;font-weight:700;margin-top:4px'>💰 Save ₹1,500 vs monthly</div>"
+                      if _yearly else "")
+    _max_save_html = ("<div style='color:#22c55e;font-size:.72rem;font-weight:700;margin-top:4px'>💰 Save ₹3,000 vs monthly</div>"
+                      if _yearly else "")
+    _sub_active = st.session_state.get("_subscription_active", False)
+    _sub_expires = st.session_state.get("_subscription_expires", "")
 
     _c1, _c2, _c3 = st.columns(3, gap="medium")
 
@@ -1613,9 +1677,11 @@ def _render_upgrade_page():
 """, unsafe_allow_html=True)
         if _active_basic:
             st.markdown("<div style='text-align:center;margin-top:18px;font-size:.8rem;color:#555'>Current plan</div>", unsafe_allow_html=True)
-        else:
+        elif not _sub_active:
             if st.button("Downgrade to Basic", key="_buy_basic", use_container_width=True):
                 st.session_state.titan_tier = "basic"
+                _clear_subscription()
+                st.session_state["_subscription_active"] = False
                 st.session_state.show_upgrade = False
                 st.rerun()
 
@@ -1627,21 +1693,18 @@ def _render_upgrade_page():
   <div class="tu-badge rec">RECOMMENDED</div>
   <div class="tu-plan-name" style="color:#a78bfa">Titan Ultra Pro</div>
   <div class="tu-plan-price" style="color:#a78bfa">{_pro_price}</div>
-  <div class="tu-plan-sub">Everything in Basic, plus:</div>
+  {_pro_save_html}
+  <div class="tu-plan-sub" style="margin-top:{'4px' if _yearly else '18px'}">Everything in Basic, plus:</div>
   <div class="tu-feat">✅ <b>Unlimited</b> access — no time limit</div>
   <div class="tu-feat">✅ <b>Deeper</b>, more detailed answers</div>
-  <div class="tu-feat">✅ Priority response speed</div>
-  <div class="tu-feat">✅ Advanced formatting &amp; analysis</div>
-  <div class="tu-feat">✅ Pro badge + fancy purple UI</div>
+  <div class="tu-feat">✅ AI Image Generation</div>
+  <div class="tu-feat">✅ AI Video Generation</div>
+  <div class="tu-feat">✅ Pro badge + purple UI</div>
 </div>
 """, unsafe_allow_html=True)
         if _active_pro:
-            st.markdown("<div style='text-align:center;margin-top:18px;font-size:.8rem;color:#a78bfa'>✓ Current plan</div>", unsafe_allow_html=True)
-        else:
-            if st.button("Upgrade to Pro →", key="_buy_pro", use_container_width=True):
-                st.session_state.titan_tier = "pro"
-                st.session_state.show_upgrade = False
-                st.rerun()
+            _pro_exp = f" · expires {_sub_expires}" if _sub_expires else ""
+            st.markdown(f"<div style='text-align:center;margin-top:18px;font-size:.8rem;color:#a78bfa'>✓ Current plan{_pro_exp}</div>", unsafe_allow_html=True)
 
     # ── Max ──
     with _c3:
@@ -1651,21 +1714,18 @@ def _render_upgrade_page():
   <div class="tu-badge ult">ULTIMATE</div>
   <div class="tu-plan-name" style="color:#fbbf24">Titan Ultra Max</div>
   <div class="tu-plan-price" style="color:#fbbf24">{_max_price}</div>
-  <div class="tu-plan-sub">Everything in Pro, plus:</div>
-  <div class="tu-feat">✅ <b>Ultimate</b> answer quality — no mistakes</div>
+  {_max_save_html}
+  <div class="tu-plan-sub" style="margin-top:{'4px' if _yearly else '18px'}">Everything in Pro, plus:</div>
+  <div class="tu-feat">✅ <b>Ultimate</b> answer quality</div>
+  <div class="tu-feat">✅ Hyper-realistic AI images &amp; videos</div>
   <div class="tu-feat">✅ <b>Titan Code</b> — AI coding terminal</div>
-  <div class="tu-feat">✅ All features unlocked</div>
   <div class="tu-feat">✅ Deepest reasoning on every question</div>
   <div class="tu-feat">✅ Gold premium UI + Max badge</div>
 </div>
 """, unsafe_allow_html=True)
         if _active_max:
-            st.markdown("<div style='text-align:center;margin-top:18px;font-size:.8rem;color:#fbbf24'>✓ Current plan</div>", unsafe_allow_html=True)
-        else:
-            if st.button("Upgrade to Max ⭐", key="_buy_max", use_container_width=True):
-                st.session_state.titan_tier = "max"
-                st.session_state.show_upgrade = False
-                st.rerun()
+            _max_exp = f" · expires {_sub_expires}" if _sub_expires else ""
+            st.markdown(f"<div style='text-align:center;margin-top:18px;font-size:.8rem;color:#fbbf24'>✓ Current plan{_max_exp}</div>", unsafe_allow_html=True)
 
     st.markdown("<div style='height:30px'></div>", unsafe_allow_html=True)
     st.markdown("---")
@@ -1714,8 +1774,12 @@ def _render_upgrade_page():
                     st.session_state["_pending_payment"] = _pdata
                     _tier_key = "pro" if "Pro" in _selected_plan else "max"
                     st.session_state.titan_tier = _tier_key
+                    st.session_state["_subscription_active"] = True
+                    st.session_state["_subscription_expired"] = False
+                    st.session_state["_sub_checked"] = True
+                    _save_subscription(_tier_key, _txn_id.strip(), _user_email)
                     st.session_state.show_upgrade = False
-                    st.success(f"✅ Thank you! {_plan_label} activated. Your payment is being verified.")
+                    st.success(f"✅ Thank you! {_plan_label} activated for 1 month. Your payment is being verified.")
                     st.rerun()
                 else:
                     st.error("Please enter your Transaction ID.")
@@ -1821,6 +1885,28 @@ with st.sidebar:
             st.session_state.show_titan_features = False
         st.rerun()
 
+    # ── Upgrade button (visible in sidebar for all non-owner users) ──────────
+    if not _IS_OWNER:
+        _ub_tier = st.session_state.get("titan_tier", "basic")
+        if _ub_tier == "basic":
+            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+            st.markdown("""
+<style>
+.stButton > button[kind="secondary"][data-testid*="upgrade_sb"] {
+    background: linear-gradient(135deg,#1e3a8a,#4f46e5) !important;
+    color:#fff !important; border:none !important; font-weight:700 !important;
+    font-size:.82rem !important; letter-spacing:.5px !important;
+}
+</style>""", unsafe_allow_html=True)
+            if st.button("⬆  Upgrade to Pro / Max", key="_upgrade_sb", use_container_width=True):
+                st.session_state.show_upgrade = True
+                st.rerun()
+        elif _ub_tier == "pro":
+            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+            if st.button("⭐  Upgrade to Max", key="_upgrade_sb", use_container_width=True):
+                st.session_state.show_upgrade = True
+                st.rerun()
+
     # ── Pro: Answer Depth selector ────────────────────────────────────────────
     if not _IS_OWNER and st.session_state.get("titan_tier") == "pro":
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
@@ -1843,6 +1929,17 @@ with st.sidebar:
         _dep_labels = {"quick": "⚡ Quick Mode", "normal": "◉ Normal", "deep": "🔬 Deep Research"}
         _dep_colors = {"quick": "#f59e0b", "normal": "#a78bfa", "deep": "#22c55e"}
         st.markdown(f"<div style='font-size:.62rem;color:{_dep_colors.get(_dep_now,'#a78bfa')};padding:1px 4px 4px'>Active: {_dep_labels.get(_dep_now,'◉ Normal')}</div>", unsafe_allow_html=True)
+
+    # ── Video API Key (Pro + Max) ─────────────────────────────────────────────
+    if not _IS_OWNER and st.session_state.get("titan_tier") in ("pro", "max"):
+        _fk_now = st.session_state.get("fal_api_key", "")
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:.58rem;color:#60a5fa;letter-spacing:1.5px;padding:0 4px 2px;font-weight:600'>VIDEO API KEY (fal.ai)</div>", unsafe_allow_html=True)
+        _fk_input = st.text_input("", value=_fk_now, placeholder="Paste fal.ai key to enable video",
+                                   type="password", key="_fal_key_input", label_visibility="collapsed")
+        if _fk_input != _fk_now:
+            st.session_state.fal_api_key = _fk_input
+            st.rerun()
 
     # ── Max: Titan Focus Mode ─────────────────────────────────────────────────
     if not _IS_OWNER and st.session_state.get("titan_tier") == "max":
@@ -4830,6 +4927,18 @@ for _mi, msg in enumerate(_msgs_list):
         # Hide raw DALL-E image marker (image is rendered above)
         if _re_diag.match(r'^\[DALLE_IMAGE:[a-f0-9]+\]$', _content_show.strip()):
             _content_show = ""
+        # Render AI-generated image
+        _img_match = _re_diag.search(r'\[TITAN_IMAGE:([^\]]+)\]', _content_show)
+        if _img_match:
+            try: st.image(_img_match.group(1), use_container_width=True)
+            except Exception: pass
+            _content_show = _re_diag.sub(r'\[TITAN_IMAGE:[^\]]+\]', '', _content_show).strip()
+        # Render AI-generated video
+        _vid_match = _re_diag.search(r'\[TITAN_VIDEO:([^\]]+)\]', _content_show)
+        if _vid_match:
+            try: st.video(_vid_match.group(1))
+            except Exception: pass
+            _content_show = _re_diag.sub(r'\[TITAN_VIDEO:[^\]]+\]', '', _content_show).strip()
         if msg["role"] == "assistant" and _mi > 0:
             _prev2 = _msgs_list[_mi - 1]
             if _prev2["role"] == "user" and _is_diagram_request(_prev2["content"]):
@@ -6223,6 +6332,108 @@ def pc_execute(command):
     _sp.Popen(cmd, shell=True, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
     return f'✅ Ran: {cmd}'
 
+# ── AI Image & Video Generation ───────────────────────────────────────────────
+def _is_image_gen_request(q):
+    q = q.lower().strip()
+    return any(x in q for x in [
+        "generate image", "create image", "make image",
+        "generate an image", "create an image", "make an image",
+        "generate a image", "create a image",
+        "generate photo", "create photo", "make photo",
+        "generate a photo", "create a photo", "make a photo",
+        "generate picture", "create picture", "make picture",
+        "generate a picture", "create a picture",
+        "show me a picture of", "show me an image of",
+        "generate artwork", "create artwork", "make artwork",
+        "draw me", "draw an image", "illustrate this",
+        "generate illustration", "create illustration",
+        "ai image of", "ai photo of",
+    ])
+
+def _is_video_gen_request(q):
+    q = q.lower().strip()
+    return any(x in q for x in [
+        "generate video", "create video", "make video",
+        "generate a video", "create a video", "make a video",
+        "generate video of", "create video of", "make a video of",
+        "ai video", "create ai video", "generate ai video",
+        "create animation", "generate animation", "make animation",
+        "short video of", "video clip", "generate clip",
+        "animate this", "create a clip of",
+    ])
+
+def _gen_image_url(prompt, is_max=False):
+    import urllib.parse, hashlib as _hg
+    if is_max:
+        _full = (
+            prompt.strip() +
+            ", ultra photorealistic, DSLR photograph, Sony A7R V, 85mm f/1.4 lens, "
+            "perfect natural lighting, 8K UHD, skin texture visible, RAW capture, "
+            "zero AI artifacts, indistinguishable from real photograph, magazine quality"
+        )
+    else:
+        _full = (
+            prompt.strip() +
+            ", photorealistic, high quality, 4K, professional photography, "
+            "clean lighting, sharp focus, detailed"
+        )
+    _seed = int(_hg.md5(prompt.encode()).hexdigest()[:8], 16) % 999999
+    _enc  = urllib.parse.quote(_full)
+    return (
+        f"https://image.pollinations.ai/prompt/{_enc}"
+        f"?model=flux&width=1024&height=1024&enhance=true&nologo=true&seed={_seed}"
+    )
+
+def _gen_video_fal(prompt, is_max=False):
+    """Submit to fal.ai WAN 2.1, poll for result. Returns (url, error)."""
+    import time as _tvid
+    _fal_key = ""
+    try: _fal_key = st.secrets.get("FAL_KEY", "")
+    except Exception: pass
+    if not _fal_key:
+        _fal_key = st.session_state.get("fal_api_key", "")
+    if not _fal_key:
+        return None, "no_key"
+
+    _model = "fal-ai/wan/v2.1/14b/text-to-video" if is_max else "fal-ai/wan/v2.1/1.3b/text-to-video"
+    _video_prompt = (
+        prompt.strip() +
+        (", ultra realistic, cinematic 4K, photorealistic lighting, "
+         "indistinguishable from real video footage, professional cinematography, "
+         "no AI artifacts, natural motion" if is_max
+         else ", high quality, smooth motion, cinematic, detailed")
+    )
+    _headers = {"Authorization": f"Key {_fal_key}", "Content-Type": "application/json"}
+    _payload  = {"prompt": _video_prompt, "duration": "5", "aspect_ratio": "16:9"}
+    try:
+        _sub = requests.post(f"https://queue.fal.run/{_model}",
+                             json=_payload, headers=_headers, timeout=30)
+        if _sub.status_code not in (200, 201):
+            return None, f"Submit failed ({_sub.status_code})"
+        _req_id = _sub.json().get("request_id")
+        if not _req_id:
+            return None, "No request ID returned"
+        for _ in range(60):
+            _tvid.sleep(5)
+            _poll = requests.get(
+                f"https://queue.fal.run/{_model}/requests/{_req_id}/status",
+                headers=_headers, timeout=20)
+            _st = _poll.json().get("status", "")
+            if _st == "COMPLETED":
+                _res = requests.get(
+                    f"https://queue.fal.run/{_model}/requests/{_req_id}",
+                    headers=_headers, timeout=20)
+                _vurl = (
+                    _res.json().get("video", {}).get("url") or
+                    (_res.json().get("videos") or [{}])[0].get("url", "")
+                )
+                return (_vurl, None) if _vurl else (None, "No video URL in result")
+            elif _st in ("FAILED", "CANCELLED"):
+                return None, "Video generation failed on server."
+        return None, "Timed out waiting for video."
+    except Exception as _ev:
+        return None, str(_ev)
+
 # ── System prompt (fully auto-detected from user input) ───────────────────────
 def get_system():
     msgs = cur_msgs()
@@ -6839,6 +7050,19 @@ def _do_ai_call(api_msgs):
 # ── Chat input ────────────────────────────────────────────────────────────────
 q_val      = st.session_state.pop("quick_q","") or voice_text
 
+# ── Subscription expiry notice ────────────────────────────────────────────────
+if not _IS_OWNER and st.session_state.get("_subscription_expired"):
+    _exp_tier_name = st.session_state.get("_expired_tier", "Pro")
+    st.warning(
+        f"⏰ **Your 1-month Titan Ultra {_exp_tier_name} subscription has ended.**\n\n"
+        f"You're back on Basic. Pay again to continue {_exp_tier_name} features — "
+        f"or upgrade to the next plan.",
+        icon=None
+    )
+    if st.button(f"🔱 Renew {_exp_tier_name} / Upgrade", key="_renew_btn", use_container_width=False):
+        st.session_state.show_upgrade = True
+        st.rerun()
+
 if _USER_HIT_LIMIT:
     _usage_data_cur = _load_usage_data()
     _limit_hit_ts = _usage_data_cur.get("limit_hit_at") or _time_mod.time()
@@ -7437,6 +7661,66 @@ if user_input:
                         _conn_app_results = _web_search(
                             f"{_mentioned_app} {user_input} {_ca_date}", max_results=10
                         )
+
+            # ── AI Image / Video generation (Pro + Max only) ─────────────────────
+            _gen_tier = st.session_state.get("titan_tier", "basic")
+            if _gen_tier in ("pro", "max"):
+                if _is_image_gen_request(user_input):
+                    with st.spinner("🎨 Generating your image…"):
+                        _img_raw = re.sub(
+                            r'(?i)\b(generate|create|make|draw|show me|illustrate|visualize)\b'
+                            r'\s*(?:a\s+|an\s+)?(?:image|photo|picture|artwork|illustration)\s*(?:of\s*)?',
+                            '', user_input, count=1).strip() or user_input
+                        _img_url = _gen_image_url(_img_raw, is_max=(_gen_tier == "max"))
+                        if _gen_tier == "max":
+                            _img_caption = (
+                                f"[TITAN_IMAGE:{_img_url}]\n\n"
+                                "✨ **Max-tier image** — generated with photorealistic Flux model, "
+                                "designed to look completely real. Ask for any variation you want!"
+                            )
+                        else:
+                            _img_caption = (
+                                f"[TITAN_IMAGE:{_img_url}]\n\n"
+                                "🎨 **Pro-tier image generated!** Want a different style or composition? Just ask!"
+                            )
+                    msgs = cur_msgs(); msgs.append({"role":"assistant","content":_img_caption}); set_msgs(msgs)
+                    st.rerun()
+                elif _is_video_gen_request(user_input):
+                    _fal_k = ""
+                    try: _fal_k = st.secrets.get("FAL_KEY", "")
+                    except Exception: pass
+                    if not _fal_k: _fal_k = st.session_state.get("fal_api_key", "")
+                    if not _fal_k:
+                        _vid_no_key = (
+                            "❌ **Video generation needs a fal.ai API key.**\n\n"
+                            "To enable video creation:\n"
+                            "1. Go to **fal.ai** and sign up for free\n"
+                            "2. Copy your API key from the dashboard\n"
+                            "3. Enter it in the **sidebar → Video API Key** field\n\n"
+                            "Then try again!"
+                        )
+                        msgs = cur_msgs(); msgs.append({"role":"assistant","content":_vid_no_key}); set_msgs(msgs)
+                        st.rerun()
+                    else:
+                        with st.spinner("🎬 Creating your video… (takes 1–3 minutes)"):
+                            _vid_raw = re.sub(
+                                r'(?i)\b(generate|create|make|animate|produce)\b'
+                                r'\s*(?:a\s+|an\s+)?(?:video|animation|clip|short)\s*(?:of\s*)?',
+                                '', user_input, count=1).strip() or user_input
+                            _vid_url_r, _vid_err_r = _gen_video_fal(_vid_raw, is_max=(_gen_tier == "max"))
+                        if _vid_url_r:
+                            if _gen_tier == "max":
+                                _vid_caption = (
+                                    f"[TITAN_VIDEO:{_vid_url_r}]\n\n"
+                                    "🎬 **Max-tier video** — cinematic, photorealistic, "
+                                    "designed to look like real footage. No AI look!"
+                                )
+                            else:
+                                _vid_caption = f"[TITAN_VIDEO:{_vid_url_r}]\n\n🎬 **Pro-tier video created!**"
+                        else:
+                            _vid_caption = f"❌ Video generation failed: {_vid_err_r}\n\nTry again or describe your video differently."
+                        msgs = cur_msgs(); msgs.append({"role":"assistant","content":_vid_caption}); set_msgs(msgs)
+                        st.rerun()
 
             # Generate animated diagram if requested
             if _is_diagram_request(user_input):
