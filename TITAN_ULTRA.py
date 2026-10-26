@@ -87,6 +87,21 @@ html, body, [data-testid="stAppViewContainer"] {
 }
 [data-testid="stSidebar"] .stMarkdown { margin:0 !important; }
 [data-testid="stSidebar"] .stMarkdown p { margin:0 !important; padding:0 !important; }
+/* Inline code: blue instead of green, plain look — code blocks stay unchanged */
+[data-testid="stChatMessage"] p code,
+[data-testid="stChatMessage"] li code,
+[data-testid="stChatMessage"] td code,
+.stMarkdown p code,
+.stMarkdown li code,
+.stMarkdown td code {
+    background: rgba(59,130,246,0.12) !important;
+    color: #93c5fd !important;
+    border: 1px solid rgba(59,130,246,0.25) !important;
+    border-radius: 4px !important;
+    padding: 1px 5px !important;
+    font-size: 0.85em !important;
+    font-family: inherit !important;
+}
 [data-testid="stSidebar"] hr {
     margin:3px 0 !important;
     border-width:1px 0 0 !important;
@@ -468,6 +483,9 @@ SYSTEM = (
     "   Always write in simple, clear, everyday words that anyone can understand.\n"
     "   If a technical word is needed, explain it immediately in simple words.\n"
     "   Write like you are explaining to a smart friend, not writing a textbook.\n\n"
+    "   FORMATTING RULE — DO NOT use backtick inline code (like `this`) in normal explanations.\n"
+    "   Only use code blocks or inline code when the user EXPLICITLY asks for code or a command.\n"
+    "   When referring to technical terms in a normal explanation, write them in plain text or bold — NOT in backticks.\n\n"
     "4. BE CHEERFUL AND ENCOURAGING — Always be warm, enthusiastic, and uplifting.\n"
     "   React with genuine excitement to good questions: 'What an incredible question!', "
     "'You've hit the nail on the head!', 'That is absolutely brilliant!', 'Wow, great thinking!'.\n"
@@ -994,6 +1012,10 @@ def _load_chat_sessions():
     return [{"id": int(_t.time()), "title": "New Chat", "messages": []}]
 
 def _load_history():
+    # Gist shared history takes priority — enables cross-device/family sharing
+    _gh = st.session_state.get("_gist_history")
+    if _gh is not None:
+        return _gh
     try:
         with open(_CHAT_FILE, "r", encoding="utf-8") as f:
             data = _json.load(f)
@@ -1026,6 +1048,11 @@ def _save_to_history(session):
             _json.dump(history, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
+    # Sync to Gist so other family devices see this chat
+    _fkey = st.session_state.get("_family_key")
+    if _fkey:
+        st.session_state["_gist_history"] = history
+        _save_shared_history(_fkey, history)
 
 def _save_chat_sessions():
     active = st.session_state.chat_sessions[st.session_state.active_session]
@@ -1123,41 +1150,62 @@ def _load_registry():
 
 def _save_registry(data):
     if not _registry_ready():
-        return
+        return False
     try:
-        requests.patch(
+        _resp = requests.patch(
             f"https://api.github.com/gists/{REGISTRY_GIST_ID}",
             headers={"Authorization": f"token {REGISTRY_TOKEN}",
                      "Accept": "application/vnd.github.v3+json"},
             json={"files": {REGISTRY_FILENAME: {
                 "content": _json.dumps(data, indent=2, ensure_ascii=False)
             }}},
-            timeout=8
+            timeout=10
         )
         _fetch_registry_cached.clear()
+        return _resp.status_code in (200, 201)
     except Exception:
-        pass
+        return False
 
 def _load_subscription():
     if not _registry_ready(): return {}
     _reg = _load_registry()
     return _reg.get(_get_device_id(), {}).get("subscription", {})
 
-def _save_subscription(tier, txn_id, email):
-    if not _registry_ready(): return
+def _save_subscription(tier, txn_id, email, days=30):
+    """Save subscription with retry. Returns True on success, False on failure."""
+    if not _registry_ready(): return False
+    import time as _t_sub
     from datetime import datetime as _dtsub, timedelta as _tdsub
     _reg = _load_registry()
     _did = _get_device_id()
     if _did not in _reg: _reg[_did] = {}
+    # Ensure device entry has email + name so cross-device lookup works
+    if not _reg[_did].get("email"):
+        _reg[_did]["email"] = email.strip().lower()
+    if not _reg[_did].get("name"):
+        _reg[_did]["name"] = st.session_state.get("user_name_reg", "")
     _now = _dtsub.now()
-    _reg[_did]["subscription"] = {
+    _sub_data = {
         "tier": tier,
         "started": _now.isoformat()[:10],
-        "expires": (_now + _tdsub(days=30)).isoformat()[:10],
+        "expires": (_now + _tdsub(days=days)).isoformat()[:10],
         "txn_id": txn_id,
-        "email": email,
+        "email": email.strip().lower(),
+        "billing": "yearly" if days >= 365 else "monthly",
     }
-    _save_registry(_reg)
+    _reg[_did]["subscription"] = _sub_data
+    # Also save to account entry as a second copy — ensures cross-device restore even
+    # if the device entry is orphaned after a container restart
+    _acc_key = _account_key(email)
+    if "_accounts" in _reg and _acc_key in _reg["_accounts"]:
+        _reg["_accounts"][_acc_key]["subscription"] = _sub_data.copy()
+    # Retry up to 3 times — payment must not be lost silently
+    for _attempt in range(3):
+        if _save_registry(_reg):
+            return True
+        if _attempt < 2:
+            _t_sub.sleep(1.5)
+    return False
 
 def _clear_subscription():
     if not _registry_ready(): return
@@ -1166,6 +1214,182 @@ def _clear_subscription():
     if _did in _reg and "subscription" in _reg[_did]:
         del _reg[_did]["subscription"]
         _save_registry(_reg)
+
+def _find_sub_by_email_name(registry, email, name=""):
+    """Search all entries for an active subscription matching this email.
+    Name check is skipped — email is the unique account identifier in the new auth system.
+    Also checks the _accounts section for the backup subscription copy."""
+    from datetime import date as _fsd
+    _em = email.strip().lower()
+    # Check account entry backup first (most reliable — set directly on payment)
+    _ak = _account_key(_em)
+    _acc_sub = registry.get("_accounts", {}).get(_ak, {}).get("subscription", {})
+    if _acc_sub and _acc_sub.get("expires"):
+        try:
+            if _fsd.today() <= _fsd.fromisoformat(_acc_sub["expires"]):
+                return _acc_sub
+        except Exception:
+            pass
+    # Fall back to scanning device entries
+    for _k, _entry in registry.items():
+        if _k.startswith("_") or not isinstance(_entry, dict):
+            continue  # skip _accounts, _shared, and any non-dict entries
+        if _entry.get("email", "").strip().lower() == _em:
+            _s = _entry.get("subscription", {})
+            if _s and _s.get("expires"):
+                try:
+                    if _fsd.today() <= _fsd.fromisoformat(_s["expires"]):
+                        return _s
+                except Exception:
+                    pass
+    return None
+
+def _family_key(email):
+    """Stable key shared by all devices logged into the same account (email)."""
+    import hashlib as _hsh_fk
+    return "fam_" + _hsh_fk.sha256(email.strip().lower().encode()).hexdigest()[:16]
+
+def _account_key(email):
+    """Registry dict key for this email's account entry."""
+    import hashlib as _hsh_ak
+    return "acc_" + _hsh_ak.sha256(email.strip().lower().encode()).hexdigest()[:20]
+
+def _hash_password(password):
+    import hashlib as _hsh_pw
+    return _hsh_pw.sha256(password.strip().encode()).hexdigest()
+
+def _get_account(registry, email):
+    """Return account dict for this email or None."""
+    return registry.get("_accounts", {}).get(_account_key(email))
+
+def _create_account(name, email, password):
+    """Create a new account in the Gist _accounts section."""
+    if not _registry_ready():
+        return False
+    import base64 as _b64acc
+    from datetime import datetime as _dta
+    _reg = _load_registry()
+    if _get_account(_reg, email):
+        return False  # already exists
+    if "_accounts" not in _reg:
+        _reg["_accounts"] = {}
+    _reg["_accounts"][_account_key(email)] = {
+        "name": name.strip(),
+        "email": email.strip().lower(),
+        "password_hash": _hash_password(password),
+        "password_b64": _b64acc.b64encode(password.strip().encode()).decode(),
+        "registered_at": _dta.now().isoformat(),
+    }
+    _did = _get_device_id()
+    if _did not in _reg:
+        _reg[_did] = {}
+    _reg[_did]["email"] = email.strip().lower()
+    _reg[_did]["name"] = name.strip()
+    _reg[_did]["account_verified"] = True
+    _reg[_did].setdefault("registered_at", _dta.now().isoformat())
+    _reg[_did].setdefault("banned", False)
+    _reg[_did].setdefault("timeout_until", None)
+    _reg[_did]["last_seen"] = _dta.now().isoformat()
+    _save_registry(_reg)
+    return True
+
+def _verify_login(email, password):
+    """Returns (registry, account_dict) if credentials match, else (registry, None)."""
+    _reg = _load_registry()
+    _acc = _get_account(_reg, email)
+    if _acc and _acc.get("password_hash") == _hash_password(password):
+        return _reg, _acc
+    return _reg, None
+
+def _link_device_to_account(reg, email):
+    """Mark device as verified for this account (persists auto-login for this container)."""
+    if not _registry_ready():
+        return
+    from datetime import datetime as _dtl
+    _did = _get_device_id()
+    _acc = _get_account(reg, email)
+    if _did not in reg:
+        reg[_did] = {}
+    reg[_did]["email"] = email.strip().lower()
+    # Save name so _find_sub_by_email_name can still match this device entry
+    if _acc and _acc.get("name"):
+        reg[_did]["name"] = _acc["name"]
+    reg[_did]["account_verified"] = True
+    reg[_did]["last_seen"] = _dtl.now().isoformat()
+    _save_registry(reg)
+
+def _logout_device():
+    """Remove account link from this device entry in Gist."""
+    if not _registry_ready():
+        return
+    _reg = _load_registry()
+    _did = _get_device_id()
+    if _did in _reg:
+        _reg[_did].pop("account_verified", None)
+        _reg[_did].pop("email", None)
+        _reg[_did].pop("name", None)
+        _reg[_did].pop("subscription", None)
+        _save_registry(_reg)
+
+@st.cache_data(ttl=300)
+def _fetch_chats_cached():
+    try:
+        _r = requests.get(
+            f"https://api.github.com/gists/{REGISTRY_GIST_ID}",
+            headers={"Authorization": f"token {REGISTRY_TOKEN}",
+                     "Accept": "application/vnd.github.v3+json"},
+            timeout=8
+        )
+        if _r.status_code == 200:
+            _files = _r.json().get("files", {})
+            if CHATS_FILENAME in _files:
+                return _json.loads(_files[CHATS_FILENAME]["content"])
+    except Exception:
+        pass
+    return {}
+
+def _load_shared_history(family_key):
+    if not _registry_ready():
+        return []
+    try:
+        return _fetch_chats_cached().get(family_key, [])
+    except Exception:
+        return []
+
+def _save_shared_history(family_key, history):
+    """Save history to Gist in a background thread — non-blocking."""
+    if not _registry_ready():
+        return
+    import threading as _th_ch
+    def _do():
+        try:
+            _h = history[:30]
+            _trimmed = []
+            for _sess in _h:
+                _s = dict(_sess)
+                _msgs = []
+                for _m in _s.get("messages", []):
+                    _mc = dict(_m)
+                    if isinstance(_mc.get("content"), str) and len(_mc["content"]) > 3000:
+                        _mc["content"] = _mc["content"][:3000] + "…"
+                    _msgs.append(_mc)
+                _s["messages"] = _msgs
+                _trimmed.append(_s)
+            _cur = _fetch_chats_cached() or {}
+            _cur[family_key] = _trimmed
+            requests.patch(
+                f"https://api.github.com/gists/{REGISTRY_GIST_ID}",
+                headers={"Authorization": f"token {REGISTRY_TOKEN}",
+                         "Accept": "application/vnd.github.v3+json"},
+                json={"files": {CHATS_FILENAME: {
+                    "content": _json.dumps(_cur, indent=2, ensure_ascii=False)
+                }}},
+                timeout=10
+            )
+            _fetch_chats_cached.clear()
+        except Exception:
+            pass
+    _th_ch.Thread(target=_do, daemon=True).start()
 
 def _register_this_device(name):
     if not _registry_ready() or not name:
@@ -1205,6 +1429,7 @@ REGISTRY_GIST_ID  = "0ae47b140415e738f3b8d1e5b0e17ecc"
 import base64 as _b64
 REGISTRY_TOKEN    = _b64.b64decode("Z2hwX1FETFc1RUVLc3A5ck9najhRMGtxUjhGMDFuWE5ndjBLV0w3Qg==").decode()
 REGISTRY_FILENAME = "titan_devices.json"
+CHATS_FILENAME    = "titan_chats.json"
 
 def _check_owner_auth():
     if not _OWNER_AUTH_FILE.exists():
@@ -1240,6 +1465,89 @@ if not _IS_OWNER:
     _usage = _load_usage_data()
     _now_ts = _time_mod.time()
 
+    # ── ONE early Gist load — registration + subscription + ban — runs once per session ──
+    # Must happen BEFORE _tier_bypass so paid Pro/Max users bypass the time limit correctly
+    if _registry_ready() and not st.session_state.get("_gist_loaded"):
+        try:
+            from datetime import date as _gld, datetime as _gldt
+            _gl_did   = _get_device_id()
+            _gl_reg   = _load_registry()
+            _gl_entry = _gl_reg.get(_gl_did, {})
+
+            # ── Ban check ─────────────────────────────────────────────────────
+            if _gl_entry.get("banned"):
+                st.error("🚫 **You have been removed from Titan Ultra by the administrator.**\n\nContact the owner if you think this is a mistake.")
+                st.stop()
+
+            # ── Timeout check ─────────────────────────────────────────────────
+            _tout_str = _gl_entry.get("timeout_until")
+            if _tout_str:
+                _tout_dt = _gldt.fromisoformat(_tout_str)
+                if _gldt.now() < _tout_dt:
+                    _tsecs = int((_tout_dt - _gldt.now()).total_seconds())
+                    st.warning("⏳ **You have been temporarily timed out by the administrator.**")
+                    import streamlit.components.v1 as _cv1_tout
+                    _cv1_tout.html(f"""
+<div style="text-align:center;padding:16px 0;font-family:-apple-system,Segoe UI,sans-serif">
+  <div style="font-size:.8rem;color:#f59e0b;letter-spacing:2px;margin-bottom:8px">⏳ TIMEOUT — COME BACK IN</div>
+  <div id="tout_timer" style="font-size:2.8rem;font-weight:900;color:#f87171;letter-spacing:5px"></div>
+</div>
+<script>
+var r={_tsecs};
+function f(n){{return n.toString().padStart(2,'0');}}
+function tick(){{
+  if(r<=0){{document.getElementById('tout_timer').innerHTML='00:00:00';setTimeout(function(){{window.location.reload();}},1500);return;}}
+  var h=Math.floor(r/3600),m=Math.floor((r%3600)/60),s=r%60;
+  document.getElementById('tout_timer').innerHTML=f(h)+':'+f(m)+':'+f(s);
+  r--;setTimeout(tick,1000);
+}}
+tick();
+</script>""", height=120)
+                    st.stop()
+
+            # ── Auto-login: device was verified for an account in this container ─
+            if _gl_entry.get("account_verified") and _gl_entry.get("email"):
+                _gl_acc = _get_account(_gl_reg, _gl_entry["email"])
+                if _gl_acc:
+                    st.session_state["user_registered"] = True
+                    st.session_state["user_name_reg"]   = _gl_acc["name"]
+                    st.session_state["user_email_reg"]  = _gl_acc["email"]
+                    # ── Load shared history ────────────────────────────────────
+                    _gl_fkey = _family_key(_gl_acc["email"])
+                    st.session_state["_family_key"] = _gl_fkey
+                    if not st.session_state.get("_gist_history"):
+                        _gl_hist = _load_shared_history(_gl_fkey)
+                        if _gl_hist:
+                            st.session_state["_gist_history"] = _gl_hist
+                    # ── Restore subscription ───────────────────────────────────
+                    _gl_sub = _gl_entry.get("subscription", {})
+                    if not _gl_sub:
+                        _gl_sub = _find_sub_by_email_name(_gl_reg, _gl_acc["email"], _gl_acc["name"]) or {}
+                        if _gl_sub:
+                            _gl_reg[_gl_did]["subscription"] = _gl_sub.copy()
+                            _save_registry(_gl_reg)
+                    if _gl_sub and _gl_sub.get("expires"):
+                        _gl_exp = _gld.fromisoformat(_gl_sub["expires"])
+                        if _gld.today() <= _gl_exp:
+                            st.session_state["titan_tier"]            = _gl_sub.get("tier", "basic")
+                            st.session_state["_subscription_active"]  = True
+                            st.session_state["_subscription_expires"] = _gl_sub["expires"]
+                            st.session_state["_subscription_expired"] = False
+                        else:
+                            st.session_state["_subscription_expired"] = True
+                            st.session_state["_expired_tier"]         = _gl_sub.get("tier", "pro").capitalize()
+
+            # ── Update last_seen ───────────────────────────────────────────────
+            if _gl_did not in _gl_reg:
+                _gl_reg[_gl_did] = {}
+            _gl_reg[_gl_did]["last_seen"] = _gldt.now().isoformat()
+            _save_registry(_gl_reg)
+
+            st.session_state["_gist_loaded"] = True
+            st.session_state["_sub_checked"] = True
+        except Exception:
+            pass
+
     # Reset if 5 hrs have passed since limit was hit
     if _usage["limit_hit_at"] and (_now_ts - _usage["limit_hit_at"]) >= _USAGE_RESET_SECONDS:
         _usage = {"total_seconds": 0.0, "limit_hit_at": None}
@@ -1256,51 +1564,11 @@ if not _IS_OWNER:
             _usage["limit_hit_at"] = _now_ts
         _save_usage_data(_usage)
 
-    # Pro/Max tiers bypass the time limit
+    # Pro/Max tiers bypass the time limit — tier is now correctly restored above
     _tier_bypass = st.session_state.get("titan_tier", "basic") in ("pro", "max")
     _USER_HIT_LIMIT = _usage.get("limit_hit_at") is not None and not _tier_bypass
 else:
     _USER_HIT_LIMIT = False
-
-# ── Device ban / admin-timeout check for non-owners ──────────────────────────
-if not _IS_OWNER and _registry_ready():
-    try:
-        from datetime import datetime as _dtnow
-        _my_did = _get_device_id()
-        _my_saved_name = _saved_memory.get("name", "").strip()
-        if _my_saved_name:
-            _register_this_device(_my_saved_name)
-        _dev_reg = _load_registry()
-        _my_dev  = _dev_reg.get(_my_did, {})
-        if _my_dev.get("banned"):
-            st.error("🚫 **You have been removed from Titan Ultra by the administrator.**\n\nContact the owner if you think this is a mistake.")
-            st.stop()
-        _tout_str = _my_dev.get("timeout_until")
-        if _tout_str:
-            _tout_dt = _dtnow.fromisoformat(_tout_str)
-            if _dtnow.now() < _tout_dt:
-                _tsecs = int((_tout_dt - _dtnow.now()).total_seconds())
-                st.warning("⏳ **You have been temporarily timed out by the administrator.**")
-                import streamlit.components.v1 as _cv1_tout
-                _cv1_tout.html(f"""
-<div style="text-align:center;padding:16px 0;font-family:-apple-system,Segoe UI,sans-serif">
-  <div style="font-size:.8rem;color:#f59e0b;letter-spacing:2px;margin-bottom:8px">⏳ TIMEOUT — COME BACK IN</div>
-  <div id="tout_timer" style="font-size:2.8rem;font-weight:900;color:#f87171;letter-spacing:5px"></div>
-</div>
-<script>
-var r={_tsecs};
-function f(n){{return n.toString().padStart(2,'0');}}
-function tick(){{
-  if(r<=0){{document.getElementById('tout_timer').innerHTML='00:00:00';setTimeout(function(){{window.location.reload();}},1500);return;}}
-  var h=Math.floor(r/3600),m=Math.floor((r%3600)/60),s=r%60;
-  document.getElementById('tout_timer').innerHTML=f(h)+':'+f(m)+':'+f(s);
-  r--;setTimeout(tick,1000);
-}}
-tick();
-</script>""", height=120)
-                st.stop()
-    except Exception:
-        pass
 
 # ── Fresh-session detection ───────────────────────────────────────────────────
 # On a brand-new visit (new tab OR reconnect after close), reset to empty chat.
@@ -1350,26 +1618,7 @@ for k, v in [("api_key", _saved_key), ("titan_memory", _saved_memory),
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ── Subscription check — restore tier from Gist on every load ────────────────
-if not _IS_OWNER and not st.session_state.get("_sub_checked"):
-    _sub_data = _load_subscription()
-    st.session_state["_sub_checked"] = True
-    if _sub_data and _sub_data.get("expires"):
-        from datetime import date as _subdate
-        try:
-            _exp = _subdate.fromisoformat(_sub_data["expires"])
-            if _subdate.today() <= _exp:
-                st.session_state.titan_tier = _sub_data.get("tier", "basic")
-                st.session_state["_subscription_active"] = True
-                st.session_state["_subscription_expires"] = _sub_data["expires"]
-                st.session_state["_subscription_expired"] = False
-            else:
-                st.session_state.titan_tier = "basic"
-                st.session_state["_subscription_active"] = False
-                st.session_state["_subscription_expired"] = True
-                st.session_state["_expired_tier"] = _sub_data.get("tier", "pro").capitalize()
-        except Exception:
-            pass
+# (Registration + subscription are restored in the early Gist load above, before usage check)
 
 
 def cur_msgs():
@@ -1533,40 +1782,151 @@ _inject_tier_css()
 if not _IS_OWNER and not st.session_state.get("user_registered"):
     st.markdown("""
 <style>
-.reg-wrap { display:flex; flex-direction:column; align-items:center;
-            justify-content:center; min-height:55vh; text-align:center; }
-.reg-label { color:#e8e8e8 !important; font-size:0.85rem !important;
-             font-weight:600 !important; margin-bottom:4px !important;
-             display:block !important; text-align:left !important; }
+.auth-wrap { display:flex; flex-direction:column; align-items:center;
+             justify-content:center; min-height:55vh; text-align:center; }
+.auth-label { color:#e8e8e8 !important; font-size:0.84rem !important;
+              font-weight:600 !important; margin-bottom:4px !important;
+              display:block !important; text-align:left !important; }
+.auth-toggle-btn button { background:transparent !important; border:none !important;
+                          color:#7c3aed !important; font-size:.82rem !important;
+                          padding:0 !important; text-decoration:underline !important; }
 </style>
-<div class="reg-wrap">
+<div class="auth-wrap">
   <div style='font-size:2.4rem;margin-bottom:10px'>🔱</div>
-  <div style='font-size:1.65rem;font-weight:700;color:#fff;margin-bottom:6px'>Welcome to Titan Ultra</div>
-  <div style='font-size:.85rem;color:#555;margin-bottom:0'>Enter your details to get started</div>
+  <div style='font-size:1.65rem;font-weight:700;color:#fff;margin-bottom:4px'>Titan Ultra</div>
+  <div style='font-size:.82rem;color:#555;margin-bottom:0'>Login to your account or create a new one</div>
 </div>
 """, unsafe_allow_html=True)
-    _rc1, _rc2, _rc3 = st.columns([1, 2, 1])
-    with _rc2:
-        with st.form("_reg_form", clear_on_submit=False):
-            st.markdown("<span class='reg-label'>Name</span>", unsafe_allow_html=True)
-            _reg_name = st.text_input("", placeholder="e.g. Rahul Sharma",
-                                      key="_reg_name_input", label_visibility="collapsed")
-            st.markdown("<span class='reg-label' style='margin-top:10px;display:block'>Email</span>",
-                        unsafe_allow_html=True)
-            _reg_email = st.text_input("", placeholder="e.g. rahul@gmail.com",
-                                       key="_reg_email_input", label_visibility="collapsed")
-            st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-            _reg_submitted = st.form_submit_button("Get Started →", use_container_width=True)
-            if _reg_submitted:
-                if _reg_name.strip() and _reg_email.strip() and "@" in _reg_email:
-                    st.session_state.user_registered = True
-                    st.session_state.user_name_reg   = _reg_name.strip()
-                    st.session_state.user_email_reg  = _reg_email.strip()
-                    if not st.session_state.titan_memory.get("name"):
-                        st.session_state.titan_memory["name"] = _reg_name.strip().split()[0]
-                    st.rerun()
-                else:
-                    st.error("Please enter your name and a valid email address.")
+
+    _auth_mode = st.session_state.get("_auth_mode", "login")
+    _ac1, _ac2, _ac3 = st.columns([1, 2, 1])
+    with _ac2:
+        # ── Mode toggle ──────────────────────────────────────────────────────
+        _t1, _t2 = st.columns(2)
+        with _t1:
+            if st.button("Log In", key="_auth_tab_login", use_container_width=True,
+                         type="primary" if _auth_mode == "login" else "secondary"):
+                st.session_state["_auth_mode"] = "login"
+                st.rerun()
+        with _t2:
+            if st.button("Register", key="_auth_tab_reg", use_container_width=True,
+                         type="primary" if _auth_mode == "register" else "secondary"):
+                st.session_state["_auth_mode"] = "register"
+                st.rerun()
+
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+        if _auth_mode == "login":
+            # ── LOGIN FORM ───────────────────────────────────────────────────
+            with st.form("_login_form", clear_on_submit=False):
+                st.markdown("<span class='auth-label'>Email</span>", unsafe_allow_html=True)
+                _li_email = st.text_input("", placeholder="your@email.com",
+                                          key="_li_email", label_visibility="collapsed")
+                st.markdown("<span class='auth-label' style='margin-top:8px;display:block'>Password</span>",
+                            unsafe_allow_html=True)
+                _li_pass = st.text_input("", placeholder="Enter your password",
+                                         type="password", key="_li_pass", label_visibility="collapsed")
+                st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+                _li_submit = st.form_submit_button("Log In →", use_container_width=True)
+                if _li_submit:
+                    if _li_email.strip() and "@" in _li_email and _li_pass.strip():
+                        _li_reg, _li_acc = _verify_login(_li_email.strip(), _li_pass.strip())
+                        if _li_acc:
+                            # Successful login
+                            st.session_state["user_registered"]  = True
+                            st.session_state["user_name_reg"]    = _li_acc["name"]
+                            st.session_state["user_email_reg"]   = _li_acc["email"]
+                            if not st.session_state.titan_memory.get("name"):
+                                st.session_state.titan_memory["name"] = _li_acc["name"].split()[0]
+                            # Link device + load subscription + history
+                            _link_device_to_account(_li_reg, _li_acc["email"])
+                            _li_fkey = _family_key(_li_acc["email"])
+                            st.session_state["_family_key"] = _li_fkey
+                            _li_hist = _load_shared_history(_li_fkey)
+                            if _li_hist:
+                                st.session_state["_gist_history"] = _li_hist
+                            # Pull subscription from this account's existing device entries
+                            _li_sub = _find_sub_by_email_name(_li_reg, _li_acc["email"], _li_acc["name"]) or {}
+                            if _li_sub:
+                                _li_did = _get_device_id()
+                                _li_reg[_li_did]["subscription"] = _li_sub.copy()
+                                _save_registry(_li_reg)
+                                st.session_state["titan_tier"]            = _li_sub.get("tier", "basic")
+                                st.session_state["_subscription_active"]  = True
+                                st.session_state["_subscription_expires"] = _li_sub.get("expires", "")
+                                st.session_state["_subscription_expired"] = False
+                            st.session_state["_gist_loaded"] = True
+                            st.session_state["_sub_checked"] = True
+                            st.rerun()
+                        else:
+                            st.error("Incorrect email or password.")
+                    else:
+                        st.error("Please enter a valid email and password.")
+        else:
+            # ── REGISTER FORM ────────────────────────────────────────────────
+            with st.form("_register_form", clear_on_submit=False):
+                st.markdown("<span class='auth-label'>Name</span>", unsafe_allow_html=True)
+                _ri_name = st.text_input("", placeholder="e.g. Rahul Sharma",
+                                         key="_ri_name", label_visibility="collapsed")
+                st.markdown("<span class='auth-label' style='margin-top:8px;display:block'>Email</span>",
+                            unsafe_allow_html=True)
+                _ri_email = st.text_input("", placeholder="e.g. rahul@gmail.com",
+                                          key="_ri_email", label_visibility="collapsed")
+                st.markdown("<span class='auth-label' style='margin-top:8px;display:block'>Password</span>",
+                            unsafe_allow_html=True)
+                _ri_pass = st.text_input("", placeholder="Create a password",
+                                         type="password", key="_ri_pass", label_visibility="collapsed")
+                st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+                _ri_submit = st.form_submit_button("Create Account →", use_container_width=True)
+                if _ri_submit:
+                    if _ri_name.strip() and _ri_email.strip() and "@" in _ri_email and _ri_pass.strip():
+                        if len(_ri_pass.strip()) < 6:
+                            st.error("Password must be at least 6 characters.")
+                        else:
+                            if _registry_ready():
+                                try:
+                                    _ri_reg = _load_registry()
+                                    if _get_account(_ri_reg, _ri_email.strip()):
+                                        st.error("An account with this email already exists. Please log in.")
+                                    else:
+                                        _ok = _create_account(_ri_name.strip(), _ri_email.strip(), _ri_pass.strip())
+                                        if _ok:
+                                            st.session_state["user_registered"]  = True
+                                            st.session_state["user_name_reg"]    = _ri_name.strip()
+                                            st.session_state["user_email_reg"]   = _ri_email.strip().lower()
+                                            if not st.session_state.titan_memory.get("name"):
+                                                st.session_state.titan_memory["name"] = _ri_name.strip().split()[0]
+                                            _ri_fkey = _family_key(_ri_email.strip())
+                                            st.session_state["_family_key"] = _ri_fkey
+                                            # Check if any device with this email already has a subscription
+                                            _ri_reg2 = _load_registry()
+                                            _ri_sub = _find_sub_by_email_name(_ri_reg2, _ri_email.strip(), _ri_name.strip()) or {}
+                                            if _ri_sub:
+                                                _ri_did = _get_device_id()
+                                                _ri_reg2[_ri_did]["subscription"] = _ri_sub.copy()
+                                                _save_registry(_ri_reg2)
+                                                st.session_state["titan_tier"]            = _ri_sub.get("tier", "basic")
+                                                st.session_state["_subscription_active"]  = True
+                                                st.session_state["_subscription_expires"] = _ri_sub.get("expires", "")
+                                                st.session_state["_subscription_expired"] = False
+                                            _ri_hist = _load_shared_history(_ri_fkey)
+                                            if _ri_hist:
+                                                st.session_state["_gist_history"] = _ri_hist
+                                            st.session_state["_gist_loaded"] = True
+                                            st.session_state["_sub_checked"] = True
+                                            st.rerun()
+                                        else:
+                                            st.error("Could not create account. Please try again.")
+                                except Exception:
+                                    st.error("Something went wrong. Please try again.")
+                            else:
+                                # Offline fallback
+                                st.session_state["user_registered"] = True
+                                st.session_state["user_name_reg"]   = _ri_name.strip()
+                                st.session_state["user_email_reg"]  = _ri_email.strip()
+                                st.rerun()
+                    else:
+                        st.error("Please fill in all fields with a valid email.")
     st.stop()
 
 # ── Upgrade Pricing Page ──────────────────────────────────────────────────────
@@ -1631,6 +1991,28 @@ def _render_upgrade_page():
         st.markdown("<h2 style='margin:0;padding:4px 0 0 0'>🔱 Upgrade Titan Ultra</h2>", unsafe_allow_html=True)
 
     st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+    # ── If subscription is active, show locked plan — no switching allowed ────
+    _up_sub_active  = st.session_state.get("_subscription_active", False)
+    _up_sub_expires = st.session_state.get("_subscription_expires", "")
+    if _up_sub_active and _tier in ("pro", "max"):
+        _lk_clr  = "#f59e0b" if _tier == "max" else "#a78bfa"
+        _lk_name = "Titan Ultra Max" if _tier == "max" else "Titan Ultra Pro"
+        _lk_icon = "⭐" if _tier == "max" else "🔱"
+        st.markdown(f"""
+<div style='background:#111;border:2px solid {_lk_clr};border-radius:16px;
+     padding:32px 24px;text-align:center;max-width:420px;margin:0 auto'>
+  <div style='font-size:2.5rem'>{_lk_icon}</div>
+  <div style='font-size:1.4rem;font-weight:800;color:{_lk_clr};margin:10px 0 4px'>{_lk_name}</div>
+  <div style='font-size:.85rem;color:#888;margin-bottom:18px'>Your active subscription</div>
+  {"<div style='font-size:.8rem;color:#555;background:#0a0a0a;border-radius:8px;padding:8px 16px;display:inline-block'>expires " + _up_sub_expires + "</div>" if _up_sub_expires else ""}
+  <div style='margin-top:22px;font-size:.82rem;color:#666;line-height:1.6'>
+    You are locked into this plan until it expires.<br>
+    After expiry you can choose a new plan.
+  </div>
+</div>
+""", unsafe_allow_html=True)
+        st.stop()
 
     # Monthly / Yearly toggle
     _billing = st.radio("Billing", ["Monthly", "Yearly"], horizontal=True,
@@ -1733,7 +2115,9 @@ def _render_upgrade_page():
 
     _pay_col1, _pay_col2, _pay_col3 = st.columns([1,2,1])
     with _pay_col2:
-        _user_email = st.text_input("Your email address", placeholder="Enter your email to continue",
+        _prefill_email = st.session_state.get("user_email_reg", "")
+        _user_email = st.text_input("Your email address", value=_prefill_email,
+                                    placeholder="Enter your email to continue",
                                     key="_upgrade_email", label_visibility="visible")
         _selected_plan = st.radio("Select plan", ["Titan Ultra Pro", "Titan Ultra Max"],
                                   key="_pay_plan", label_visibility="collapsed", horizontal=True)
@@ -1763,24 +2147,37 @@ def _render_upgrade_page():
                                      placeholder="e.g. 428371920847", key="_txn_id_input")
             if st.button("✅ Confirm Payment", key="_confirm_pay", use_container_width=True):
                 if _txn_id.strip():
-                    import json as _pjson
-                    _pdata = {
-                        "email": _user_email,
-                        "plan": _plan_label,
-                        "amount": _pay_amount,
-                        "txn_id": _txn_id.strip(),
-                        "status": "pending_verification"
-                    }
-                    st.session_state["_pending_payment"] = _pdata
-                    _tier_key = "pro" if "Pro" in _selected_plan else "max"
-                    st.session_state.titan_tier = _tier_key
-                    st.session_state["_subscription_active"] = True
-                    st.session_state["_subscription_expired"] = False
-                    st.session_state["_sub_checked"] = True
-                    _save_subscription(_tier_key, _txn_id.strip(), _user_email)
-                    st.session_state.show_upgrade = False
-                    st.success(f"✅ Thank you! {_plan_label} activated for 1 month. Your payment is being verified.")
-                    st.rerun()
+                    _tier_key  = "pro" if "Pro" in _selected_plan else "max"
+                    _sub_days  = 365 if _is_yearly else 30
+                    _sub_label = "1 year" if _is_yearly else "1 month"
+                    from datetime import datetime as _pay_dt, timedelta as _pay_td
+                    _sub_expires = (_pay_dt.now() + _pay_td(days=_sub_days)).isoformat()[:10]
+                    # Save to Gist with retry — if this fails, user's money must not be lost
+                    _pay_saved = _save_subscription(_tier_key, _txn_id.strip(), _user_email, days=_sub_days)
+                    if _pay_saved:
+                        st.session_state.titan_tier               = _tier_key
+                        st.session_state["_subscription_active"]  = True
+                        st.session_state["_subscription_expired"] = False
+                        st.session_state["_subscription_expires"] = _sub_expires
+                        st.session_state["_sub_checked"]          = True
+                        st.session_state["_gist_loaded"]          = True
+                        st.session_state.show_upgrade = False
+                        st.success(f"✅ {_plan_label} activated for {_sub_label}. Your access is now unlocked.")
+                        st.rerun()
+                    else:
+                        # Gist save failed — keep session active AND warn user
+                        st.session_state.titan_tier               = _tier_key
+                        st.session_state["_subscription_active"]  = True
+                        st.session_state["_subscription_expired"] = False
+                        st.session_state["_subscription_expires"] = _sub_expires
+                        st.error(
+                            "⚠️ **Payment received but could not save to server right now.**\n\n"
+                            f"**Screenshot this immediately:**\n\n"
+                            f"- Transaction ID: `{_txn_id.strip()}`\n"
+                            f"- Plan: {_plan_label}\n"
+                            f"- Email: {_user_email}\n\n"
+                            "Send the screenshot to the owner — your subscription will be activated manually."
+                        )
                 else:
                     st.error("Please enter your Transaction ID.")
         else:
@@ -1815,6 +2212,30 @@ with st.sidebar:
         letter-spacing:1.5px;font-family:"Segoe UI",sans-serif'>🔱 TITAN ULTRA</span>{_tier_badge_html}
     </div>
     """, unsafe_allow_html=True)
+
+    # ── Account info + logout (non-owner users only) ─────────────────────────
+    if not _IS_OWNER and st.session_state.get("user_registered"):
+        _sb_uname = st.session_state.get("user_name_reg", "")
+        _sb_uemail = st.session_state.get("user_email_reg", "")
+        st.markdown(
+            f"<div style='font-size:.68rem;color:#4a5568;padding:0 4px 2px'>logged in as "
+            f"<span style='color:#a78bfa'>{_sb_uname}</span></div>",
+            unsafe_allow_html=True
+        )
+        _lo_col1, _lo_col2 = st.columns([3, 1])
+        with _lo_col2:
+            if st.button("↩", key="_logout_btn", help="Log out", use_container_width=True):
+                try:
+                    _logout_device()
+                except Exception:
+                    pass
+                for _k in ["user_registered", "user_name_reg", "user_email_reg",
+                           "_family_key", "_gist_history", "titan_tier",
+                           "_subscription_active", "_subscription_expires",
+                           "_subscription_expired", "_expired_tier",
+                           "_gist_loaded", "_sub_checked", "_auth_mode"]:
+                    st.session_state.pop(_k, None)
+                st.rerun()
 
     # ── Primary nav items ─────────────────────────────────────────────────────
     if st.button("new chat", use_container_width=True, key="_nav_newchat"):
@@ -1887,8 +2308,23 @@ with st.sidebar:
 
     # ── Upgrade button (visible in sidebar for all non-owner users) ──────────
     if not _IS_OWNER:
-        _ub_tier = st.session_state.get("titan_tier", "basic")
-        if _ub_tier == "basic":
+        _ub_tier     = st.session_state.get("titan_tier", "basic")
+        _ub_sub_on   = st.session_state.get("_subscription_active", False)
+        _ub_sub_exp  = st.session_state.get("_subscription_expires", "")
+        if _ub_sub_on:
+            # Subscription active — show locked plan info, no switching allowed
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            _ub_clr = "#f59e0b" if _ub_tier == "max" else "#a78bfa"
+            _ub_lbl = "MAX" if _ub_tier == "max" else "PRO"
+            st.markdown(
+                f"<div style='background:rgba(255,255,255,0.04);border:1px solid {_ub_clr}44;"
+                f"border-radius:8px;padding:8px 10px;font-size:.72rem'>"
+                f"<span style='color:{_ub_clr};font-weight:700'>{_ub_lbl} active</span>"
+                + (f"<br><span style='color:#555;font-size:.65rem'>expires {_ub_sub_exp}</span>" if _ub_sub_exp else "")
+                + "</div>",
+                unsafe_allow_html=True
+            )
+        elif _ub_tier == "basic":
             st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
             st.markdown("""
 <style>
@@ -1899,11 +2335,6 @@ with st.sidebar:
 }
 </style>""", unsafe_allow_html=True)
             if st.button("⬆  Upgrade to Pro / Max", key="_upgrade_sb", use_container_width=True):
-                st.session_state.show_upgrade = True
-                st.rerun()
-        elif _ub_tier == "pro":
-            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-            if st.button("⭐  Upgrade to Max", key="_upgrade_sb", use_container_width=True):
                 st.session_state.show_upgrade = True
                 st.rerun()
 
@@ -2077,6 +2508,31 @@ with st.sidebar:
                     st.rerun()
                 else:
                     st.error("Wrong code.")
+            # ── Account info: show saved password so user can share with family ─
+            if st.session_state.get("user_registered") and st.session_state.get("user_email_reg"):
+                st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+                st.markdown("<div style='font-size:.68rem;color:#4a5568'>Account</div>", unsafe_allow_html=True)
+                st.markdown(
+                    f"<div style='font-size:.72rem;color:#a78bfa;padding:2px 0'>"
+                    f"{st.session_state.get('user_name_reg','')} · "
+                    f"{st.session_state.get('user_email_reg','')}</div>",
+                    unsafe_allow_html=True
+                )
+                if st.button("Show my password", key="_show_pw_btn", use_container_width=True):
+                    st.session_state["_show_pw"] = not st.session_state.get("_show_pw", False)
+                if st.session_state.get("_show_pw"):
+                    try:
+                        import base64 as _b64pw
+                        _pw_reg = _load_registry()
+                        _pw_acc = _get_account(_pw_reg, st.session_state["user_email_reg"])
+                        if _pw_acc and _pw_acc.get("password_b64"):
+                            _pw_plain = _b64pw.b64decode(_pw_acc["password_b64"]).decode()
+                            st.code(_pw_plain, language=None)
+                            st.caption("Share this with family. They must use your exact email + this password.")
+                        else:
+                            st.caption("Password not recoverable (old account). Please re-register.")
+                    except Exception:
+                        st.caption("Could not retrieve password.")
         if st.button("Clear Current Chat", use_container_width=True, key="_clr_chat"):
             import time as _t
             st.session_state.chat_sessions = [{"id": int(_t.time()), "title": "New Chat", "messages": []}]
@@ -5176,6 +5632,16 @@ if st.session_state.get("_pending_pdf"):
         st.session_state["_pending_pdf"] = None
         st.rerun()
 
+# ── PDF page extraction download button ──────────────────────────────────────
+if st.session_state.get("_pending_pdf_extract"):
+    _pex_bytes, _pex_name = st.session_state["_pending_pdf_extract"]
+    st.download_button("⬇️ Download Extracted Pages", _pex_bytes,
+                       _pex_name, "application/pdf",
+                       key="_pdf_extract_dl", use_container_width=True)
+    if st.button("✕ Dismiss", key="_pex_dismiss"):
+        st.session_state.pop("_pending_pdf_extract", None)
+        st.rerun()
+
 # Attach + Voice popovers are rendered in the sidebar (below the Memory expander).
 temp = 0.7  # full reasoning quality always — matches Claude Pro depth
 
@@ -6362,6 +6828,45 @@ def _is_video_gen_request(q):
         "animate this", "create a clip of",
     ])
 
+def _is_pdf_extract_request(text):
+    import re as _re_pdf
+    t = text.lower()
+    if _re_pdf.search(r'\b(page|pages|pg|pgs|pp)\b.*\d+.*\bto\b.*\d+', t):
+        return True
+    if _re_pdf.search(r'\d+\s+to\s+\d+.*(page|pdf|print)', t):
+        return True
+    if _re_pdf.search(r'(extract|give me|get me|download|export).*(page|pages|pdf)', t) and _re_pdf.search(r'\d+', t):
+        return True
+    if _re_pdf.search(r'(page|pages)\s+\d+\s*(to|-|–|through|till|until)\s*\d+', t):
+        return True
+    return False
+
+def _parse_pdf_page_range(text):
+    """Return (start, end) 1-indexed inclusive, or None."""
+    import re as _re_pr
+    nums = [int(x) for x in _re_pr.findall(r'\d+', text)]
+    if len(nums) >= 2:
+        a, b = nums[0], nums[1]
+        return min(a, b), max(a, b)
+    return None
+
+def _extract_pdf_pages(pdf_bytes, start_page, end_page):
+    """Extract pages start_page–end_page (1-indexed, inclusive). Returns bytes or None."""
+    try:
+        import PyPDF2 as _pypdf, io as _io_pdf
+        reader = _pypdf.PdfReader(_io_pdf.BytesIO(pdf_bytes))
+        total  = len(reader.pages)
+        s = max(1, min(start_page, total)) - 1
+        e = max(1, min(end_page,   total)) - 1
+        writer = _pypdf.PdfWriter()
+        for i in range(s, e + 1):
+            writer.add_page(reader.pages[i])
+        out = _io_pdf.BytesIO()
+        writer.write(out)
+        return out.getvalue(), total
+    except Exception:
+        return None, 0
+
 def _gen_image_url(prompt, is_max=False):
     import urllib.parse, hashlib as _hg
     if is_max:
@@ -7443,6 +7948,36 @@ if uploaded_file:
                                    f"Preview (first 20 rows):\n{_preview}")
             except Exception as _csv_e:
                 file_content = uploaded_file.read().decode("utf-8", errors="replace")
+        elif uploaded_file.name.lower().endswith(".pdf"):
+            try:
+                _pdf_raw = uploaded_file.read()
+                st.session_state["_uploaded_pdf_bytes"] = _pdf_raw
+                st.session_state["_uploaded_pdf_name"]  = uploaded_file.name
+                # Try to read text for context
+                try:
+                    import pdfplumber as _plmb, io as _io_pl
+                    with _plmb.open(_io_pl.BytesIO(_pdf_raw)) as _pl_doc:
+                        _total_pages = len(_pl_doc.pages)
+                        _preview_txt = "\n".join(
+                            (p.extract_text() or "") for p in _pl_doc.pages[:3]
+                        )
+                except Exception:
+                    try:
+                        import PyPDF2 as _p2r, io as _io_p2
+                        _r2 = _p2r.PdfReader(_io_p2.BytesIO(_pdf_raw))
+                        _total_pages = len(_r2.pages)
+                        _preview_txt = " ".join(
+                            (_r2.pages[i].extract_text() or "") for i in range(min(3, _total_pages))
+                        )
+                    except Exception:
+                        _total_pages = 0
+                        _preview_txt = ""
+                file_content = (
+                    f"[PDF: {uploaded_file.name} — {_total_pages} pages]\n"
+                    f"Preview (first 3 pages):\n{_preview_txt[:1500]}"
+                )
+            except Exception:
+                file_content = f"[PDF: {uploaded_file.name}]"
         else:
             file_content = uploaded_file.read().decode("utf-8", errors="replace")
     except Exception:
@@ -7661,6 +8196,34 @@ if user_input:
                         _conn_app_results = _web_search(
                             f"{_mentioned_app} {user_input} {_ca_date}", max_results=10
                         )
+
+            # ── PDF page extraction ───────────────────────────────────────────────
+            _pdf_bytes_up = st.session_state.get("_uploaded_pdf_bytes")
+            if _pdf_bytes_up and _is_pdf_extract_request(user_input):
+                _pdf_range = _parse_pdf_page_range(user_input)
+                if _pdf_range:
+                    _ps, _pe = _pdf_range
+                    with st.spinner(f"📄 Extracting pages {_ps}–{_pe}…"):
+                        _ex_bytes, _ex_total = _extract_pdf_pages(_pdf_bytes_up, _ps, _pe)
+                    if _ex_bytes:
+                        _ex_name = st.session_state.get("_uploaded_pdf_name", "document.pdf")
+                        _ex_out  = f"pages_{_ps}_to_{_pe}_{_ex_name}"
+                        st.session_state["_pending_pdf_extract"] = (_ex_bytes, _ex_out)
+                        _ex_reply = (
+                            f"✅ Done! **Pages {_ps} to {_pe}** extracted from "
+                            f"*{_ex_name}* ({_ex_total} pages total).\n\n"
+                            f"Click the **Download** button below to get your PDF."
+                        )
+                    else:
+                        _ex_reply = (
+                            f"❌ Could not extract pages {_ps}–{_pe}. "
+                            "Make sure the PDF is not password-protected and try again."
+                        )
+                    msgs = cur_msgs()
+                    msgs.append({"role": "user",      "content": user_input})
+                    msgs.append({"role": "assistant",  "content": _ex_reply})
+                    set_msgs(msgs)
+                    st.rerun()
 
             # ── AI Image / Video generation (Pro + Max only) ─────────────────────
             _gen_tier = st.session_state.get("titan_tier", "basic")
