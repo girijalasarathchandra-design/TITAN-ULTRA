@@ -1,4 +1,4 @@
-# TITAN_VERSION: 80
+# TITAN_VERSION: 81
 import streamlit as st
 from groq import Groq
 import requests, io, re, random as _random
@@ -1955,8 +1955,6 @@ if not _IS_OWNER and not st.session_state.get("user_registered"):
                                 st.session_state["_subscription_expired"] = False
                             st.session_state["_gist_loaded"] = True
                             st.session_state["_sub_checked"] = True
-                            if "_am" in st.query_params:
-                                del st.query_params["_am"]
                             st.rerun()
                         else:
                             st.error("Incorrect email or password.")
@@ -2014,8 +2012,6 @@ if not _IS_OWNER and not st.session_state.get("user_registered"):
                                                 st.session_state["_gist_history"] = _ri_hist
                                             st.session_state["_gist_loaded"] = True
                                             st.session_state["_sub_checked"] = True
-                                            if "_am" in st.query_params:
-                                                del st.query_params["_am"]
                                             st.rerun()
                                         else:
                                             st.error("Could not create account. Please try again.")
@@ -2026,8 +2022,6 @@ if not _IS_OWNER and not st.session_state.get("user_registered"):
                                 st.session_state["user_registered"] = True
                                 st.session_state["user_name_reg"]   = _ri_name.strip()
                                 st.session_state["user_email_reg"]  = _ri_email.strip()
-                                if "_am" in st.query_params:
-                                    del st.query_params["_am"]
                                 st.rerun()
                     else:
                         st.error("Please fill in all fields with a valid email.")
