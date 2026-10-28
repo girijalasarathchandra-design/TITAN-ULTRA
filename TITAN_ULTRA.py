@@ -1,4 +1,4 @@
-# TITAN_VERSION: 81
+# TITAN_VERSION: 82
 import streamlit as st
 from groq import Groq
 import requests, io, re, random as _random
@@ -701,7 +701,8 @@ SYSTEM = (
     "━━━ WEB SEARCH RULES ━━━\n"
     "• Only use web search when you genuinely do not know the answer or it requires live/current data (news, prices, scores, recent events).\n"
     "• If you already know the answer confidently — answer directly. Do NOT search unnecessarily.\n"
-    "• NEVER tell the user you are searching the web. NEVER mention sources, URLs, or websites in your answer.\n"
+    "• NEVER tell the user you are searching the web. NEVER say 'Let me search...', 'I'm looking that up...', 'Searching...', 'Let me find...', 'I found this online...', or anything that reveals a web search is happening. NEVER mention sources, URLs, or websites.\n"
+    "• Just answer as if you already know it. Your answers always sound like they come from your own deep knowledge.\n"
     "• If asked where you get information: say 'I was trained on vast amounts of text and knowledge — I answer from that training.'\n"
     "• If a user asks about a suspicious website: immediately warn them it looks like a scam and to not share personal details.\n\n"
     "━━━ YOUR CREATOR ━━━\n"
@@ -5772,7 +5773,7 @@ if st.session_state.get("_pending_pdf_extract"):
 # ── Animated video (GIF) download button ─────────────────────────────────────
 if st.session_state.get("_pending_video_gif"):
     _vgif_bytes, _vgif_name = st.session_state["_pending_video_gif"]
-    st.image(_vgif_bytes, caption="🎬 Your animated video — preview", use_column_width=True)
+    st.image(_vgif_bytes, caption="🎬 Your animated video — preview", use_container_width=True)
     st.download_button("⬇️ Download Video (GIF)", _vgif_bytes,
                        _vgif_name, "image/gif",
                        key="_vid_gif_dl", use_container_width=True)
@@ -7078,11 +7079,10 @@ def _create_animated_gif(img_bytes, params):
     return buf.getvalue()
 
 def _create_text_to_video(description, duration=5, fps=10):
-    """Pro/Max: generate cinematic animated video from any text description."""
-    from PIL import Image
-    import io, math, numpy as np, json as _json_tv, re as _re_tv
-
+    from PIL import Image, ImageDraw, ImageFont
+    import io, math, numpy as np, json as _json_tv, re as _re_tv, random as _rnd_v
     W, H = 480, 270
+    BAR = 24
     t_low = description.lower()
 
     _pals = {
@@ -7117,12 +7117,17 @@ def _create_text_to_video(description, duration=5, fps=10):
         _tv_resp = _tv_client.chat.completions.create(
             model="llama3-8b-8192",
             messages=[{"role":"user","content":(
-                f'Analyze this video request and reply ONLY with valid JSON, no extra text:\n'
-                f'"{description}"\n\n'
-                f'Reply format: {{"palette":"sunset|ocean|forest|night|fire|space|gold|rose|snow|desert|sky|cyber|purple|rainbow|horror|party|luxury|tech|nature|calm","motion":"wave|spin|zoom|fade|diagonal","speed":"slow|medium|fast"}}\n'
-                f'Choose the palette that best matches the visual mood of the description.'
+                f'Video request: "{description}"\n'
+                f'Use your full knowledge of movies, anime, sports, games, and any topic to analyse this. '
+                f'Reply ONLY with valid JSON:\n'
+                f'{{"palette":"sunset|ocean|forest|night|fire|space|gold|rose|snow|desert|sky|cyber|purple|rainbow|horror|party|luxury|tech|nature|calm",'
+                f'"motion":"wave|spin|zoom|fade|diagonal","speed":"slow|medium|fast",'
+                f'"scene":"fight|sport|love|space|nature|horror|celebration|default",'
+                f'"title":"3-5 word cinematic title for this video",'
+                f'"c1":"#RRGGBB hex for main character or object",'
+                f'"c2":"#RRGGBB hex for second character or element"}}'
             )}],
-            max_tokens=60, temperature=0
+            max_tokens=120, temperature=0
         )
         _tv_raw = _tv_resp.choices[0].message.content.strip()
         _tv_json = _json_tv.loads(_re_tv.search(r'\{.*\}', _tv_raw, _re_tv.DOTALL).group())
@@ -7130,97 +7135,158 @@ def _create_text_to_video(description, duration=5, fps=10):
         _tv_motion  = _tv_json.get("motion", "wave")
         _tv_spd_str = _tv_json.get("speed", "medium")
         _tv_speed   = {"slow": 0.5, "medium": 1.0, "fast": 2.0}.get(_tv_spd_str, 1.0)
-        if _tv_palette not in _pals:
-            _tv_palette = "night"
-        if _tv_motion not in ("wave","spin","zoom","fade","diagonal"):
-            _tv_motion = "wave"
+        _scene      = _tv_json.get("scene", "default")
+        _vid_title  = _tv_json.get("title", description[:30])
+        def _hx(h):
+            h=h.lstrip('#')
+            try: return tuple(int(h[i:i+2],16) for i in (0,2,4))
+            except: return (255,100,0)
+        _c1 = _hx(_tv_json.get("c1","#FF5020"))
+        _c2 = _hx(_tv_json.get("c2","#2050FF"))
+        if _tv_palette not in _pals: _tv_palette = "night"
+        if _tv_motion not in ("wave","spin","zoom","fade","diagonal"): _tv_motion = "wave"
+        if _scene not in ("fight","sport","love","space","nature","horror","celebration","default"): _scene = "default"
     except Exception:
-        # Fallback: keyword detection
+        _scene = "default"; _vid_title = description[:30]; _c1=(255,80,30); _c2=(60,100,255)
         _kw_map = [
-            (["sunset","orange","warm","golden hour","dusk","dawn"], "sunset"),
-            (["ocean","sea","wave","water","river","lake","blue"], "ocean"),
-            (["forest","tree","leaf","green","nature","jungle","garden"], "forest"),
-            (["night","dark","shadow","mystery","gothic","noir","midnight"], "night"),
+            (["sunset","orange","warm","golden","dusk","dawn"], "sunset"),
+            (["ocean","sea","wave","water","river","lake"], "ocean"),
+            (["forest","tree","green","nature","jungle","garden"], "forest"),
+            (["night","dark","shadow","mystery","gothic","midnight"], "night"),
             (["fire","flame","lava","burn","blaze","inferno"], "fire"),
             (["space","galaxy","star","cosmos","universe","planet","nebula"], "space"),
-            (["gold","luxury","elegant","rich","shine","royal","diamond"], "luxury"),
+            (["gold","luxury","elegant","rich","shine","royal"], "luxury"),
             (["love","heart","romantic","rose","valentine","pink","kiss"], "rose"),
-            (["snow","cold","winter","ice","arctic","blizzard","frost"], "snow"),
-            (["desert","sand","dune","sahara","dry","heat","mirage"], "desert"),
-            (["sky","cloud","heaven","bright","sunlight","day","blue sky"], "sky"),
-            (["cyber","digital","tech","ai","robot","neon","futuristic","matrix"], "cyber"),
-            (["purple","violet","magic","witch","fantasy","mystic"], "purple"),
-            (["rainbow","colorful","vibrant","bright","festival","fun"], "rainbow"),
-            (["horror","scary","blood","ghost","dark","demon","evil","haunted"], "horror"),
-            (["party","birthday","celebration","confetti","disco","dance","music"], "party"),
-            (["premium","classy","luxury","exclusive","vip","champagne"], "luxury"),
-            (["calm","peace","relax","meditation","zen","soft","gentle","serene"], "calm"),
-            (["lion","tiger","animal","jungle","wildlife","run","chase"], "forest"),
-            (["car","race","speed","drive","road","highway","fast"], "cyber"),
-            (["wedding","bride","bridal","marriage","ceremony"], "rose"),
-            (["sport","athlete","energy","power","gym","fitness"], "fire"),
-            (["city","building","urban","street","night city","lights"], "cyber"),
+            (["snow","cold","winter","ice","arctic","frost"], "snow"),
+            (["desert","sand","dune","dry","heat","mirage"], "desert"),
+            (["sky","cloud","bright","sunlight","day"], "sky"),
+            (["cyber","digital","tech","neon","futuristic","matrix"], "cyber"),
+            (["purple","violet","magic","fantasy","mystic"], "purple"),
+            (["horror","scary","blood","ghost","demon","evil","haunted"], "horror"),
+            (["party","birthday","celebration","confetti","disco","music"], "party"),
+            (["calm","peace","relax","meditation","zen","gentle","serene"], "calm"),
         ]
         for kws, pk in _kw_map:
-            if any(w in t_low for w in kws):
-                _tv_palette = pk; break
-        if any(w in t_low for w in ["spin","rotate","swirl","spiral","twist","vortex"]):
-            _tv_motion = "spin"
-        elif any(w in t_low for w in ["zoom","pulse","expand","radial","burst"]):
-            _tv_motion = "zoom"
-        elif any(w in t_low for w in ["fade","glow","dissolve"]):
-            _tv_motion = "fade"
-        elif any(w in t_low for w in ["diagonal","slant"]):
-            _tv_motion = "diagonal"
-        if any(w in t_low for w in ["slow","gentle","calm","peaceful"]):
-            _tv_speed = 0.5
-        elif any(w in t_low for w in ["fast","quick","rapid","intense"]):
-            _tv_speed = 2.0
+            if any(w in t_low for w in kws): _tv_palette = pk; break
+        if any(w in t_low for w in ["spin","rotate","swirl","vortex"]): _tv_motion = "spin"
+        elif any(w in t_low for w in ["zoom","pulse","expand","burst"]): _tv_motion = "zoom"
+        elif any(w in t_low for w in ["fade","glow","dissolve"]): _tv_motion = "fade"
+        elif any(w in t_low for w in ["diagonal","slant"]): _tv_motion = "diagonal"
+        if any(w in t_low for w in ["slow","gentle","calm","peaceful"]): _tv_speed = 0.5
+        elif any(w in t_low for w in ["fast","quick","rapid","intense"]): _tv_speed = 2.0
+        if any(w in t_low for w in ["fight","battle","vs","versus","combat","war","clash","attack","kills","sword","punch"]): _scene="fight"
+        elif any(w in t_low for w in ["football","cricket","basketball","sport","goal","score","ball","player","match","game"]): _scene="sport"
+        elif any(w in t_low for w in ["love","romance","heart","valentine","kiss","wedding","couple"]): _scene="love"
+        elif any(w in t_low for w in ["space","galaxy","planet","rocket","cosmos","nebula","astronaut"]): _scene="space"
+        elif any(w in t_low for w in ["horror","scary","ghost","demon","evil","haunted","blood","death"]): _scene="horror"
+        elif any(w in t_low for w in ["birthday","party","celebration","confetti","festival","win","victory"]): _scene="celebration"
 
     pal = _pals.get(_tv_palette, _pals["night"])
-
     _dm = _re_tv.search(r'(\d+)\s*sec', t_low)
-    if _dm:
-        duration = min(max(int(_dm.group(1)), 2), 12)
+    if _dm: duration = min(max(int(_dm.group(1)), 2), 12)
 
     total = duration * fps
     Y_g, X_g = np.mgrid[0:H, 0:W].astype(np.float32)
-    y_n = Y_g / H
-    x_n = X_g / W
-    cx, cy = W / 2.0, H / 2.0
-    dist_g = np.sqrt(((X_g - cx)/(W*0.7))**2 + ((Y_g - cy)/(H*0.7))**2).astype(np.float32)
-    angle_g = ((np.arctan2(Y_g - cy, X_g - cx) / (2*math.pi)) + 0.5).astype(np.float32) % 1.0
-    pal_arr = np.array(pal, dtype=np.float32)
-    N = len(pal_arr)
+    y_n = Y_g / H; x_n = X_g / W
+    cx_c, cy_c = W / 2.0, H / 2.0
+    dist_g = np.sqrt(((X_g-cx_c)/(W*0.7))**2+((Y_g-cy_c)/(H*0.7))**2).astype(np.float32)
+    angle_g = ((np.arctan2(Y_g-cy_c,X_g-cx_c)/(2*math.pi))+0.5).astype(np.float32)%1.0
+    pal_arr = np.array(pal, dtype=np.float32); N = len(pal_arr)
 
     def _to_rgb(pct):
-        pct = np.clip(pct, 0, 1)
-        idx = pct * (N - 1)
-        lo = np.floor(idx).astype(np.int32)
-        hi = np.clip(lo + 1, 0, N - 1)
-        bl = (idx - lo)[..., None]
-        return np.clip(pal_arr[lo] + (pal_arr[hi] - pal_arr[lo]) * bl, 0, 255).astype(np.uint8)
+        pct=np.clip(pct,0,1); idx=pct*(N-1)
+        lo=np.floor(idx).astype(np.int32); hi=np.clip(lo+1,0,N-1)
+        bl=(idx-lo)[...,None]
+        return np.clip(pal_arr[lo]+(pal_arr[hi]-pal_arr[lo])*bl,0,255).astype(np.uint8)
 
+    _disp = _vid_title[:34] if len(_vid_title)<=34 else _vid_title[:31]+"..."
+    try: _font = ImageFont.load_default()
+    except: _font = None
+
+    mcx, mcy = W//2, H//2
     frames = []
     for i in range(total):
-        t = (i / max(total - 1, 1)) * _tv_speed
-        if _tv_motion == "wave":
-            wave = np.sin(Y_g * 0.06 + t * math.pi * 2).astype(np.float32) * 0.12
-            pct = (y_n + t * 0.5 + wave) % 1.0
-        elif _tv_motion == "zoom":
-            pct = (dist_g + t * 0.5) % 1.0
-        elif _tv_motion == "spin":
-            pct = (angle_g + t * 0.5) % 1.0
-        elif _tv_motion == "fade":
-            pct = np.full((H, W), (t * 0.5) % 1.0, dtype=np.float32)
-        else:
-            pct = ((x_n + y_n) * 0.5 + t * 0.5) % 1.0
-        frame = Image.fromarray(_to_rgb(pct), "RGB")
-        frames.append(frame.quantize(colors=128, method=Image.Quantize.MEDIANCUT))
+        t = i / max(total-1, 1)
+        tv = t * _tv_speed
+        if _tv_motion=="wave":
+            wave=np.sin(Y_g*0.06+tv*math.pi*2).astype(np.float32)*0.12; pct=(y_n+tv*0.5+wave)%1.0
+        elif _tv_motion=="zoom": pct=(dist_g+tv*0.5)%1.0
+        elif _tv_motion=="spin": pct=(angle_g+tv*0.5)%1.0
+        elif _tv_motion=="fade": pct=np.full((H,W),(tv*0.5)%1.0,dtype=np.float32)
+        else: pct=((x_n+y_n)*0.5+tv*0.5)%1.0
+        frame=Image.fromarray(_to_rgb(pct),"RGB"); draw=ImageDraw.Draw(frame)
 
-    buf = io.BytesIO()
-    frames[0].save(buf, format="GIF", save_all=True, append_images=frames[1:],
-                   duration=int(1000 / fps), loop=0, optimize=True)
+        # ── Scene elements ──────────────────────────────────────────────
+        if _scene=="fight":
+            sp=max(0.0,1.0-t*2.4); sx=int(W*0.3*sp); r=20
+            if sx>4:
+                draw.ellipse([mcx-sx-r,mcy-r,mcx-sx+r,mcy+r],fill=_c1)
+                draw.ellipse([mcx+sx-r,mcy-r,mcx+sx+r,mcy+r],fill=_c2)
+            else:
+                ft=t-0.42
+                if 0<ft<0.25: draw.ellipse([mcx-45,mcy-45,mcx+45,mcy+45],fill=(255,220,max(0,int(255*(1-ft/0.25)))))
+                _rnd_v.seed(i)
+                for _ in range(12):
+                    sx2=mcx+_rnd_v.randint(-70,70); sy2=mcy+_rnd_v.randint(-50,50); sr=_rnd_v.randint(2,6)
+                    draw.ellipse([sx2-sr,sy2-sr,sx2+sr,sy2+sr],fill=_rnd_v.choice([_c1,_c2,(255,220,0)]))
+        elif _scene=="sport":
+            bt=(t*1.5)%1.0; bx=int(W*0.07+bt*W*0.86); by=int(H*0.78-math.sin(bt*math.pi)*H*0.52); r=13
+            for tr in range(3,0,-1):
+                trt=max(0,bt-tr*0.07); trx=int(W*0.07+trt*W*0.86); try_=int(H*0.78-math.sin(trt*math.pi)*H*0.52)
+                fc=tuple(max(0,int(c*(4-tr)/4)) for c in _c1)
+                draw.ellipse([trx-(r-tr),try_-(r-tr),trx+(r-tr),try_+(r-tr)],fill=fc)
+            draw.ellipse([bx-r,by-r,bx+r,by+r],fill=_c1)
+        elif _scene=="space":
+            _rnd_v.seed(99)
+            for _ in range(25):
+                sx=_rnd_v.randint(0,W); sy=_rnd_v.randint(0,H)
+                sc=int(160*abs(math.sin(t*math.pi*3+sx*0.05))+60)
+                draw.ellipse([sx,sy,sx+2,sy+2],fill=(sc,sc,sc))
+            ang=t*math.pi*4; ox=int(mcx+65*math.cos(ang)); oy=int(mcy+28*math.sin(ang))
+            draw.ellipse([ox-8,oy-8,ox+8,oy+8],fill=_c1)
+            draw.ellipse([mcx-6,mcy-6,mcx+6,mcy+6],fill=_c2)
+        elif _scene=="love":
+            pulse=1.0+0.18*math.sin(t*math.pi*4); r=int(22*pulse)
+            draw.ellipse([mcx-r,mcy-r+4,mcx,mcy+4],fill=_c1)
+            draw.ellipse([mcx,mcy-r+4,mcx+r,mcy+4],fill=_c1)
+            draw.polygon([(mcx-r,mcy+4),(mcx+r,mcy+4),(mcx,mcy+r+14)],fill=_c1)
+            _rnd_v.seed(i*5)
+            for _ in range(5):
+                px=mcx+_rnd_v.randint(-60,60); py=int(mcy+50-t*90+_rnd_v.randint(-8,8))
+                draw.ellipse([px-3,py-3,px+3,py+3],fill=_c2)
+        elif _scene=="horror":
+            if i%max(1,int(fps*0.6))<2: draw.rectangle([0,0,W,H],fill=(180,180,230))
+            _rnd_v.seed(11)
+            for _ in range(5):
+                dx=_rnd_v.randint(40,W-40); dh=int(15+t*50)
+                draw.rectangle([dx-2,0,dx+2,dh],fill=(160,0,0))
+        elif _scene=="celebration":
+            _rnd_v.seed(i)
+            cols=[(255,50,150),(255,200,0),(50,200,255),(150,50,255),_c1,_c2]
+            for _ in range(18):
+                cx2=_rnd_v.randint(0,W); cy2=int((_rnd_v.randint(0,H)-t*220)%H)
+                r2=_rnd_v.randint(4,9); draw.ellipse([cx2-r2,cy2-r2,cx2+r2,cy2+r2],fill=_rnd_v.choice(cols))
+        else:
+            for idx2 in range(3):
+                ang=t*math.pi*2+idx2*(2*math.pi/3)
+                ex=int(mcx+65*math.cos(ang)); ey=int(mcy+32*math.sin(ang)); r=12
+                draw.ellipse([ex-r,ey-r,ex+r,ey+r],fill=(_c1 if idx2%2==0 else _c2))
+
+        # ── Cinematic bars ───────────────────────────────────────────────
+        draw.rectangle([0,0,W,BAR],fill=(0,0,0))
+        draw.rectangle([0,H-BAR,W,H],fill=(0,0,0))
+
+        # ── Title text in top bar ────────────────────────────────────────
+        if _font:
+            tw=len(_disp)*6; tx=max(4,(W-tw)//2); ty=(BAR-10)//2
+            draw.text((tx+1,ty+1),_disp,fill=(0,0,0),font=_font)
+            draw.text((tx,ty),_disp,fill=(255,255,255),font=_font)
+
+        frames.append(frame.quantize(colors=128,method=Image.Quantize.MEDIANCUT))
+
+    buf=io.BytesIO()
+    frames[0].save(buf,format="GIF",save_all=True,append_images=frames[1:],
+                   duration=int(1000/fps),loop=0,optimize=True)
     buf.seek(0)
     return buf.getvalue()
 
