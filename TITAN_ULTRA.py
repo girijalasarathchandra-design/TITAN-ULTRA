@@ -1940,7 +1940,7 @@ if not _IS_OWNER and not st.session_state.get("user_registered"):
                                 st.session_state["_subscription_expired"] = False
                             st.session_state["_gist_loaded"] = True
                             st.session_state["_sub_checked"] = True
-                            st.rerun()
+                            st.session_state["_auth_just_done"] = True
                         else:
                             st.error("Incorrect email or password.")
                     else:
@@ -1997,7 +1997,7 @@ if not _IS_OWNER and not st.session_state.get("user_registered"):
                                                 st.session_state["_gist_history"] = _ri_hist
                                             st.session_state["_gist_loaded"] = True
                                             st.session_state["_sub_checked"] = True
-                                            st.rerun()
+                                            st.session_state["_auth_just_done"] = True
                                         else:
                                             st.error("Could not create account. Please try again.")
                                 except Exception:
@@ -2007,9 +2007,13 @@ if not _IS_OWNER and not st.session_state.get("user_registered"):
                                 st.session_state["user_registered"] = True
                                 st.session_state["user_name_reg"]   = _ri_name.strip()
                                 st.session_state["user_email_reg"]  = _ri_email.strip()
-                                st.rerun()
+                                st.session_state["_auth_just_done"] = True
                     else:
                         st.error("Please fill in all fields with a valid email.")
+    # Rerun from outside the tabs/forms context — avoids Streamlit tab-state blank screen
+    if st.session_state.get("_auth_just_done"):
+        del st.session_state["_auth_just_done"]
+        st.rerun()
     st.stop()
 
 # ── Upgrade Pricing Page ──────────────────────────────────────────────────────
