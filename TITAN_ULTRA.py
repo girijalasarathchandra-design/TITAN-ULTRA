@@ -1889,33 +1889,17 @@ if not _IS_OWNER and not st.session_state.get("user_registered"):
 </div>
 """, unsafe_allow_html=True)
 
-    _qp_am = st.query_params.get("_am", "")
-    if _qp_am in ("login", "register"):
-        st.session_state["_auth_mode"] = _qp_am
-    _auth_mode = st.session_state.get("_auth_mode", "login")
     _ac1, _ac2, _ac3 = st.columns([1, 2, 1])
     with _ac2:
-        # ── Mode toggle — pure HTML links, always visible, no CSS selector issues ──
-        _li_s = "background:#7c3aed;color:#fff;border:1px solid #7c3aed;" \
-                if _auth_mode == "login" \
-                else "background:rgba(255,255,255,0.06);color:#a0a0c0;border:1px solid #3a3a5c;"
-        _re_s = "background:#7c3aed;color:#fff;border:1px solid #7c3aed;" \
-                if _auth_mode == "register" \
-                else "background:rgba(255,255,255,0.06);color:#a0a0c0;border:1px solid #3a3a5c;"
-        st.markdown(f"""
-<div style="display:flex;gap:8px;margin-bottom:10px;">
-  <a href="?_am=login" target="_self" style="flex:1;display:block;text-align:center;
-     padding:10px 0;border-radius:10px;{_li_s}
-     text-decoration:none;font-size:14px;font-weight:600;">Log In</a>
-  <a href="?_am=register" target="_self" style="flex:1;display:block;text-align:center;
-     padding:10px 0;border-radius:10px;{_re_s}
-     text-decoration:none;font-size:14px;font-weight:600;">Register</a>
-</div>
-""", unsafe_allow_html=True)
+        st.markdown("""<style>
+.stTabs [data-baseweb="tab-list"]{gap:8px;}
+.stTabs [data-baseweb="tab"]{background:rgba(255,255,255,0.06);border-radius:10px;
+  color:#a0a0c0;font-weight:600;padding:10px 0;flex:1;justify-content:center;}
+.stTabs [aria-selected="true"]{background:#7c3aed !important;color:#fff !important;}
+</style>""", unsafe_allow_html=True)
+        _tab_li, _tab_reg = st.tabs(["Log In", "Register"])
 
-        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-
-        if _auth_mode == "login":
+        with _tab_li:
             # ── LOGIN FORM ───────────────────────────────────────────────────
             with st.form("_login_form", clear_on_submit=False):
                 st.markdown("<span class='auth-label'>Email</span>", unsafe_allow_html=True)
@@ -1961,7 +1945,7 @@ if not _IS_OWNER and not st.session_state.get("user_registered"):
                             st.error("Incorrect email or password.")
                     else:
                         st.error("Please enter a valid email and password.")
-        else:
+        with _tab_reg:
             # ── REGISTER FORM ────────────────────────────────────────────────
             with st.form("_register_form", clear_on_submit=False):
                 st.markdown("<span class='auth-label'>Name</span>", unsafe_allow_html=True)
