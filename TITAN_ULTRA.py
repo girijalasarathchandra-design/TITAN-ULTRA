@@ -1815,22 +1815,25 @@ if not _IS_OWNER and not st.session_state.get("user_registered"):
 </div>
 """, unsafe_allow_html=True)
 
-    _ac1, _ac2, _ac3 = st.columns([1, 2, 1])
-    with _ac2:
-        _auth_mode = st.session_state.get("_auth_mode", "login")
-        _tb1, _tb2 = st.columns(2)
-        with _tb1:
-            if st.button("Log In", key="_mode_login", use_container_width=True,
-                         type="primary" if _auth_mode == "login" else "secondary"):
-                st.session_state["_auth_mode"] = "login"
-                st.rerun()
-        with _tb2:
-            if st.button("Register", key="_mode_register", use_container_width=True,
-                         type="primary" if _auth_mode == "register" else "secondary"):
-                st.session_state["_auth_mode"] = "register"
-                st.rerun()
-        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+    _auth_mode = st.session_state.get("_auth_mode", "login")
+    # Tab buttons — flat layout, no nested columns
+    _s1, _btn_li, _btn_reg, _s2 = st.columns([1, 1, 1, 1])
+    with _btn_li:
+        if st.button("Log In", key="_mode_login", use_container_width=True,
+                     type="primary" if _auth_mode == "login" else "secondary"):
+            st.session_state["_auth_mode"] = "login"
+            st.rerun()
+    with _btn_reg:
+        if st.button("Register", key="_mode_register", use_container_width=True,
+                     type="primary" if _auth_mode == "register" else "secondary"):
+            st.session_state["_auth_mode"] = "register"
+            st.rerun()
 
+    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+    # Form — flat layout, no nested columns
+    _fc1, _fc2, _fc3 = st.columns([1, 2, 1])
+    with _fc2:
         if _auth_mode == "login":
             # ── LOGIN FORM ───────────────────────────────────────────────────
             with st.form("_login_form", clear_on_submit=False):
