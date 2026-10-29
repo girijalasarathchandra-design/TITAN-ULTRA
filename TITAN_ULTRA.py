@@ -1818,28 +1818,15 @@ if not _IS_OWNER and not st.session_state.get("user_registered"):
     _ac1, _ac2, _ac3 = st.columns([1, 2, 1])
     with _ac2:
         _auth_mode = st.session_state.get("_auth_mode", "login")
-        _li_bg = "#7c3aed" if _auth_mode == "login" else "rgba(255,255,255,0.06)"
-        _re_bg = "#7c3aed" if _auth_mode == "register" else "rgba(255,255,255,0.06)"
-        _li_col = "#fff" if _auth_mode == "login" else "#a0a0c0"
-        _re_col = "#fff" if _auth_mode == "register" else "#a0a0c0"
-        st.markdown(f"""<style>
-button[kind="secondaryFormSubmit"],button[kind="primary"] {{}}
-div[data-testid="stHorizontalBlock"] > div:nth-child(1) button {{
-  background:{_li_bg} !important;color:{_li_col} !important;
-  border-radius:10px !important;border:none !important;font-weight:600 !important;padding:10px 0 !important;
-}}
-div[data-testid="stHorizontalBlock"] > div:nth-child(2) button {{
-  background:{_re_bg} !important;color:{_re_col} !important;
-  border-radius:10px !important;border:none !important;font-weight:600 !important;padding:10px 0 !important;
-}}
-</style>""", unsafe_allow_html=True)
         _tb1, _tb2 = st.columns(2)
         with _tb1:
-            if st.button("Log In", key="_mode_login", use_container_width=True):
+            if st.button("Log In", key="_mode_login", use_container_width=True,
+                         type="primary" if _auth_mode == "login" else "secondary"):
                 st.session_state["_auth_mode"] = "login"
                 st.rerun()
         with _tb2:
-            if st.button("Register", key="_mode_register", use_container_width=True):
+            if st.button("Register", key="_mode_register", use_container_width=True,
+                         type="primary" if _auth_mode == "register" else "secondary"):
                 st.session_state["_auth_mode"] = "register"
                 st.rerun()
         st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
