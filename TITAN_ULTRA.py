@@ -1,4 +1,4 @@
-# TITAN_VERSION: 93
+# TITAN_VERSION: 96
 import streamlit as st
 from groq import Groq
 import requests, io, re, random as _random
@@ -1461,6 +1461,18 @@ def _check_owner_auth():
 
 _IS_OWNER = _check_owner_auth() or _saved_memory.get("name", "").strip().lower() == "sushanth"
 
+# Show a trident while the Gist initialises on first visit (prevents black screen).
+_boot_ph = None
+if not _IS_OWNER and not st.session_state.get("_gist_loaded"):
+    _boot_ph = st.empty()
+    _boot_ph.markdown("""
+<div style='position:fixed;top:0;left:0;right:0;bottom:0;
+     display:flex;flex-direction:column;align-items:center;justify-content:center;
+     background:#0d0d0d;z-index:9999;gap:14px'>
+  <div style='font-size:2.8rem'>🔱</div>
+  <div style='color:#2a2a2a;font-size:.68rem;letter-spacing:3px'>LOADING</div>
+</div>""", unsafe_allow_html=True)
+
 # ── Usage limit (2 hrs for non-owners, resets after 5 hrs) ───────────────────
 import time as _time_mod, json as _json_usage
 from pathlib import Path as _Path_usage
@@ -1798,41 +1810,151 @@ st.html("""
 # ── Inject tier CSS ──────────────────────────────────────────────────────────
 _inject_tier_css()
 
-# ── First-time name entry ─────────────────────────────────────────────────────
+# Clear the boot loading screen — real content is about to render.
+if _boot_ph is not None:
+    _boot_ph.empty()
+    _boot_ph = None
+
+# ── Login / Register ─────────────────────────────────────────────────────────
 if not _IS_OWNER and not st.session_state.get("user_registered"):
-    _name_ph = st.empty()
-    with _name_ph.container():
+    _auth_ph = st.empty()
+    with _auth_ph.container():
         st.markdown("""
 <style>
+.auth-label { color:#e8e8e8 !important; font-size:0.84rem !important;
+              font-weight:600 !important; margin-bottom:4px !important;
+              display:block !important; text-align:left !important; }
 [data-testid="stMainBlockContainer"] {
-    max-width: 420px !important;
+    max-width: 440px !important;
     margin: 0 auto !important;
-    padding-top: 4rem !important;
+    padding-top: 3rem !important;
 }
 </style>
-<div style='text-align:center;margin-bottom:36px'>
-  <div style='font-size:2.6rem;margin-bottom:12px'>🔱</div>
-  <div style='font-size:1.7rem;font-weight:700;color:#fff;margin-bottom:8px'>Titan Ultra</div>
-  <div style='font-size:.9rem;color:#888'>What should I call you?</div>
+<div style='text-align:center;margin-bottom:24px'>
+  <div style='font-size:2.4rem;margin-bottom:10px'>🔱</div>
+  <div style='font-size:1.65rem;font-weight:700;color:#fff;margin-bottom:4px'>Titan Ultra</div>
+  <div style='font-size:.82rem;color:#888'>Login to your account or create a new one</div>
 </div>
 """, unsafe_allow_html=True)
-        with st.form("_name_form", clear_on_submit=True):
-            _ni_name = st.text_input("", placeholder="Your name",
-                                     key="_ni_name", label_visibility="collapsed")
-            _ni_submit = st.form_submit_button("Start →", use_container_width=True)
-            if _ni_submit:
-                if _ni_name.strip():
-                    st.session_state["user_registered"] = True
-                    st.session_state["user_name_reg"]   = _ni_name.strip()
-                    st.session_state["user_email_reg"]  = ""
-                    st.session_state.titan_memory["name"] = _ni_name.strip().split()[0]
-                    _save_memory(st.session_state.titan_memory)
-                    st.session_state["_auth_just_done"] = True
-                else:
-                    st.error("Please enter your name.")
+
+        _auth_mode = st.radio(
+            "auth_tab", ["Log In", "Register"],
+            horizontal=True, label_visibility="collapsed",
+            key="_auth_tab"
+        )
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+        if _auth_mode == "Log In":
+            with st.form("_login_form", clear_on_submit=False):
+                st.markdown("<span class='auth-label'>Email</span>", unsafe_allow_html=True)
+                _li_email = st.text_input("", placeholder="your@email.com",
+                                          key="_li_email", label_visibility="collapsed")
+                st.markdown("<span class='auth-label' style='margin-top:8px;display:block'>Password</span>",
+                            unsafe_allow_html=True)
+                _li_pass = st.text_input("", placeholder="Enter your password",
+                                         type="password", key="_li_pass", label_visibility="collapsed")
+                st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+                _li_submit = st.form_submit_button("Log In →", use_container_width=True)
+                if _li_submit:
+                    if _li_email.strip() and "@" in _li_email and _li_pass.strip():
+                        # _load_registry() is cached after boot — this is fast
+                        _li_reg, _li_acc = _verify_login(_li_email.strip(), _li_pass.strip())
+                        if _li_acc:
+                            st.session_state["user_registered"] = True
+                            st.session_state["user_name_reg"]   = _li_acc["name"]
+                            st.session_state["user_email_reg"]  = _li_acc["email"]
+                            if not st.session_state.titan_memory.get("name"):
+                                st.session_state.titan_memory["name"] = _li_acc["name"].split()[0]
+                            _li_fkey = _family_key(_li_acc["email"])
+                            st.session_state["_family_key"] = _li_fkey
+                            _li_hist = _load_shared_history(_li_fkey)
+                            if _li_hist:
+                                st.session_state["_gist_history"] = _li_hist
+                            st.session_state["_gist_loaded"] = True
+                            st.session_state["_sub_checked"] = True
+                            # Defer the slow Gist saves to after the auth UI clears
+                            st.session_state["_pending_login_saves"] = {
+                                "reg": _li_reg, "email": _li_acc["email"], "name": _li_acc["name"]
+                            }
+                            st.session_state["_auth_just_done"] = True
+                        else:
+                            st.error("Incorrect email or password.")
+                    else:
+                        st.error("Please enter a valid email and password.")
+
+        else:
+            with st.form("_register_form", clear_on_submit=False):
+                st.markdown("<span class='auth-label'>Name</span>", unsafe_allow_html=True)
+                _ri_name = st.text_input("", placeholder="e.g. Rahul Sharma",
+                                         key="_ri_name", label_visibility="collapsed")
+                st.markdown("<span class='auth-label' style='margin-top:8px;display:block'>Email</span>",
+                            unsafe_allow_html=True)
+                _ri_email = st.text_input("", placeholder="e.g. rahul@gmail.com",
+                                          key="_ri_email", label_visibility="collapsed")
+                st.markdown("<span class='auth-label' style='margin-top:8px;display:block'>Password</span>",
+                            unsafe_allow_html=True)
+                _ri_pass = st.text_input("", placeholder="Create a password",
+                                         type="password", key="_ri_pass", label_visibility="collapsed")
+                st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+                _ri_submit = st.form_submit_button("Create Account →", use_container_width=True)
+                if _ri_submit:
+                    if _ri_name.strip() and _ri_email.strip() and "@" in _ri_email and _ri_pass.strip():
+                        if len(_ri_pass.strip()) < 6:
+                            st.error("Password must be at least 6 characters.")
+                        else:
+                            if _registry_ready():
+                                try:
+                                    # _load_registry() is cached after boot — this is fast
+                                    _ri_reg = _load_registry()
+                                    if _get_account(_ri_reg, _ri_email.strip()):
+                                        st.error("An account with this email already exists. Please log in.")
+                                    else:
+                                        st.session_state["user_registered"] = True
+                                        st.session_state["user_name_reg"]   = _ri_name.strip()
+                                        st.session_state["user_email_reg"]  = _ri_email.strip().lower()
+                                        if not st.session_state.titan_memory.get("name"):
+                                            st.session_state.titan_memory["name"] = _ri_name.strip().split()[0]
+                                        _ri_fkey = _family_key(_ri_email.strip())
+                                        st.session_state["_family_key"] = _ri_fkey
+                                        st.session_state["_gist_loaded"] = True
+                                        st.session_state["_sub_checked"] = True
+                                        # Defer the slow Gist save to after auth UI clears
+                                        st.session_state["_pending_gist_register"] = {
+                                            "n": _ri_name.strip(),
+                                            "e": _ri_email.strip(),
+                                            "p": _ri_pass.strip(),
+                                        }
+                                        st.session_state["_auth_just_done"] = True
+                                except Exception:
+                                    st.error("Something went wrong. Please try again.")
+                            else:
+                                st.session_state["user_registered"] = True
+                                st.session_state["user_name_reg"]   = _ri_name.strip()
+                                st.session_state["user_email_reg"]  = _ri_email.strip()
+                                st.session_state["_auth_just_done"] = True
+                    else:
+                        st.error("Please fill in all fields with a valid email.")
+
     if st.session_state.get("_auth_just_done"):
         del st.session_state["_auth_just_done"]
-        _name_ph.empty()
+        _auth_ph.empty()
+        if st.session_state.get("_pending_gist_register"):
+            _pr = st.session_state.pop("_pending_gist_register")
+            with st.spinner("Creating your account..."):
+                _create_account(_pr["n"], _pr["e"], _pr["p"])
+        elif st.session_state.get("_pending_login_saves"):
+            _pl = st.session_state.pop("_pending_login_saves")
+            with st.spinner("Logging you in..."):
+                _link_device_to_account(_pl["reg"], _pl["email"])
+                _pl_sub = _find_sub_by_email_name(_pl["reg"], _pl["email"], _pl["name"]) or {}
+                if _pl_sub:
+                    _pl_did = _get_device_id()
+                    _pl["reg"][_pl_did]["subscription"] = _pl_sub.copy()
+                    _save_registry(_pl["reg"])
+                    st.session_state["titan_tier"]            = _pl_sub.get("tier", "basic")
+                    st.session_state["_subscription_active"]  = True
+                    st.session_state["_subscription_expires"] = _pl_sub.get("expires", "")
+                    st.session_state["_subscription_expired"] = False
     else:
         st.stop()
 
