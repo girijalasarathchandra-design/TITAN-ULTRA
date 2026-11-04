@@ -1817,6 +1817,7 @@ if _boot_ph is not None:
 
 # ── Login / Register ─────────────────────────────────────────────────────────
 if not _IS_OWNER and not st.session_state.get("user_registered"):
+    _auth_method = st.session_state.get("_auth_method")  # None | "google" | "email"
     _auth_ph = st.empty()
     with _auth_ph.container():
         st.markdown("""
@@ -1829,114 +1830,180 @@ if not _IS_OWNER and not st.session_state.get("user_registered"):
     margin: 0 auto !important;
     padding-top: 3rem !important;
 }
+/* Style the Google button white */
+div[data-testid="stButton"]:nth-of-type(1) button {
+    background: #ffffff !important;
+    color: #1f1f1f !important;
+    border: 1px solid #dadce0 !important;
+    font-weight: 600 !important;
+}
 </style>
-<div style='text-align:center;margin-bottom:24px'>
+<div style='text-align:center;margin-bottom:28px'>
   <div style='font-size:2.4rem;margin-bottom:10px'>🔱</div>
   <div style='font-size:1.65rem;font-weight:700;color:#fff;margin-bottom:4px'>Titan Ultra</div>
-  <div style='font-size:.82rem;color:#888'>Login to your account or create a new one</div>
+  <div style='font-size:.82rem;color:#888'>Login or create your account</div>
 </div>
 """, unsafe_allow_html=True)
 
-        _auth_mode = st.radio(
-            "auth_tab", ["Log In", "Register"],
-            horizontal=True, label_visibility="collapsed",
-            key="_auth_tab"
-        )
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        if _auth_method is None:
+            # Screen 1 — choose auth method
+            if st.button("🔵  Continue with Google", key="_btn_google",
+                         use_container_width=True):
+                st.session_state["_auth_method"] = "google"
 
-        if _auth_mode == "Log In":
-            with st.form("_login_form", clear_on_submit=False):
-                st.markdown("<span class='auth-label'>Email</span>", unsafe_allow_html=True)
-                _li_email = st.text_input("", placeholder="your@email.com",
-                                          key="_li_email", label_visibility="collapsed")
-                st.markdown("<span class='auth-label' style='margin-top:8px;display:block'>Password</span>",
-                            unsafe_allow_html=True)
-                _li_pass = st.text_input("", placeholder="Enter your password",
-                                         type="password", key="_li_pass", label_visibility="collapsed")
-                st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-                _li_submit = st.form_submit_button("Log In →", use_container_width=True)
-                if _li_submit:
-                    if _li_email.strip() and "@" in _li_email and _li_pass.strip():
-                        # _load_registry() is cached after boot — this is fast
-                        _li_reg, _li_acc = _verify_login(_li_email.strip(), _li_pass.strip())
-                        if _li_acc:
-                            st.session_state["user_registered"] = True
-                            st.session_state["user_name_reg"]   = _li_acc["name"]
-                            st.session_state["user_email_reg"]  = _li_acc["email"]
-                            if not st.session_state.titan_memory.get("name"):
-                                st.session_state.titan_memory["name"] = _li_acc["name"].split()[0]
-                            _li_fkey = _family_key(_li_acc["email"])
-                            st.session_state["_family_key"] = _li_fkey
-                            _li_hist = _load_shared_history(_li_fkey)
-                            if _li_hist:
-                                st.session_state["_gist_history"] = _li_hist
-                            st.session_state["_gist_loaded"] = True
-                            st.session_state["_sub_checked"] = True
-                            # Defer the slow Gist saves to after the auth UI clears
-                            st.session_state["_pending_login_saves"] = {
-                                "reg": _li_reg, "email": _li_acc["email"], "name": _li_acc["name"]
-                            }
-                            st.session_state["_auth_just_done"] = True
-                        else:
-                            st.error("Incorrect email or password.")
-                    else:
-                        st.error("Please enter a valid email and password.")
+            st.markdown("""
+<div style='display:flex;align-items:center;gap:10px;
+     color:#555;font-size:.78rem;margin:4px 0'>
+  <div style='flex:1;height:1px;background:#2a2a2a'></div>
+  or
+  <div style='flex:1;height:1px;background:#2a2a2a'></div>
+</div>""", unsafe_allow_html=True)
+
+            if st.button("✉  Another Email", key="_btn_email",
+                         use_container_width=True):
+                st.session_state["_auth_method"] = "email"
 
         else:
-            with st.form("_register_form", clear_on_submit=False):
-                st.markdown("<span class='auth-label'>Name</span>", unsafe_allow_html=True)
-                _ri_name = st.text_input("", placeholder="e.g. Rahul Sharma",
-                                         key="_ri_name", label_visibility="collapsed")
-                st.markdown("<span class='auth-label' style='margin-top:8px;display:block'>Email</span>",
-                            unsafe_allow_html=True)
-                _ri_email = st.text_input("", placeholder="e.g. rahul@gmail.com",
-                                          key="_ri_email", label_visibility="collapsed")
-                st.markdown("<span class='auth-label' style='margin-top:8px;display:block'>Password</span>",
-                            unsafe_allow_html=True)
-                _ri_pass = st.text_input("", placeholder="Create a password",
-                                         type="password", key="_ri_pass", label_visibility="collapsed")
-                st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-                _ri_submit = st.form_submit_button("Create Account →", use_container_width=True)
-                if _ri_submit:
-                    if _ri_name.strip() and _ri_email.strip() and "@" in _ri_email and _ri_pass.strip():
-                        if len(_ri_pass.strip()) < 6:
-                            st.error("Password must be at least 6 characters.")
-                        else:
-                            if _registry_ready():
-                                try:
-                                    # _load_registry() is cached after boot — this is fast
-                                    _ri_reg = _load_registry()
-                                    if _get_account(_ri_reg, _ri_email.strip()):
-                                        st.error("An account with this email already exists. Please log in.")
-                                    else:
-                                        st.session_state["user_registered"] = True
-                                        st.session_state["user_name_reg"]   = _ri_name.strip()
-                                        st.session_state["user_email_reg"]  = _ri_email.strip().lower()
-                                        if not st.session_state.titan_memory.get("name"):
-                                            st.session_state.titan_memory["name"] = _ri_name.strip().split()[0]
-                                        _ri_fkey = _family_key(_ri_email.strip())
-                                        st.session_state["_family_key"] = _ri_fkey
-                                        st.session_state["_gist_loaded"] = True
-                                        st.session_state["_sub_checked"] = True
-                                        # Defer the slow Gist save to after auth UI clears
-                                        st.session_state["_pending_gist_register"] = {
-                                            "n": _ri_name.strip(),
-                                            "e": _ri_email.strip(),
-                                            "p": _ri_pass.strip(),
-                                        }
-                                        st.session_state["_auth_just_done"] = True
-                                except Exception:
-                                    st.error("Something went wrong. Please try again.")
-                            else:
+            # Screen 2/3 — Log In / Register form
+            if st.button("← Back", key="_auth_back"):
+                st.session_state.pop("_auth_method", None)
+
+            if _auth_method == "google":
+                st.markdown(
+                    "<div style='font-size:1rem;font-weight:700;color:#fff;"
+                    "margin:8px 0 16px'>Sign in with Google Account</div>",
+                    unsafe_allow_html=True)
+                _email_ph = "yourname@gmail.com"
+            else:
+                st.markdown(
+                    "<div style='font-size:1rem;font-weight:700;color:#fff;"
+                    "margin:8px 0 16px'>Use Another Email</div>",
+                    unsafe_allow_html=True)
+                _email_ph = "your@email.com"
+
+            _auth_mode = st.radio(
+                "auth_tab", ["Log In", "Register"],
+                horizontal=True, label_visibility="collapsed",
+                key="_auth_tab"
+            )
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+            if _auth_mode == "Log In":
+                with st.form("_login_form", clear_on_submit=False):
+                    st.markdown("<span class='auth-label'>Email</span>",
+                                unsafe_allow_html=True)
+                    _li_email = st.text_input(
+                        "", placeholder=_email_ph,
+                        key="_li_email", label_visibility="collapsed")
+                    st.markdown(
+                        "<span class='auth-label' style='margin-top:8px;"
+                        "display:block'>Password</span>", unsafe_allow_html=True)
+                    _li_pass = st.text_input(
+                        "", placeholder="Enter your password",
+                        type="password", key="_li_pass",
+                        label_visibility="collapsed")
+                    st.markdown("<div style='height:4px'></div>",
+                                unsafe_allow_html=True)
+                    _li_submit = st.form_submit_button(
+                        "Log In →", use_container_width=True)
+                    if _li_submit:
+                        if _li_email.strip() and "@" in _li_email and _li_pass.strip():
+                            _li_reg, _li_acc = _verify_login(
+                                _li_email.strip(), _li_pass.strip())
+                            if _li_acc:
                                 st.session_state["user_registered"] = True
-                                st.session_state["user_name_reg"]   = _ri_name.strip()
-                                st.session_state["user_email_reg"]  = _ri_email.strip()
+                                st.session_state["user_name_reg"]   = _li_acc["name"]
+                                st.session_state["user_email_reg"]  = _li_acc["email"]
+                                if not st.session_state.titan_memory.get("name"):
+                                    st.session_state.titan_memory["name"] = \
+                                        _li_acc["name"].split()[0]
+                                _li_fkey = _family_key(_li_acc["email"])
+                                st.session_state["_family_key"] = _li_fkey
+                                _li_hist = _load_shared_history(_li_fkey)
+                                if _li_hist:
+                                    st.session_state["_gist_history"] = _li_hist
+                                st.session_state["_gist_loaded"] = True
+                                st.session_state["_sub_checked"] = True
+                                st.session_state["_pending_login_saves"] = {
+                                    "reg": _li_reg,
+                                    "email": _li_acc["email"],
+                                    "name": _li_acc["name"],
+                                }
                                 st.session_state["_auth_just_done"] = True
-                    else:
-                        st.error("Please fill in all fields with a valid email.")
+                            else:
+                                st.error("Incorrect email or password.")
+                        else:
+                            st.error("Please enter a valid email and password.")
+
+            else:
+                with st.form("_register_form", clear_on_submit=False):
+                    st.markdown("<span class='auth-label'>Name</span>",
+                                unsafe_allow_html=True)
+                    _ri_name = st.text_input(
+                        "", placeholder="e.g. Rahul Sharma",
+                        key="_ri_name", label_visibility="collapsed")
+                    st.markdown(
+                        "<span class='auth-label' style='margin-top:8px;"
+                        "display:block'>Email</span>", unsafe_allow_html=True)
+                    _ri_email = st.text_input(
+                        "", placeholder=_email_ph,
+                        key="_ri_email", label_visibility="collapsed")
+                    st.markdown(
+                        "<span class='auth-label' style='margin-top:8px;"
+                        "display:block'>Password</span>", unsafe_allow_html=True)
+                    _ri_pass = st.text_input(
+                        "", placeholder="Create a password",
+                        type="password", key="_ri_pass",
+                        label_visibility="collapsed")
+                    st.markdown("<div style='height:4px'></div>",
+                                unsafe_allow_html=True)
+                    _ri_submit = st.form_submit_button(
+                        "Create Account →", use_container_width=True)
+                    if _ri_submit:
+                        if (_ri_name.strip() and _ri_email.strip()
+                                and "@" in _ri_email and _ri_pass.strip()):
+                            if len(_ri_pass.strip()) < 6:
+                                st.error("Password must be at least 6 characters.")
+                            else:
+                                if _registry_ready():
+                                    try:
+                                        _ri_reg = _load_registry()
+                                        if _get_account(_ri_reg, _ri_email.strip()):
+                                            st.error(
+                                                "An account with this email already "
+                                                "exists. Please log in.")
+                                        else:
+                                            st.session_state["user_registered"] = True
+                                            st.session_state["user_name_reg"]   = \
+                                                _ri_name.strip()
+                                            st.session_state["user_email_reg"]  = \
+                                                _ri_email.strip().lower()
+                                            if not st.session_state.titan_memory.get("name"):
+                                                st.session_state.titan_memory["name"] = \
+                                                    _ri_name.strip().split()[0]
+                                            _ri_fkey = _family_key(_ri_email.strip())
+                                            st.session_state["_family_key"] = _ri_fkey
+                                            st.session_state["_gist_loaded"] = True
+                                            st.session_state["_sub_checked"] = True
+                                            st.session_state["_pending_gist_register"] = {
+                                                "n": _ri_name.strip(),
+                                                "e": _ri_email.strip(),
+                                                "p": _ri_pass.strip(),
+                                            }
+                                            st.session_state["_auth_just_done"] = True
+                                    except Exception:
+                                        st.error("Something went wrong. Please try again.")
+                                else:
+                                    st.session_state["user_registered"] = True
+                                    st.session_state["user_name_reg"]   = _ri_name.strip()
+                                    st.session_state["user_email_reg"]  = _ri_email.strip()
+                                    st.session_state["_auth_just_done"] = True
+                        else:
+                            st.error("Please fill in all fields with a valid email.")
 
     if st.session_state.get("_auth_just_done"):
         del st.session_state["_auth_just_done"]
+        st.session_state.pop("_auth_method", None)
         _auth_ph.empty()
         if st.session_state.get("_pending_gist_register"):
             _pr = st.session_state.pop("_pending_gist_register")
@@ -1946,7 +2013,8 @@ if not _IS_OWNER and not st.session_state.get("user_registered"):
             _pl = st.session_state.pop("_pending_login_saves")
             with st.spinner("Logging you in..."):
                 _link_device_to_account(_pl["reg"], _pl["email"])
-                _pl_sub = _find_sub_by_email_name(_pl["reg"], _pl["email"], _pl["name"]) or {}
+                _pl_sub = _find_sub_by_email_name(
+                    _pl["reg"], _pl["email"], _pl["name"]) or {}
                 if _pl_sub:
                     _pl_did = _get_device_id()
                     _pl["reg"][_pl_did]["subscription"] = _pl_sub.copy()
@@ -2262,7 +2330,8 @@ with st.sidebar:
                            "_family_key", "_gist_history", "titan_tier",
                            "_subscription_active", "_subscription_expires",
                            "_subscription_expired", "_expired_tier",
-                           "_gist_loaded", "_sub_checked", "_auth_mode"]:
+                           "_gist_loaded", "_sub_checked", "_auth_mode",
+                           "_auth_method"]:
                     st.session_state.pop(_k, None)
                 st.rerun()
 
