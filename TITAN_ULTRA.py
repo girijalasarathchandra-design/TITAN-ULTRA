@@ -1,4 +1,4 @@
-# TITAN_VERSION: 96
+# TITAN_VERSION: 97
 import streamlit as st
 from groq import Groq
 import requests, io, re, random as _random
@@ -289,8 +289,8 @@ html:not(:has([data-testid="stChatMessage"])) [data-testid="stBottom"] {
 html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container {
     padding-top:0 !important; padding-bottom:0 !important;
 }
-/* ── HOME SCREEN: hide ALL stButton elements (they're all internal hidden ones) ── */
-html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stButton"] {
+/* ── HOME SCREEN: hide internal hidden buttons — but NOT on the auth screen ── */
+html:not(:has([data-testid="stChatMessage"])):not(:has(#tu-auth-screen)) [data-testid="stMain"] [data-testid="stButton"] {
     display: none !important; height: 0 !important;
     overflow: hidden !important; margin: 0 !important; padding: 0 !important;
 }
@@ -1820,6 +1820,8 @@ if not _IS_OWNER and not st.session_state.get("user_registered"):
     _auth_method = st.session_state.get("_auth_method")  # None | "google" | "email"
     _auth_ph = st.empty()
     with _auth_ph.container():
+        # Anchor that exempts this container from the home-screen button-hide CSS
+        st.markdown("<div id='tu-auth-screen'></div>", unsafe_allow_html=True)
         st.markdown("""
 <style>
 .auth-label { color:#e8e8e8 !important; font-size:0.84rem !important;
@@ -8374,7 +8376,7 @@ function _injectUpgradeBtn(){
     btn.innerHTML='🔱 <span style="color:#60a5fa;font-size:.8rem;font-weight:600">Upgrade</span>';
     btn.title='Upgrade to Titan Ultra Pro or Max';
     btn.style.cssText=
-        'position:fixed;top:10px;right:18px;z-index:999999;'+
+        'position:fixed;top:10px;left:18px;z-index:999999;'+
         'background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;'+
         'padding:5px 12px 5px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;'+
         'font-family:"Segoe UI",sans-serif;font-size:.85rem;color:#e8e8e8;'+
