@@ -1,4 +1,4 @@
-# TITAN_VERSION: 97
+# TITAN_VERSION: 98
 import streamlit as st
 from groq import Groq
 import requests, io, re, random as _random
@@ -1463,7 +1463,7 @@ _IS_OWNER = _check_owner_auth() or _saved_memory.get("name", "").strip().lower()
 
 # Show a trident while the Gist initialises on first visit (prevents black screen).
 _boot_ph = None
-if not _IS_OWNER and not st.session_state.get("_gist_loaded"):
+if not _IS_OWNER and (not st.session_state.get("_gist_loaded") or st.session_state.get("_auth_transitioning")):
     _boot_ph = st.empty()
     _boot_ph.markdown("""
 <div style='position:fixed;top:0;left:0;right:0;bottom:0;
@@ -1577,6 +1577,30 @@ tick();
 
             st.session_state["_gist_loaded"] = True
             st.session_state["_sub_checked"] = True
+        except Exception:
+            pass
+
+    # ── Auth transition: deferred Gist saves (runs on the rerun after form submit) ──
+    if st.session_state.get("_auth_transitioning"):
+        st.session_state.pop("_auth_method", None)
+        del st.session_state["_auth_transitioning"]
+        try:
+            if st.session_state.get("_pending_gist_register"):
+                _atr_pr = st.session_state.pop("_pending_gist_register")
+                _create_account(_atr_pr["n"], _atr_pr["e"], _atr_pr["p"])
+            elif st.session_state.get("_pending_login_saves"):
+                _atr_pl = st.session_state.pop("_pending_login_saves")
+                _link_device_to_account(_atr_pl["reg"], _atr_pl["email"])
+                _atr_sub = _find_sub_by_email_name(
+                    _atr_pl["reg"], _atr_pl["email"], _atr_pl["name"]) or {}
+                if _atr_sub:
+                    _atr_did = _get_device_id()
+                    _atr_pl["reg"][_atr_did]["subscription"] = _atr_sub.copy()
+                    _save_registry(_atr_pl["reg"])
+                    st.session_state["titan_tier"]            = _atr_sub.get("tier", "basic")
+                    st.session_state["_subscription_active"]  = True
+                    st.session_state["_subscription_expires"] = _atr_sub.get("expires", "")
+                    st.session_state["_subscription_expired"] = False
         except Exception:
             pass
 
@@ -1947,7 +1971,8 @@ div:has(#tu-g-anchor) + div[data-testid="stButton"] button::before {
                                     "email": _li_acc["email"],
                                     "name": _li_acc["name"],
                                 }
-                                st.session_state["_auth_just_done"] = True
+                                st.session_state["_auth_transitioning"] = True
+                                st.rerun()
                             else:
                                 st.error("Incorrect email or password.")
                         else:
@@ -2008,41 +2033,19 @@ div:has(#tu-g-anchor) + div[data-testid="stButton"] button::before {
                                                 "e": _ri_email.strip(),
                                                 "p": _ri_pass.strip(),
                                             }
-                                            st.session_state["_auth_just_done"] = True
+                                            st.session_state["_auth_transitioning"] = True
+                                            st.rerun()
                                     except Exception:
                                         st.error("Something went wrong. Please try again.")
                                 else:
                                     st.session_state["user_registered"] = True
                                     st.session_state["user_name_reg"]   = _ri_name.strip()
                                     st.session_state["user_email_reg"]  = _ri_email.strip()
-                                    st.session_state["_auth_just_done"] = True
+                                    st.rerun()
                         else:
                             st.error("Please fill in all fields with a valid email.")
 
-    if st.session_state.get("_auth_just_done"):
-        del st.session_state["_auth_just_done"]
-        st.session_state.pop("_auth_method", None)
-        _auth_ph.empty()
-        if st.session_state.get("_pending_gist_register"):
-            _pr = st.session_state.pop("_pending_gist_register")
-            with st.spinner("Creating your account..."):
-                _create_account(_pr["n"], _pr["e"], _pr["p"])
-        elif st.session_state.get("_pending_login_saves"):
-            _pl = st.session_state.pop("_pending_login_saves")
-            with st.spinner("Logging you in..."):
-                _link_device_to_account(_pl["reg"], _pl["email"])
-                _pl_sub = _find_sub_by_email_name(
-                    _pl["reg"], _pl["email"], _pl["name"]) or {}
-                if _pl_sub:
-                    _pl_did = _get_device_id()
-                    _pl["reg"][_pl_did]["subscription"] = _pl_sub.copy()
-                    _save_registry(_pl["reg"])
-                    st.session_state["titan_tier"]            = _pl_sub.get("tier", "basic")
-                    st.session_state["_subscription_active"]  = True
-                    st.session_state["_subscription_expires"] = _pl_sub.get("expires", "")
-                    st.session_state["_subscription_expired"] = False
-    else:
-        st.stop()
+    st.stop()
 
 # ── Upgrade Pricing Page ──────────────────────────────────────────────────────
 def _render_upgrade_page():
