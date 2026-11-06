@@ -1,4 +1,4 @@
-# TITAN_VERSION: 99
+# TITAN_VERSION: 100
 import streamlit as st
 from groq import Groq
 import requests, io, re, random as _random
@@ -1830,6 +1830,7 @@ function show(){
     d.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:#0d0d0d;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px';
     d.innerHTML='<div style="font-size:2.8rem">🔱</div><div style="color:#444;font-size:.68rem;letter-spacing:3px">LOADING</div>';
     pd.body.appendChild(d);
+    setTimeout(function(){hide();},10000);
 }
 function hide(){var el=pd.getElementById('tao');if(el) el.parentNode.removeChild(el);}
 pd.addEventListener('click',function(e){
@@ -1841,7 +1842,8 @@ pd.addEventListener('click',function(e){
 },true);
 new MutationObserver(function(){
     if(!pd.getElementById('tao')) return;
-    if(pd.querySelector('[data-testid="stSidebarContent"]')){hide();return;}
+    if(pd.getElementById('titan-greeting')){hide();return;}
+    if(pd.querySelector('[data-testid="stChatMessage"]')){hide();return;}
     if(pd.getElementById('tu-auth-screen')&&pd.querySelector('[data-testid="stAlert"]')) hide();
 }).observe(pd.body,{childList:true,subtree:true});
 })();
