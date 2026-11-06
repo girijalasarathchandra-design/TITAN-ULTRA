@@ -1,4 +1,4 @@
-# TITAN_VERSION: 98
+# TITAN_VERSION: 99
 import streamlit as st
 from groq import Groq
 import requests, io, re, random as _random
@@ -1463,7 +1463,7 @@ _IS_OWNER = _check_owner_auth() or _saved_memory.get("name", "").strip().lower()
 
 # Show a trident while the Gist initialises on first visit (prevents black screen).
 _boot_ph = None
-if not _IS_OWNER and (not st.session_state.get("_gist_loaded") or st.session_state.get("_auth_transitioning")):
+if not _IS_OWNER and not st.session_state.get("_gist_loaded"):
     _boot_ph = st.empty()
     _boot_ph.markdown("""
 <div style='position:fixed;top:0;left:0;right:0;bottom:0;
@@ -1580,30 +1580,6 @@ tick();
         except Exception:
             pass
 
-    # ── Auth transition: deferred Gist saves (runs on the rerun after form submit) ──
-    if st.session_state.get("_auth_transitioning"):
-        st.session_state.pop("_auth_method", None)
-        del st.session_state["_auth_transitioning"]
-        try:
-            if st.session_state.get("_pending_gist_register"):
-                _atr_pr = st.session_state.pop("_pending_gist_register")
-                _create_account(_atr_pr["n"], _atr_pr["e"], _atr_pr["p"])
-            elif st.session_state.get("_pending_login_saves"):
-                _atr_pl = st.session_state.pop("_pending_login_saves")
-                _link_device_to_account(_atr_pl["reg"], _atr_pl["email"])
-                _atr_sub = _find_sub_by_email_name(
-                    _atr_pl["reg"], _atr_pl["email"], _atr_pl["name"]) or {}
-                if _atr_sub:
-                    _atr_did = _get_device_id()
-                    _atr_pl["reg"][_atr_did]["subscription"] = _atr_sub.copy()
-                    _save_registry(_atr_pl["reg"])
-                    st.session_state["titan_tier"]            = _atr_sub.get("tier", "basic")
-                    st.session_state["_subscription_active"]  = True
-                    st.session_state["_subscription_expires"] = _atr_sub.get("expires", "")
-                    st.session_state["_subscription_expired"] = False
-        except Exception:
-            pass
-
     # Reset if 5 hrs have passed since limit was hit
     if _usage["limit_hit_at"] and (_now_ts - _usage["limit_hit_at"]) >= _USAGE_RESET_SECONDS:
         _usage = {"total_seconds": 0.0, "limit_hit_at": None}
@@ -1665,7 +1641,6 @@ for k, v in [("api_key", _saved_key), ("titan_memory", _saved_memory),
              ("connected_apps", _load_connected_apps()),
              ("show_titan_features", False),
              ("titan_tier", "basic"),
-             ("show_upgrade", False),
              ("show_titan_code", False),
              ("user_registered", False),
              ("user_name_reg", ""),
@@ -1841,6 +1816,37 @@ if _boot_ph is not None:
 
 # ── Login / Register ─────────────────────────────────────────────────────────
 if not _IS_OWNER and not st.session_state.get("user_registered"):
+    # JS overlay: fires BEFORE Streamlit's rerun on submit — covers the blank screen
+    import streamlit.components.v1 as _cv1_auth_ov
+    _cv1_auth_ov.html("""<script>
+(function(){
+var pd=window.parent.document;
+if(pd.__taoReady) return;
+pd.__taoReady=true;
+function show(){
+    if(pd.getElementById('tao')) return;
+    var d=pd.createElement('div');
+    d.id='tao';
+    d.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:#0d0d0d;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px';
+    d.innerHTML='<div style="font-size:2.8rem">🔱</div><div style="color:#444;font-size:.68rem;letter-spacing:3px">LOADING</div>';
+    pd.body.appendChild(d);
+}
+function hide(){var el=pd.getElementById('tao');if(el) el.parentNode.removeChild(el);}
+pd.addEventListener('click',function(e){
+    var b=e.target;
+    while(b&&b.tagName!=='BUTTON') b=b.parentElement;
+    if(!b) return;
+    var t=(b.textContent||'').trim();
+    if(t.indexOf('Log In')>=0||t.indexOf('Create Account')>=0) show();
+},true);
+new MutationObserver(function(){
+    if(!pd.getElementById('tao')) return;
+    if(pd.querySelector('[data-testid="stSidebarContent"]')){hide();return;}
+    if(pd.getElementById('tu-auth-screen')&&pd.querySelector('[data-testid="stAlert"]')) hide();
+}).observe(pd.body,{childList:true,subtree:true});
+})();
+</script>""", height=0)
+
     _auth_method = st.session_state.get("_auth_method")  # None | "google" | "email"
     _auth_ph = st.empty()
     with _auth_ph.container():
@@ -1971,8 +1977,7 @@ div:has(#tu-g-anchor) + div[data-testid="stButton"] button::before {
                                     "email": _li_acc["email"],
                                     "name": _li_acc["name"],
                                 }
-                                st.session_state["_auth_transitioning"] = True
-                                st.rerun()
+                                st.session_state["_auth_just_done"] = True
                             else:
                                 st.error("Incorrect email or password.")
                         else:
@@ -2033,286 +2038,39 @@ div:has(#tu-g-anchor) + div[data-testid="stButton"] button::before {
                                                 "e": _ri_email.strip(),
                                                 "p": _ri_pass.strip(),
                                             }
-                                            st.session_state["_auth_transitioning"] = True
-                                            st.rerun()
+                                            st.session_state["_auth_just_done"] = True
                                     except Exception:
                                         st.error("Something went wrong. Please try again.")
                                 else:
                                     st.session_state["user_registered"] = True
                                     st.session_state["user_name_reg"]   = _ri_name.strip()
                                     st.session_state["user_email_reg"]  = _ri_email.strip()
-                                    st.rerun()
+                                    st.session_state["_auth_just_done"] = True
                         else:
                             st.error("Please fill in all fields with a valid email.")
 
-    st.stop()
-
-# ── Upgrade Pricing Page ──────────────────────────────────────────────────────
-def _render_upgrade_page():
-    _tier = st.session_state.get("titan_tier", "basic")
-    st.markdown("""
-<style>
-.tu-pricing-wrap { padding: 10px 0 40px 0; }
-.tu-plan-card {
-    background: #111111;
-    border: 1px solid #2a2a2a;
-    border-radius: 16px;
-    padding: 28px 20px 24px 20px;
-    text-align: center;
-    position: relative;
-    transition: box-shadow .2s;
-}
-.tu-plan-card.pro { border-color: #7c3aed; }
-.tu-plan-card.max { border-color: #f59e0b; background: #0f0f0f; }
-.tu-badge {
-    position: absolute;
-    top: -13px; left: 50%;
-    transform: translateX(-50%);
-    padding: 3px 18px;
-    border-radius: 20px;
-    font-size: .7rem;
-    font-weight: 700;
-    letter-spacing: 1.5px;
-}
-.tu-badge.rec { background: #7c3aed; color: #fff; }
-.tu-badge.ult { background: #f59e0b; color: #000; }
-.tu-plan-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
-.tu-plan-price { font-size: 2.1rem; font-weight: 900; margin: 12px 0 4px; }
-.tu-plan-sub { font-size: .75rem; color: #666; margin-bottom: 18px; }
-.tu-feat { font-size: .82rem; text-align: left; padding: 4px 0; border-bottom: 1px solid #1e1e1e; }
-.tu-feat:last-child { border-bottom: none; }
-.tu-buy-btn {
-    margin-top: 18px;
-    width: 100%;
-    padding: 11px 0;
-    border-radius: 10px;
-    border: none;
-    font-size: .9rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: opacity .15s;
-}
-.tu-buy-btn:hover { opacity: .85; }
-.tu-buy-basic { background: #1e1e1e; color: #888; border: 1px solid #2a2a2a; }
-.tu-buy-pro { background: #7c3aed; color: #fff; }
-.tu-buy-max { background: linear-gradient(135deg,#f59e0b,#d97706); color: #000; }
-</style>
-""", unsafe_allow_html=True)
-
-    # Header row
-    _back_col, _title_col = st.columns([1, 5])
-    with _back_col:
-        if st.button("← Back", key="_upgrade_back"):
-            st.session_state.show_upgrade = False
-            st.rerun()
-    with _title_col:
-        st.markdown("<h2 style='margin:0;padding:4px 0 0 0'>🔱 Upgrade Titan Ultra</h2>", unsafe_allow_html=True)
-
-    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-
-    # ── If subscription is active, show locked plan — no switching allowed ────
-    _up_sub_active  = st.session_state.get("_subscription_active", False)
-    _up_sub_expires = st.session_state.get("_subscription_expires", "")
-    if _up_sub_active and _tier in ("pro", "max"):
-        _lk_clr  = "#f59e0b" if _tier == "max" else "#a78bfa"
-        _lk_name = "Titan Ultra Max" if _tier == "max" else "Titan Ultra Pro"
-        _lk_icon = "⭐" if _tier == "max" else "🔱"
-        st.markdown(f"""
-<div style='background:#111;border:2px solid {_lk_clr};border-radius:16px;
-     padding:32px 24px;text-align:center;max-width:420px;margin:0 auto'>
-  <div style='font-size:2.5rem'>{_lk_icon}</div>
-  <div style='font-size:1.4rem;font-weight:800;color:{_lk_clr};margin:10px 0 4px'>{_lk_name}</div>
-  <div style='font-size:.85rem;color:#888;margin-bottom:18px'>Your active subscription</div>
-  {"<div style='font-size:.8rem;color:#555;background:#0a0a0a;border-radius:8px;padding:8px 16px;display:inline-block'>expires " + _up_sub_expires + "</div>" if _up_sub_expires else ""}
-  <div style='margin-top:22px;font-size:.82rem;color:#666;line-height:1.6'>
-    You are locked into this plan until it expires.<br>
-    After expiry you can choose a new plan.
-  </div>
-</div>
-""", unsafe_allow_html=True)
-        st.stop()
-
-    # Monthly / Yearly toggle
-    _billing = st.radio("Billing", ["Monthly", "Yearly"], horizontal=True,
-                        key="_upgrade_billing", label_visibility="collapsed")
-    _yearly = _billing == "Yearly"
-    if _yearly:
-        st.markdown(
-            "<div style='text-align:center;font-size:.8rem;color:#22c55e;margin:4px 0 12px'>"
-            "💰 <b>Pro:</b> Save ₹1,500 &nbsp;·&nbsp; <b>Max:</b> Save ₹3,000 — with yearly billing</div>",
-            unsafe_allow_html=True)
+    if st.session_state.get("_auth_just_done"):
+        del st.session_state["_auth_just_done"]
+        st.session_state.pop("_auth_method", None)
+        _auth_ph.empty()
+        if st.session_state.get("_pending_gist_register"):
+            _pr = st.session_state.pop("_pending_gist_register")
+            _create_account(_pr["n"], _pr["e"], _pr["p"])
+        elif st.session_state.get("_pending_login_saves"):
+            _pl = st.session_state.pop("_pending_login_saves")
+            _link_device_to_account(_pl["reg"], _pl["email"])
+            _pl_sub = _find_sub_by_email_name(
+                _pl["reg"], _pl["email"], _pl["name"]) or {}
+            if _pl_sub:
+                _pl_did = _get_device_id()
+                _pl["reg"][_pl_did]["subscription"] = _pl_sub.copy()
+                _save_registry(_pl["reg"])
+                st.session_state["titan_tier"]            = _pl_sub.get("tier", "basic")
+                st.session_state["_subscription_active"]  = True
+                st.session_state["_subscription_expires"] = _pl_sub.get("expires", "")
+                st.session_state["_subscription_expired"] = False
     else:
-        st.markdown(
-            "<div style='text-align:center;font-size:.78rem;color:#555;margin:4px 0 12px'>"
-            "Switch to Yearly and save ₹1,500 (Pro) or ₹3,000 (Max)</div>",
-            unsafe_allow_html=True)
-
-    # Pricing
-    _basic_price  = "₹0"
-    _pro_price    = "₹3,999 / yr" if _yearly else "₹475 / mo"
-    _max_price    = "₹26,999 / yr" if _yearly else "₹2,500 / mo"
-    _pro_save_html = ("<div style='color:#22c55e;font-size:.72rem;font-weight:700;margin-top:4px'>💰 Save ₹1,500 vs monthly</div>"
-                      if _yearly else "")
-    _max_save_html = ("<div style='color:#22c55e;font-size:.72rem;font-weight:700;margin-top:4px'>💰 Save ₹3,000 vs monthly</div>"
-                      if _yearly else "")
-    _sub_active = st.session_state.get("_subscription_active", False)
-    _sub_expires = st.session_state.get("_subscription_expires", "")
-
-    _c1, _c2, _c3 = st.columns(3, gap="medium")
-
-    # ── Basic ──
-    with _c1:
-        _active_basic = _tier == "basic"
-        st.markdown(f"""
-<div class="tu-plan-card">
-  <div class="tu-plan-name" style="color:#e8e8e8">Titan Ultra Basic</div>
-  <div class="tu-plan-price" style="color:#e8e8e8">{_basic_price}</div>
-  <div class="tu-plan-sub">Free forever</div>
-  <div class="tu-feat">✅ Smart AI answers</div>
-  <div class="tu-feat">✅ Titan Features, Notebook, Library, Schedule, Tasks</div>
-  <div class="tu-feat">✅ Chat history</div>
-  <div class="tu-feat">⏱ 2-hour session limit</div>
-  <div class="tu-feat">❌ Standard response depth</div>
-</div>
-""", unsafe_allow_html=True)
-        if _active_basic:
-            st.markdown("<div style='text-align:center;margin-top:18px;font-size:.8rem;color:#555'>Current plan</div>", unsafe_allow_html=True)
-        elif not _sub_active:
-            if st.button("Downgrade to Basic", key="_buy_basic", use_container_width=True):
-                st.session_state.titan_tier = "basic"
-                _clear_subscription()
-                st.session_state["_subscription_active"] = False
-                st.session_state.show_upgrade = False
-                st.rerun()
-
-    # ── Pro ──
-    with _c2:
-        _active_pro = _tier == "pro"
-        st.markdown(f"""
-<div class="tu-plan-card pro">
-  <div class="tu-badge rec">RECOMMENDED</div>
-  <div class="tu-plan-name" style="color:#a78bfa">Titan Ultra Pro</div>
-  <div class="tu-plan-price" style="color:#a78bfa">{_pro_price}</div>
-  {_pro_save_html}
-  <div class="tu-plan-sub" style="margin-top:{'4px' if _yearly else '18px'}">Everything in Basic, plus:</div>
-  <div class="tu-feat">✅ <b>Unlimited</b> access — no time limit</div>
-  <div class="tu-feat">✅ <b>Deeper</b>, more detailed answers</div>
-  <div class="tu-feat">✅ AI Image Generation</div>
-  <div class="tu-feat">✅ AI Video Generation</div>
-  <div class="tu-feat">✅ Pro badge + purple UI</div>
-</div>
-""", unsafe_allow_html=True)
-        if _active_pro:
-            _pro_exp = f" · expires {_sub_expires}" if _sub_expires else ""
-            st.markdown(f"<div style='text-align:center;margin-top:18px;font-size:.8rem;color:#a78bfa'>✓ Current plan{_pro_exp}</div>", unsafe_allow_html=True)
-
-    # ── Max ──
-    with _c3:
-        _active_max = _tier == "max"
-        st.markdown(f"""
-<div class="tu-plan-card max">
-  <div class="tu-badge ult">ULTIMATE</div>
-  <div class="tu-plan-name" style="color:#fbbf24">Titan Ultra Max</div>
-  <div class="tu-plan-price" style="color:#fbbf24">{_max_price}</div>
-  {_max_save_html}
-  <div class="tu-plan-sub" style="margin-top:{'4px' if _yearly else '18px'}">Everything in Pro, plus:</div>
-  <div class="tu-feat">✅ <b>Ultimate</b> answer quality</div>
-  <div class="tu-feat">✅ Hyper-realistic AI images &amp; videos</div>
-  <div class="tu-feat">✅ <b>Titan Code</b> — AI coding terminal</div>
-  <div class="tu-feat">✅ Deepest reasoning on every question</div>
-  <div class="tu-feat">✅ Gold premium UI + Max badge</div>
-</div>
-""", unsafe_allow_html=True)
-        if _active_max:
-            _max_exp = f" · expires {_sub_expires}" if _sub_expires else ""
-            st.markdown(f"<div style='text-align:center;margin-top:18px;font-size:.8rem;color:#fbbf24'>✓ Current plan{_max_exp}</div>", unsafe_allow_html=True)
-
-    st.markdown("<div style='height:30px'></div>", unsafe_allow_html=True)
-    st.markdown("---")
-    st.markdown("<div style='text-align:center;font-size:1rem;font-weight:700;margin-bottom:12px'>💳 Pay with PhonePe</div>", unsafe_allow_html=True)
-
-    _pay_col1, _pay_col2, _pay_col3 = st.columns([1,2,1])
-    with _pay_col2:
-        _prefill_email = st.session_state.get("user_email_reg", "")
-        _user_email = st.text_input("Your email address", value=_prefill_email,
-                                    placeholder="Enter your email to continue",
-                                    key="_upgrade_email", label_visibility="visible")
-        _selected_plan = st.radio("Select plan", ["Titan Ultra Pro", "Titan Ultra Max"],
-                                  key="_pay_plan", label_visibility="collapsed", horizontal=True)
-        _is_yearly = "Yearly" in _billing
-        if _selected_plan == "Titan Ultra Pro":
-            _pay_amount = 3999 if _is_yearly else 475
-            _plan_label = f"Titan Ultra Pro ({'Yearly' if _is_yearly else 'Monthly'})"
-        else:
-            _pay_amount = 24999 if _is_yearly else 2500
-            _plan_label = f"Titan Ultra Max ({'Yearly' if _is_yearly else 'Monthly'})"
-
-        _upi_id = "sanjaygirijala16@ibl"
-        _upi_link = f"upi://pay?pa={_upi_id}&pn=Titan+Ultra&am={_pay_amount}&cu=INR&tn={_plan_label.replace(' ', '+')}"
-        _phonepe_link = f"intent://pay?pa={_upi_id}&pn=Titan+Ultra&am={_pay_amount}&cu=INR&tn={_plan_label.replace(' ', '+')}#Intent;scheme=upi;package=com.phonepe.app;end"
-
-        if _user_email and "@" in _user_email:
-            st.markdown(f"""
-<div style='background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:16px;text-align:center;margin-bottom:12px'>
-  <div style='font-size:.8rem;color:#888;margin-bottom:4px'>Amount to pay</div>
-  <div style='font-size:2rem;font-weight:900;color:#22c55e'>₹{_pay_amount:,}</div>
-  <div style='font-size:.75rem;color:#555;margin-top:4px'>{_plan_label}</div>
-</div>
-""", unsafe_allow_html=True)
-            st.link_button("📱 Pay with PhonePe / UPI", _upi_link, use_container_width=True)
-            st.markdown("<div style='text-align:center;font-size:.7rem;color:#555;margin:6px 0'>Opens PhonePe, GPay, Paytm or any UPI app</div>", unsafe_allow_html=True)
-            _txn_id = st.text_input("After paying, enter your Transaction ID / UTR number:",
-                                     placeholder="e.g. 428371920847", key="_txn_id_input")
-            if st.button("✅ Confirm Payment", key="_confirm_pay", use_container_width=True):
-                if _txn_id.strip():
-                    _tier_key  = "pro" if "Pro" in _selected_plan else "max"
-                    _sub_days  = 365 if _is_yearly else 30
-                    _sub_label = "1 year" if _is_yearly else "1 month"
-                    from datetime import datetime as _pay_dt, timedelta as _pay_td
-                    _sub_expires = (_pay_dt.now() + _pay_td(days=_sub_days)).isoformat()[:10]
-                    # Save to Gist with retry — if this fails, user's money must not be lost
-                    _pay_saved = _save_subscription(_tier_key, _txn_id.strip(), _user_email, days=_sub_days)
-                    if _pay_saved:
-                        st.session_state.titan_tier               = _tier_key
-                        st.session_state["_subscription_active"]  = True
-                        st.session_state["_subscription_expired"] = False
-                        st.session_state["_subscription_expires"] = _sub_expires
-                        st.session_state["_sub_checked"]          = True
-                        st.session_state["_gist_loaded"]          = True
-                        st.session_state.show_upgrade = False
-                        st.success(f"✅ {_plan_label} activated for {_sub_label}. Your access is now unlocked.")
-                        st.rerun()
-                    else:
-                        # Gist save failed — keep session active AND warn user
-                        st.session_state.titan_tier               = _tier_key
-                        st.session_state["_subscription_active"]  = True
-                        st.session_state["_subscription_expired"] = False
-                        st.session_state["_subscription_expires"] = _sub_expires
-                        st.error(
-                            "⚠️ **Payment received but could not save to server right now.**\n\n"
-                            f"**Screenshot this immediately:**\n\n"
-                            f"- Transaction ID: `{_txn_id.strip()}`\n"
-                            f"- Plan: {_plan_label}\n"
-                            f"- Email: {_user_email}\n\n"
-                            "Send the screenshot to the owner — your subscription will be activated manually."
-                        )
-                else:
-                    st.error("Please enter your Transaction ID.")
-        else:
-            st.markdown("<div style='text-align:center;font-size:.8rem;color:#555;padding:10px 0'>Enter your email above to see payment options</div>", unsafe_allow_html=True)
-
-    st.markdown("<div style='height:30px'></div>", unsafe_allow_html=True)
-    st.markdown("<div style='text-align:center;font-size:.7rem;color:#333'>Payments via PhonePe / UPI · Money goes directly to the Titan Ultra creator</div>", unsafe_allow_html=True)
-    st.stop()
-
-# Show upgrade page if flagged
-if st.session_state.get("show_upgrade"):
-    _render_upgrade_page()
-
-# Hidden upgrade trigger button — JS clicks this to open pricing page
-if st.button("__TITAN_UPGRADE__", key="_hid_upgrade"):
-    st.session_state.show_upgrade = True
-    st.rerun()
+        st.stop()
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -2425,37 +2183,6 @@ with st.sidebar:
             st.session_state.show_titan_features = False
         st.rerun()
 
-    # ── Upgrade button (visible in sidebar for all non-owner users) ──────────
-    if not _IS_OWNER:
-        _ub_tier     = st.session_state.get("titan_tier", "basic")
-        _ub_sub_on   = st.session_state.get("_subscription_active", False)
-        _ub_sub_exp  = st.session_state.get("_subscription_expires", "")
-        if _ub_sub_on:
-            # Subscription active — show locked plan info, no switching allowed
-            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-            _ub_clr = "#f59e0b" if _ub_tier == "max" else "#a78bfa"
-            _ub_lbl = "MAX" if _ub_tier == "max" else "PRO"
-            st.markdown(
-                f"<div style='background:rgba(255,255,255,0.04);border:1px solid {_ub_clr}44;"
-                f"border-radius:8px;padding:8px 10px;font-size:.72rem'>"
-                f"<span style='color:{_ub_clr};font-weight:700'>{_ub_lbl} active</span>"
-                + (f"<br><span style='color:#555;font-size:.65rem'>expires {_ub_sub_exp}</span>" if _ub_sub_exp else "")
-                + "</div>",
-                unsafe_allow_html=True
-            )
-        elif _ub_tier == "basic":
-            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-            st.markdown("""
-<style>
-.stButton > button[kind="secondary"][data-testid*="upgrade_sb"] {
-    background: linear-gradient(135deg,#1e3a8a,#4f46e5) !important;
-    color:#fff !important; border:none !important; font-weight:700 !important;
-    font-size:.82rem !important; letter-spacing:.5px !important;
-}
-</style>""", unsafe_allow_html=True)
-            if st.button("⬆  Upgrade to Pro / Max", key="_upgrade_sb", use_container_width=True):
-                st.session_state.show_upgrade = True
-                st.rerun()
 
     # ── Pro: Answer Depth selector ────────────────────────────────────────────
     if not _IS_OWNER and st.session_state.get("titan_tier") == "pro":
@@ -8102,9 +7829,6 @@ if not _IS_OWNER and st.session_state.get("_subscription_expired"):
         f"or upgrade to the next plan.",
         icon=None
     )
-    if st.button(f"🔱 Renew {_exp_tier_name} / Upgrade", key="_renew_btn", use_container_width=False):
-        st.session_state.show_upgrade = True
-        st.rerun()
 
 if _USER_HIT_LIMIT:
     _usage_data_cur = _load_usage_data()
@@ -8349,7 +8073,7 @@ function _injectChatThink(){}
 
 // ── Hide mode buttons in chat mode (home screen hides them via CSS) ───────────
 function _hideModeBtns(){
-    var _hide=['TITAN_SET_FAST','TITAN_SET_THINK','TITAN_SET_NORMAL','TITAN_UPGRADE'];
+    var _hide=['TITAN_SET_FAST','TITAN_SET_THINK','TITAN_SET_NORMAL'];
     requestAnimationFrame(function(){
         pd.querySelectorAll('button').forEach(function(b){
             if(_hide.indexOf(b.textContent.trim())>=0){
@@ -8369,41 +8093,12 @@ function _hideModeBtns(){
     });
 }
 
-// ── Upgrade button — top-right corner of the page ─────────────────────────
-function _injectUpgradeBtn(){
-    if(pd.getElementById('titan-upgrade-btn')) return;
-    var toolbar=pd.querySelector('[data-testid="stHeader"]')||pd.querySelector('header');
-    if(!toolbar) return;
-    var btn=pd.createElement('button');
-    btn.id='titan-upgrade-btn';
-    btn.innerHTML='🔱 <span style="color:#60a5fa;font-size:.8rem;font-weight:600">Upgrade</span>';
-    btn.title='Upgrade to Titan Ultra Pro or Max';
-    btn.style.cssText=
-        'position:fixed;top:10px;left:18px;z-index:999999;'+
-        'background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;'+
-        'padding:5px 12px 5px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;'+
-        'font-family:"Segoe UI",sans-serif;font-size:.85rem;color:#e8e8e8;'+
-        'box-shadow:0 2px 8px rgba(0,0,0,0.5);transition:border-color .15s,background .15s;';
-    btn.addEventListener('mouseover',function(){
-        btn.style.background='#242424';
-        btn.style.borderColor='#60a5fa';
-    });
-    btn.addEventListener('mouseout',function(){
-        btn.style.background='#1a1a1a';
-        btn.style.borderColor='#2a2a2a';
-    });
-    btn.addEventListener('click',function(){
-        _clickHiddenBtn('__TITAN_UPGRADE__');
-    });
-    pd.body.appendChild(btn);
-}
 
 var _obs=new MutationObserver(function(){
     _hookChatPlus();
     _injectHomePlus();
     _injectChatThink();
     _hideModeBtns();
-    _injectUpgradeBtn();
 });
 _obs.observe(pd.body,{childList:true,subtree:true});
 _hookChatPlus();
@@ -8411,7 +8106,6 @@ _injectHomePlus();
 _injectChatThink();
 _hideModeBtns();
 _refreshModeUI();
-_injectUpgradeBtn();
 
 // ── Ctrl+V paste image into chat ─────────────────────────────────────────────
 pd.addEventListener('paste',function(e){
