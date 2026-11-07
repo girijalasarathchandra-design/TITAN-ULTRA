@@ -1490,7 +1490,7 @@ import base64 as _b64
 REGISTRY_TOKEN    = _b64.b64decode("Z2hwX1FETFc1RUVLc3A5ck9najhRMGtxUjhGMDFuWE5ndjBLV0w3Qg==").decode()
 REGISTRY_FILENAME = "titan_devices.json"
 CHATS_FILENAME    = "titan_chats.json"
-OWNER_UPI_ID      = "sushanth@ybl"   # ← Sanjay: replace with your real UPI ID
+OWNER_UPI_ID      = "9535372517@ybl"  # PhonePe UPI — money goes here
 OWNER_NAME        = "Girijala Sarath Chandra Sushanth"
 
 def _check_owner_auth():
@@ -1576,9 +1576,7 @@ if not _IS_OWNER and _registry_ready() and not st.session_state.get("_gist_loade
 
         # ── Ban check ─────────────────────────────────────────────────────
         if _gl_entry.get("banned"):
-            st.error("🚫 **You have been removed from Titan Ultra by the administrator.**
-
-Contact the owner if you think this is a mistake.")
+            st.error("🚫 **You have been removed from Titan Ultra by the administrator.**\n\nContact the owner if you think this is a mistake.")
             st.stop()
 
         # ── Timeout check ─────────────────────────────────────────────────
