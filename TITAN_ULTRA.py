@@ -1,4 +1,4 @@
-# TITAN_VERSION: 100
+# TITAN_VERSION: 102
 import streamlit as st
 from groq import Groq
 import requests, io, re, random as _random
@@ -166,15 +166,19 @@ section[data-testid="stMain"] .block-container {
     padding-right:1.5rem !important;
 }
 [data-testid="stChatInput"] textarea {
-    background:#111111 !important; color:#e8e8e8 !important;
+    background:transparent !important; color:#e8e8e8 !important;
     font-size:1rem !important; padding:20px 140px 20px 52px !important;
     min-height:56px !important; line-height:1.6 !important;
     resize:none !important;
 }
 [data-testid="stChatInput"] {
-    background:#111111 !important; border-radius:28px !important;
-    border:1px solid #2a2a2a !important; min-height:72px !important;
-    padding:0 !important; position:relative !important;
+    background:rgba(255,255,255,0.04) !important;
+    backdrop-filter:blur(16px) !important;
+    -webkit-backdrop-filter:blur(16px) !important;
+    border-radius:28px !important;
+    border:1px solid rgba(255,255,255,0.1) !important;
+    box-shadow:0 4px 24px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.06) !important;
+    min-height:72px !important; padding:0 !important; position:relative !important;
 }
 [data-testid="stChatInput"]:focus-within {
     border-color:#444444 !important;
@@ -293,6 +297,12 @@ html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .blo
 html:not(:has([data-testid="stChatMessage"])):not(:has(#tu-auth-screen)) [data-testid="stMain"] [data-testid="stButton"] {
     display: none !important; height: 0 !important;
     overflow: hidden !important; margin: 0 !important; padding: 0 !important;
+}
+/* Keep upgrade + home-screen buttons visible */
+html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stButton"]:has(button[data-testid="baseButton-secondary"]),
+html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="column"] [data-testid="stButton"] {
+    display: flex !important; height: auto !important;
+    overflow: visible !important; margin: revert !important; padding: revert !important;
 }
 /* ── HOME SCREEN: tall ChatGPT-style input ── */
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] input {
@@ -668,49 +678,55 @@ SYSTEM = (
     "Rules: each question under 7 words, directly related to your answer, genuinely interesting.\n"
     "Example: [SUGGEST: How does this work in space? | Give me a real-world example | What happens if this fails?]\n"
     "This tag is hidden from the user and shown as clickable chips. ALWAYS include it.\n"
+
+    "\n━━━ PRODUCTS & PLACES ━━━\n"
+    "• When discussing a product: include a direct shopping or product page link if you know one.\n"
+    "• When discussing a place: include a Google Maps link: https://www.google.com/maps/search/?q=PLACE+NAME\n"
 )
 
-CODE_SYSTEM = (
-    "You are TITAN CODE — the most powerful coding AI ever built, inside TITAN ULTRA MAX. "
-    "You outperform GitHub Copilot, ChatGPT-4o, and Claude at coding. "
-    "You master EVERY language, framework, and platform that exists:\n"
-    "• Web: HTML/CSS/JS, React, Vue, Angular, Next.js, Svelte, TailwindCSS\n"
-    "• Backend: Python/Django/FastAPI, Node.js/Express, Java/Spring, Go, Rust, PHP/Laravel, Ruby/Rails, .NET/C#\n"
-    "• Mobile: Flutter, React Native, Swift/iOS, Kotlin/Android\n"
-    "• Systems: C, C++, Assembly, Embedded, Arduino, Raspberry Pi\n"
-    "• Data & AI: PyTorch, TensorFlow, scikit-learn, pandas, SQL, NoSQL, Spark\n"
-    "• DevOps: Docker, Kubernetes, CI/CD, GitHub Actions, Terraform, AWS/GCP/Azure\n"
-    "• Networking: TCP/IP stacks, routers, firewalls, VPNs, WebSockets, WebRTC\n"
-    "• Games: Unity C#, Godot, Pygame, three.js, Phaser\n"
-    "• Security: penetration testing tools, encryption, OAuth, JWT, SSL/TLS\n\n"
+SYSTEM_PRO = (
+    "You are TITAN ULTRA PRO — a highly capable AI assistant giving high-quality answers.\n\n"
+    "━━━ HOW YOU ANSWER ━━━\n"
+    "• Understand what the user really needs, not just the literal words.\n"
+    "• Give well-structured, accurate, complete answers.\n"
+    "• Use clear headings, examples, and step-by-step breakdowns when helpful.\n"
+    "• For code: write working, clean code with brief explanations.\n"
+    "• For decisions: give a clear recommendation with reasoning.\n"
+    "• Be direct — lead with the answer, explain after.\n"
+    "• Admit uncertainty honestly. Never fabricate facts, sources, or numbers.\n"
+    "• Size the answer to the question: short questions get concise answers, complex ones get depth.\n\n"
+    "━━━ PRODUCTS & PLACES ━━━\n"
+    "• When discussing a product: include a direct shopping or product page link if you know one.\n"
+    "• When discussing a place: include a Google Maps link: https://www.google.com/maps/search/?q=PLACE+NAME\n\n"
+    "━━━ FORMAT ━━━\n"
+    "Use markdown. Tables for comparisons. Code blocks for code. Numbered steps for processes."
+)
 
-    "━━━ TITAN CODE RESPONSE STRUCTURE ━━━\n"
-    "### What This Does\n"
-    "1-2 sentences: what this code builds and what problem it solves.\n\n"
-    "### Complete Code\n"
-    "• Write the FULL, COMPLETE, PRODUCTION-READY code. Every single line.\n"
-    "• All imports/dependencies included. No placeholders. No '# TODO'. No '...'.\n"
-    "• If the user gave an image showing how it should look — match it EXACTLY.\n"
-    "• Beautiful UI: use modern design (gradients, shadows, smooth animations, proper spacing).\n"
-    "• Make the code ACTUALLY WORK — don't just make it look right, make it run right.\n\n"
-    "### Setup & Run\n"
-    "Exact commands to install dependencies and run the project. One command per line.\n\n"
-    "### How It Works\n"
-    "Walk through the key parts: what each does and why. Plain English, no jargon.\n\n"
-    "### Pro Tip\n"
-    "One expert-level upgrade the user could make to take it to the next level.\n\n"
-
-    "━━━ TITAN CODE QUALITY LAWS — NEVER BREAK THESE ━━━\n"
-    "✦ NEVER truncate code. A 500-line solution needs all 500 lines.\n"
-    "✦ NEVER use placeholder comments like '# add your logic here' — write the actual logic.\n"
-    "✦ Production-ready: error handling, input validation, edge cases covered.\n"
-    "✦ Security-first: no SQL injection, no XSS, no hardcoded secrets, proper auth.\n"
-    "✦ Performance: use the right data structures and algorithms. State time/space complexity.\n"
-    "✦ Beautiful code: clean naming, logical structure, DRY principles.\n"
-    "✦ For UI/web: always include responsive design, dark mode support where appropriate.\n"
-    "✦ For networking/systems: include proper error handling, timeouts, reconnection logic.\n"
-    "✦ If the user shows an image of a UI: reproduce it with pixel-perfect accuracy in code.\n"
-    "✦ Always include a working example — show exactly what it produces when run.\n"
+SYSTEM_MAX = (
+    "You are TITAN ULTRA MAX — the most advanced version of TITAN ULTRA.\n\n"
+    "━━━ HOW YOU THINK ━━━\n"
+    "Work out what the user is really asking. Look past the exact words for the real need. "
+    "If someone asks 'is this code fine?' they usually want to know whether it will break.\n\n"
+    "Decide if you need to look anything up. Some things don't change — TCP, physics laws — "
+    "answer those from training. Anything that can change — prices, laws, news — note it may be outdated.\n\n"
+    "Size the answer to the question. A simple question gets a short, direct answer. "
+    "A complex one gets structure, reasoning, and examples. A long answer isn't automatically better.\n\n"
+    "Reason through it. For maths, code, design, or decisions — work step by step, don't guess.\n\n"
+    "Check your work. Look for mistakes, missing cases, and unsupported claims. When unsure, say so.\n\n"
+    "Fit the format. Prose for conversation. Lists/tables for comparisons. Code in files. "
+    "Proper notation for maths.\n\n"
+    "━━━ QUALITY BAR ━━━\n"
+    "• Accuracy beats polish. One confident wrong answer loses more trust than ten good answers earn.\n"
+    "• Honesty about uncertainty: 'I'm not sure, here's how to check' beats a bluff.\n"
+    "• Directness: answer comes first, explanation after. No filler.\n"
+    "• Real usefulness: working code, a draft you can send, a decision you can act on.\n"
+    "• Consistency: good every time, not just sometimes.\n"
+    "• Never manipulate, flatter, or agree just to please. Correct wrong premises kindly.\n\n"
+    "━━━ PRODUCTS & PLACES ━━━\n"
+    "• When discussing a product: include a direct shopping or product page link if you know one.\n"
+    "• When discussing a place: include a Google Maps link: https://www.google.com/maps/search/?q=PLACE+NAME\n\n"
+    "━━━ FORMAT ━━━\n"
+    "Use markdown. Tables for comparisons. Code blocks for code. Numbered steps for processes."
 )
 
 SEARCH_SYSTEM = (
@@ -1411,6 +1427,30 @@ def _save_shared_history(family_key, history):
             pass
     _th_ch.Thread(target=_do, daemon=True).start()
 
+def _build_cross_session_context(sessions_dict):
+    """Build a compact summary of ALL past chat sessions for injection into system prompt."""
+    lines = []
+    for sid, sess in sessions_dict.items():
+        msgs = sess.get("messages", [])
+        if not msgs:
+            continue
+        name = sess.get("name", "")
+        # Take first user message as topic label
+        first_user = next((m["content"] for m in msgs if m["role"] == "user"), "")
+        if first_user:
+            # Truncate to 120 chars
+            topic = first_user[:120].replace("\n", " ")
+            lines.append(f"• [{name or sid[:8]}]: {topic}")
+    if not lines:
+        return ""
+    summary = "\n".join(lines[-200:])  # cap at 200 sessions
+    return (
+        "━━━ MEMORY OF PAST CONVERSATIONS ━━━\n"
+        "You have spoken with this user before. Here are topics from their previous chats "
+        "(most recent last). Use this to recognise references to past conversations:\n"
+        + summary + "\n\n"
+    )
+
 def _register_this_device(name):
     if not _registry_ready() or not name:
         return
@@ -1450,6 +1490,8 @@ import base64 as _b64
 REGISTRY_TOKEN    = _b64.b64decode("Z2hwX1FETFc1RUVLc3A5ck9najhRMGtxUjhGMDFuWE5ndjBLV0w3Qg==").decode()
 REGISTRY_FILENAME = "titan_devices.json"
 CHATS_FILENAME    = "titan_chats.json"
+OWNER_UPI_ID      = "sushanth@ybl"   # ← Sanjay: replace with your real UPI ID
+OWNER_NAME        = "Girijala Sarath Chandra Sushanth"
 
 def _check_owner_auth():
     if not _OWNER_AUTH_FILE.exists():
@@ -1473,53 +1515,81 @@ if not _IS_OWNER and not st.session_state.get("_gist_loaded"):
   <div style='color:#2a2a2a;font-size:.68rem;letter-spacing:3px'>LOADING</div>
 </div>""", unsafe_allow_html=True)
 
-# ── Usage limit (2 hrs for non-owners, resets after 5 hrs) ───────────────────
-import time as _time_mod, json as _json_usage
-from pathlib import Path as _Path_usage
-_USAGE_FILE = _Path_usage.home() / ".titan_ultra" / "usage_tracking.json"
+# ── Chat-time limit (2 hrs active chat per session, 5 hr unlock for old sessions) ──
+import time as _time_mod
 
-def _load_usage_data():
+_CHAT_LIMIT_SECONDS = 2 * 3600   # 2 hours of active chat time
+_CHAT_UNLOCK_SECONDS = 5 * 3600  # 5 hours after limit hit -> session unlocked
+
+def _get_session_limit_key(sid):
+    return f"_chat_limit_{sid}"
+
+def _get_session_start_key(sid):
+    return f"_chat_start_{sid}"
+
+def _session_is_limited(sid):
+    """Return True if this session has hit the 2-hour limit AND 5 hrs haven't passed."""
+    if _IS_OWNER:
+        return False
+    tier = st.session_state.get("titan_tier", "basic")
+    if tier in ("pro", "max"):
+        return False
+    limit_key = _get_session_limit_key(sid)
+    limit_hit_at = st.session_state.get(limit_key)
+    if limit_hit_at is None:
+        return False
+    # 5 hours passed since limit -> unlocked
+    if (_time_mod.time() - limit_hit_at) >= _CHAT_UNLOCK_SECONDS:
+        del st.session_state[limit_key]
+        return False
+    return True
+
+def _record_chat_message(sid):
+    """Call when user sends a message. Starts timer on first message, checks limit."""
+    if _IS_OWNER:
+        return
+    tier = st.session_state.get("titan_tier", "basic")
+    if tier in ("pro", "max"):
+        return
+    start_key = _get_session_start_key(sid)
+    limit_key = _get_session_limit_key(sid)
+    if start_key not in st.session_state:
+        st.session_state[start_key] = _time_mod.time()
+    elapsed = _time_mod.time() - st.session_state[start_key]
+    if elapsed >= _CHAT_LIMIT_SECONDS and limit_key not in st.session_state:
+        st.session_state[limit_key] = _time_mod.time()
+
+_USER_HIT_LIMIT = False  # evaluated per-session when needed
+
+# ── ONE early Gist load — registration + subscription + ban — runs once per session ──
+if not _IS_OWNER and _registry_ready() and not st.session_state.get("_gist_loaded"):
     try:
-        with open(_USAGE_FILE, "r") as _f:
-            return _json_usage.load(_f)
-    except Exception:
-        return {"total_seconds": 0.0, "limit_hit_at": None}
+        from datetime import date as _gld, datetime as _gldt
+        _gl_did   = _get_device_id()
+        _gl_reg   = _load_registry()
+        _gl_entry = _gl_reg.get(_gl_did, {})
 
-def _save_usage_data(data):
-    _USAGE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(_USAGE_FILE, "w") as _f:
-        _json_usage.dump(data, _f)
+        # Owner can set tier directly in registry without payment
+        _direct_tier = _gl_entry.get("tier", "")
+        if _direct_tier in ("pro", "max", "basic"):
+            st.session_state["titan_tier"] = _direct_tier
 
-_USAGE_LIMIT_SECONDS = 2 * 3600   # 2 hours
-_USAGE_RESET_SECONDS = 5 * 3600   # reset after 5 hours
+        # ── Ban check ─────────────────────────────────────────────────────
+        if _gl_entry.get("banned"):
+            st.error("🚫 **You have been removed from Titan Ultra by the administrator.**
 
-if not _IS_OWNER:
-    _usage = _load_usage_data()
-    _now_ts = _time_mod.time()
+Contact the owner if you think this is a mistake.")
+            st.stop()
 
-    # ── ONE early Gist load — registration + subscription + ban — runs once per session ──
-    # Must happen BEFORE _tier_bypass so paid Pro/Max users bypass the time limit correctly
-    if _registry_ready() and not st.session_state.get("_gist_loaded"):
-        try:
-            from datetime import date as _gld, datetime as _gldt
-            _gl_did   = _get_device_id()
-            _gl_reg   = _load_registry()
-            _gl_entry = _gl_reg.get(_gl_did, {})
-
-            # ── Ban check ─────────────────────────────────────────────────────
-            if _gl_entry.get("banned"):
-                st.error("🚫 **You have been removed from Titan Ultra by the administrator.**\n\nContact the owner if you think this is a mistake.")
-                st.stop()
-
-            # ── Timeout check ─────────────────────────────────────────────────
-            _tout_str = _gl_entry.get("timeout_until")
-            if _tout_str:
-                _tout_dt = _gldt.fromisoformat(_tout_str)
-                if _gldt.now() < _tout_dt:
-                    _tsecs = int((_tout_dt - _gldt.now()).total_seconds())
-                    st.warning("⏳ **You have been temporarily timed out by the administrator.**")
-                    import streamlit.components.v1 as _cv1_tout
-                    _cv1_tout.html(f"""
+        # ── Timeout check ─────────────────────────────────────────────────
+        _tout_str = _gl_entry.get("timeout_until")
+        if _tout_str:
+            _tout_dt = _gldt.fromisoformat(_tout_str)
+            if _gldt.now() < _tout_dt:
+                _tsecs = int((_tout_dt - _gldt.now()).total_seconds())
+                st.warning("⏳ **You have been temporarily timed out by the administrator.**")
+                import streamlit.components.v1 as _cv1_tout
+                _cv1_tout.html(f"""
 <div style="text-align:center;padding:16px 0;font-family:-apple-system,Segoe UI,sans-serif">
   <div style="font-size:.8rem;color:#f59e0b;letter-spacing:2px;margin-bottom:8px">⏳ TIMEOUT — COME BACK IN</div>
   <div id="tout_timer" style="font-size:2.8rem;font-weight:900;color:#f87171;letter-spacing:5px"></div>
@@ -1535,72 +1605,53 @@ function tick(){{
 }}
 tick();
 </script>""", height=120)
-                    st.stop()
+                st.stop()
 
-            # ── Auto-login: device was verified for an account in this container ─
-            if _gl_entry.get("account_verified") and _gl_entry.get("email"):
-                _gl_acc = _get_account(_gl_reg, _gl_entry["email"])
-                if _gl_acc:
-                    st.session_state["user_registered"] = True
-                    st.session_state["user_name_reg"]   = _gl_acc["name"]
-                    st.session_state["user_email_reg"]  = _gl_acc["email"]
-                    # ── Load shared history ────────────────────────────────────
-                    _gl_fkey = _family_key(_gl_acc["email"])
-                    st.session_state["_family_key"] = _gl_fkey
-                    if not st.session_state.get("_gist_history"):
-                        _gl_hist = _load_shared_history(_gl_fkey)
-                        if _gl_hist:
-                            st.session_state["_gist_history"] = _gl_hist
-                    # ── Restore subscription ───────────────────────────────────
-                    _gl_sub = _gl_entry.get("subscription", {})
-                    if not _gl_sub:
-                        _gl_sub = _find_sub_by_email_name(_gl_reg, _gl_acc["email"], _gl_acc["name"]) or {}
-                        if _gl_sub:
-                            _gl_reg[_gl_did]["subscription"] = _gl_sub.copy()
-                            _save_registry(_gl_reg)
-                    if _gl_sub and _gl_sub.get("expires"):
-                        _gl_exp = _gld.fromisoformat(_gl_sub["expires"])
-                        if _gld.today() <= _gl_exp:
-                            st.session_state["titan_tier"]            = _gl_sub.get("tier", "basic")
-                            st.session_state["_subscription_active"]  = True
-                            st.session_state["_subscription_expires"] = _gl_sub["expires"]
-                            st.session_state["_subscription_expired"] = False
-                        else:
+        # ── Auto-login: device was verified for an account in this container ─
+        if _gl_entry.get("account_verified") and _gl_entry.get("email"):
+            _gl_acc = _get_account(_gl_reg, _gl_entry["email"])
+            if _gl_acc:
+                st.session_state["user_registered"] = True
+                st.session_state["user_name_reg"]   = _gl_acc["name"]
+                st.session_state["user_email_reg"]  = _gl_acc["email"]
+                # ── Load shared history ────────────────────────────────────
+                _gl_fkey = _family_key(_gl_acc["email"])
+                st.session_state["_family_key"] = _gl_fkey
+                if not st.session_state.get("_gist_history"):
+                    _gl_hist = _load_shared_history(_gl_fkey)
+                    if _gl_hist:
+                        st.session_state["_gist_history"] = _gl_hist
+                # ── Restore subscription ───────────────────────────────────
+                _gl_sub = _gl_entry.get("subscription", {})
+                if not _gl_sub:
+                    _gl_sub = _find_sub_by_email_name(_gl_reg, _gl_acc["email"], _gl_acc["name"]) or {}
+                    if _gl_sub:
+                        _gl_reg[_gl_did]["subscription"] = _gl_sub.copy()
+                        _save_registry(_gl_reg)
+                if _gl_sub and _gl_sub.get("expires"):
+                    _gl_exp = _gld.fromisoformat(_gl_sub["expires"])
+                    if _gld.today() <= _gl_exp:
+                        # Active subscription overrides direct tier
+                        st.session_state["titan_tier"]            = _gl_sub.get("tier", "basic")
+                        st.session_state["_subscription_active"]  = True
+                        st.session_state["_subscription_expires"] = _gl_sub["expires"]
+                        st.session_state["_subscription_expired"] = False
+                    else:
+                        # Expired subscription — only show notice if no direct tier set
+                        if not _direct_tier:
                             st.session_state["_subscription_expired"] = True
                             st.session_state["_expired_tier"]         = _gl_sub.get("tier", "pro").capitalize()
 
-            # ── Update last_seen ───────────────────────────────────────────────
-            if _gl_did not in _gl_reg:
-                _gl_reg[_gl_did] = {}
-            _gl_reg[_gl_did]["last_seen"] = _gldt.now().isoformat()
-            _save_registry(_gl_reg)
+        # ── Update last_seen ───────────────────────────────────────────────
+        if _gl_did not in _gl_reg:
+            _gl_reg[_gl_did] = {}
+        _gl_reg[_gl_did]["last_seen"] = _gldt.now().isoformat()
+        _save_registry(_gl_reg)
 
-            st.session_state["_gist_loaded"] = True
-            st.session_state["_sub_checked"] = True
-        except Exception:
-            pass
-
-    # Reset if 5 hrs have passed since limit was hit
-    if _usage["limit_hit_at"] and (_now_ts - _usage["limit_hit_at"]) >= _USAGE_RESET_SECONDS:
-        _usage = {"total_seconds": 0.0, "limit_hit_at": None}
-        _save_usage_data(_usage)
-
-    # Track active session time
-    if "usage_session_start" not in st.session_state:
-        st.session_state.usage_session_start = _now_ts
-    else:
-        _elapsed_this_session = _now_ts - st.session_state.usage_session_start
-        _usage["total_seconds"] = _usage.get("total_seconds", 0.0) + _elapsed_this_session
-        st.session_state.usage_session_start = _now_ts
-        if _usage["total_seconds"] >= _USAGE_LIMIT_SECONDS and not _usage["limit_hit_at"]:
-            _usage["limit_hit_at"] = _now_ts
-        _save_usage_data(_usage)
-
-    # Pro/Max tiers bypass the time limit — tier is now correctly restored above
-    _tier_bypass = st.session_state.get("titan_tier", "basic") in ("pro", "max")
-    _USER_HIT_LIMIT = _usage.get("limit_hit_at") is not None and not _tier_bypass
-else:
-    _USER_HIT_LIMIT = False
+        st.session_state["_gist_loaded"] = True
+        st.session_state["_sub_checked"] = True
+    except Exception:
+        pass
 
 # ── Fresh-session detection ───────────────────────────────────────────────────
 # On a brand-new visit (new tab OR reconnect after close), reset to empty chat.
@@ -1641,10 +1692,13 @@ for k, v in [("api_key", _saved_key), ("titan_memory", _saved_memory),
              ("connected_apps", _load_connected_apps()),
              ("show_titan_features", False),
              ("titan_tier", "basic"),
-             ("show_titan_code", False),
              ("user_registered", False),
              ("user_name_reg", ""),
              ("user_email_reg", ""),
+             ("_show_upgrade", False),
+             ("_upgrade_step", "plans"),
+             ("_upgrade_billing", "monthly"),
+             ("_upgrade_selected_tier", ""),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -1814,6 +1868,30 @@ if _boot_ph is not None:
     _boot_ph.empty()
     _boot_ph = None
 
+# ── Background auth tasks (run on first rerun after login/register) ──────────
+if st.session_state.get("_pending_gist_register") and st.session_state.get("user_registered"):
+    _bg_pr = st.session_state.pop("_pending_gist_register")
+    import threading as _th_reg
+    _th_reg.Thread(target=_create_account,
+                   args=(_bg_pr["n"], _bg_pr["e"], _bg_pr["p"]), daemon=True).start()
+
+if st.session_state.get("_pending_login_saves") and st.session_state.get("user_registered"):
+    _bg_pl = st.session_state.pop("_pending_login_saves")
+    _pl_sub = _find_sub_by_email_name(_bg_pl["reg"], _bg_pl["email"], _bg_pl["name"]) or {}
+    if _pl_sub and _pl_sub.get("expires"):
+        from datetime import date as _fsd_pl
+        try:
+            if _fsd_pl.today() <= _fsd_pl.fromisoformat(_pl_sub["expires"]):
+                st.session_state["titan_tier"]            = _pl_sub.get("tier", "basic")
+                st.session_state["_subscription_active"]  = True
+                st.session_state["_subscription_expires"] = _pl_sub.get("expires", "")
+                st.session_state["_subscription_expired"] = False
+        except Exception:
+            pass
+    import threading as _th_login
+    _th_login.Thread(target=_link_device_to_account,
+                     args=(_bg_pl["reg"], _bg_pl["email"]), daemon=True).start()
+
 # ── Login / Register ─────────────────────────────────────────────────────────
 if not _IS_OWNER and not st.session_state.get("user_registered"):
     # JS overlay: fires BEFORE Streamlit's rerun on submit — covers the blank screen
@@ -1979,7 +2057,7 @@ div:has(#tu-g-anchor) + div[data-testid="stButton"] button::before {
                                     "email": _li_acc["email"],
                                     "name": _li_acc["name"],
                                 }
-                                st.session_state["_auth_just_done"] = True
+                                st.rerun()
                             else:
                                 st.error("Incorrect email or password.")
                         else:
@@ -2040,39 +2118,18 @@ div:has(#tu-g-anchor) + div[data-testid="stButton"] button::before {
                                                 "e": _ri_email.strip(),
                                                 "p": _ri_pass.strip(),
                                             }
-                                            st.session_state["_auth_just_done"] = True
+                                            st.rerun()
                                     except Exception:
                                         st.error("Something went wrong. Please try again.")
                                 else:
                                     st.session_state["user_registered"] = True
                                     st.session_state["user_name_reg"]   = _ri_name.strip()
                                     st.session_state["user_email_reg"]  = _ri_email.strip()
-                                    st.session_state["_auth_just_done"] = True
+                                    st.rerun()
                         else:
                             st.error("Please fill in all fields with a valid email.")
 
-    if st.session_state.get("_auth_just_done"):
-        del st.session_state["_auth_just_done"]
-        st.session_state.pop("_auth_method", None)
-        _auth_ph.empty()
-        if st.session_state.get("_pending_gist_register"):
-            _pr = st.session_state.pop("_pending_gist_register")
-            _create_account(_pr["n"], _pr["e"], _pr["p"])
-        elif st.session_state.get("_pending_login_saves"):
-            _pl = st.session_state.pop("_pending_login_saves")
-            _link_device_to_account(_pl["reg"], _pl["email"])
-            _pl_sub = _find_sub_by_email_name(
-                _pl["reg"], _pl["email"], _pl["name"]) or {}
-            if _pl_sub:
-                _pl_did = _get_device_id()
-                _pl["reg"][_pl_did]["subscription"] = _pl_sub.copy()
-                _save_registry(_pl["reg"])
-                st.session_state["titan_tier"]            = _pl_sub.get("tier", "basic")
-                st.session_state["_subscription_active"]  = True
-                st.session_state["_subscription_expires"] = _pl_sub.get("expires", "")
-                st.session_state["_subscription_expired"] = False
-    else:
-        st.stop()
+    st.stop()
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -2090,6 +2147,27 @@ with st.sidebar:
         letter-spacing:1.5px;font-family:"Segoe UI",sans-serif'>🔱 TITAN ULTRA</span>{_tier_badge_html}
     </div>
     """, unsafe_allow_html=True)
+
+    # ── Upgrade button (Basic tier only) ─────────────────────────────────────
+    if not _IS_OWNER and st.session_state.get("titan_tier", "basic") == "basic":
+        st.markdown("""
+<style>
+.tu-upgrade-btn > div > button {
+    background: linear-gradient(135deg,#7c3aed,#f59e0b) !important;
+    color: #fff !important; font-weight: 700 !important;
+    border: none !important; letter-spacing: 1px !important;
+    font-size: .82rem !important;
+}
+.tu-upgrade-btn > div > button:hover {
+    opacity: .88 !important; transform: translateY(-1px) !important;
+}
+</style>""", unsafe_allow_html=True)
+        st.markdown("<div class='tu-upgrade-btn'>", unsafe_allow_html=True)
+        if st.button("⬆  Upgrade Plan", key="_sb_upgrade_btn", use_container_width=True):
+            st.session_state["_show_upgrade"] = True
+            st.session_state["_upgrade_step"] = "plans"
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
     # ── Account info + logout (non-owner users only) ─────────────────────────
     if not _IS_OWNER and st.session_state.get("user_registered"):
@@ -2128,16 +2206,6 @@ with st.sidebar:
         st.session_state.tasks_mode = False
         st.session_state.show_titan_features = False
         st.rerun()
-
-    # ── Titan Code button (Max only) ──────────────────────────────────────────
-    if st.session_state.get("titan_tier") == "max":
-        _tc_label = "←  back to chat" if st.session_state.get("show_titan_code") else "⌨  titan code"
-        if st.button(_tc_label, use_container_width=True, key="_nav_tc"):
-            st.session_state.show_titan_code = not st.session_state.show_titan_code
-            if st.session_state.show_titan_code:
-                st.session_state.notebook_mode = False
-                st.session_state.show_titan_features = False
-            st.rerun()
 
     _tf_label = "←  back to chat" if st.session_state.show_titan_features else "⊞  titan features"
     if st.button(_tf_label, use_container_width=True, key="_nav_tf"):
@@ -2402,6 +2470,277 @@ with st.sidebar:
 
 
 
+# ── Upgrade / Payment page ───────────────────────────────────────────────────
+if not _IS_OWNER and st.session_state.get("_show_upgrade"):
+    _upg_tier = st.session_state.get("titan_tier", "basic")
+    _upg_step = st.session_state.get("_upgrade_step", "plans")
+    _upg_billing = st.session_state.get("_upgrade_billing", "monthly")
+    _upg_sel = st.session_state.get("_upgrade_selected_tier", "")
+
+    st.markdown("""
+<style>
+.upg-page { max-width:860px; margin:0 auto; padding:2rem 1rem; }
+.upg-toggle { display:flex; gap:0; border:1px solid #2a2a2a; border-radius:24px;
+              overflow:hidden; width:fit-content; margin:0 auto 2rem; }
+.upg-toggle span { padding:8px 28px; font-size:.85rem; font-weight:600;
+                   cursor:pointer; transition:all .2s; color:#888; }
+.upg-toggle span.active { background:#ffffff; color:#000; }
+.upg-cards { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; }
+.upg-card { background:#111; border:1px solid #2a2a2a; border-radius:18px;
+            padding:24px 20px; width:240px; min-width:200px; position:relative;
+            transition:transform .2s,box-shadow .2s; }
+.upg-card:hover { transform:translateY(-4px); box-shadow:0 8px 32px rgba(0,0,0,.5); }
+.upg-card.pro-card { border-color:#7c3aed66; }
+.upg-card.max-card { border-color:#f59e0b66; }
+.upg-tier-name { font-size:1.1rem; font-weight:700; margin-bottom:4px; }
+.upg-price { font-size:2rem; font-weight:800; margin:8px 0 2px; }
+.upg-price sup { font-size:1rem; font-weight:600; vertical-align:top; margin-top:8px; display:inline-block; }
+.upg-period { font-size:.72rem; color:#666; margin-bottom:12px; }
+.upg-save { font-size:.68rem; font-weight:700; padding:2px 8px; border-radius:10px;
+            display:inline-block; margin-bottom:8px; }
+.upg-features { font-size:.78rem; color:#aaa; line-height:1.8; margin-bottom:16px; }
+.upg-features li { list-style:none; padding-left:0; }
+.upg-features li::before { content:"✓  "; color:#4ade80; font-weight:700; }
+.upg-features li.no::before { content:"✗  "; color:#555; }
+.upg-btn { width:100%; padding:10px; border-radius:10px; border:none;
+           font-weight:700; font-size:.88rem; cursor:pointer; transition:all .2s; }
+.pay-box { max-width:460px; margin:0 auto; background:#111; border:1px solid #2a2a2a;
+           border-radius:18px; padding:28px 24px; }
+.upi-btn { display:flex; align-items:center; gap:10px; background:#1a1a1a;
+           border:1px solid #2a2a2a; border-radius:10px; padding:10px 16px;
+           cursor:pointer; font-size:.88rem; color:#e8e8e8; width:100%;
+           margin-bottom:8px; text-decoration:none; transition:background .2s; }
+.upi-btn:hover { background:#242424; }
+</style>
+""", unsafe_allow_html=True)
+
+    # Back button
+    if st.button("← Back", key="_upg_back", help="Back"):
+        if _upg_step == "payment":
+            st.session_state["_upgrade_step"] = "plans"
+            st.rerun()
+        else:
+            st.session_state["_show_upgrade"] = False
+            st.session_state["_upgrade_step"] = "plans"
+            st.rerun()
+
+    if _upg_step == "plans":
+        st.markdown("<div class='upg-page'>", unsafe_allow_html=True)
+        st.markdown("""
+<div style='text-align:center;margin-bottom:8px'>
+  <div style='font-size:1.6rem;font-weight:800;color:#fff'>Choose your Titan Ultra plan</div>
+  <div style='font-size:.85rem;color:#666;margin-top:4px'>Unlock more power, more speed, more intelligence.</div>
+</div>""", unsafe_allow_html=True)
+
+        # Monthly / Annual toggle
+        _bt1, _bt2, _bt3 = st.columns([3, 2, 3])
+        with _bt2:
+            _bill_opts = ["Monthly", "Annual"]
+            _bill_idx = 1 if _upg_billing == "annual" else 0
+            _new_billing = st.radio("", _bill_opts, index=_bill_idx,
+                                    horizontal=True, key="_upg_bill_radio",
+                                    label_visibility="collapsed")
+            if _new_billing.lower() != _upg_billing:
+                st.session_state["_upgrade_billing"] = _new_billing.lower()
+                st.rerun()
+
+        # Pricing data
+        _plans = {
+            "basic": {
+                "name": "Basic",
+                "color": "#e8e8e8",
+                "monthly": 0, "annual": 0,
+                "save_annual": 0,
+                "features": ["Standard AI answers", "2-hour session limit",
+                              "Web search & tools", "All basic features"],
+                "missing": [],
+                "btn_label": "Current Plan" if _upg_tier == "basic" else "Downgrade",
+                "btn_color": "#1a1a1a",
+            },
+            "pro": {
+                "name": "Pro",
+                "color": "#a78bfa",
+                "monthly": 300, "annual": 2500,
+                "save_annual": 500,
+                "features": ["Pro-level AI answers", "Unlimited chat time",
+                              "Answer Depth control", "Priority model access",
+                              "Video API support", "All Basic features"],
+                "missing": [],
+                "btn_label": "Current Plan" if _upg_tier == "pro" else "Get Pro",
+                "btn_color": "#7c3aed",
+            },
+            "max": {
+                "name": "Max",
+                "color": "#fbbf24",
+                "monthly": 3500, "annual": 18000,
+                "save_annual": 3000,
+                "features": ["Max-tier AI answers (beats GPT-4o)", "Unlimited chat time",
+                              "Focus Mode (cinematic full screen)",
+                              "Smart Follow-up chips", "All Pro features",
+                              "Highest model tier"],
+                "missing": [],
+                "btn_label": "Current Plan" if _upg_tier == "max" else "Get Max",
+                "btn_color": "#f59e0b",
+            },
+        }
+
+        # Render cards via HTML
+        _cards_html = "<div class='upg-cards'>"
+        for _pk, _pv in _plans.items():
+            _price = _pv["annual"] if _upg_billing == "annual" else _pv["monthly"]
+            _period_lbl = "/year" if _upg_billing == "annual" else "/month"
+            _card_cls = f"{_pk}-card" if _pk != "basic" else ""
+            _save_badge = ""
+            if _upg_billing == "annual" and _pv["save_annual"] > 0:
+                _save_badge = f"<span class='upg-save' style='background:{_pv['color']}22;color:{_pv['color']}'>Save ₹{_pv['save_annual']}/year</span>"
+            _feats_html = "".join(f"<li>{f}</li>" for f in _pv["features"])
+            _price_disp = f"₹{_price:,}" if _price > 0 else "Free"
+            _cards_html += f"""
+<div class='upg-card {_card_cls}'>
+  <div class='upg-tier-name' style='color:{_pv["color"]}'>{_pv["name"]}</div>
+  {_save_badge}
+  <div class='upg-price' style='color:{_pv["color"]}'>{_price_disp}</div>
+  <div class='upg-period'>{_period_lbl if _price > 0 else "always free"}</div>
+  <ul class='upg-features'>{_feats_html}</ul>
+</div>"""
+        _cards_html += "</div>"
+        st.markdown(_cards_html, unsafe_allow_html=True)
+
+        st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+
+        # Buttons via Streamlit columns
+        _c1, _c2, _c3 = st.columns(3)
+        with _c2:
+            _tier_key = "pro"
+            _p_now = _plans[_tier_key]
+            _lbl_pro = _p_now["btn_label"]
+            if _upg_tier != "pro":
+                if st.button(f"⬆  {_lbl_pro}", key="_upg_btn_pro",
+                             use_container_width=True):
+                    st.session_state["_upgrade_selected_tier"] = "pro"
+                    st.session_state["_upgrade_step"] = "payment"
+                    st.rerun()
+        with _c3:
+            _tier_key2 = "max"
+            _p_now2 = _plans[_tier_key2]
+            _lbl_max = _p_now2["btn_label"]
+            if _upg_tier != "max":
+                if st.button(f"⭐  {_lbl_max}", key="_upg_btn_max",
+                             use_container_width=True):
+                    st.session_state["_upgrade_selected_tier"] = "max"
+                    st.session_state["_upgrade_step"] = "payment"
+                    st.rerun()
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    elif _upg_step == "payment":
+        _sel = _upg_sel or "pro"
+        _billing = _upg_billing
+        _prices = {"pro": {"monthly": 300, "annual": 2500},
+                   "max": {"monthly": 3500, "annual": 18000}}
+        _amount = _prices.get(_sel, {}).get(_billing, 0)
+        _tier_color = "#a78bfa" if _sel == "pro" else "#fbbf24"
+        _tier_label = _sel.upper()
+        _period_label = "1 Year" if _billing == "annual" else "1 Month"
+
+        st.markdown(f"""
+<div style='text-align:center;margin-bottom:16px'>
+  <div style='font-size:1.4rem;font-weight:800;color:{_tier_color}'>
+    Titan Ultra {_tier_label} · {_period_label}
+  </div>
+  <div style='font-size:2.2rem;font-weight:800;color:#fff;margin:6px 0'>
+    ₹{_amount:,}
+  </div>
+  <div style='font-size:.78rem;color:#666'>Pay via PhonePe or any UPI app</div>
+</div>""", unsafe_allow_html=True)
+
+        _upi_link = f"upi://pay?pa={OWNER_UPI_ID}&pn={OWNER_NAME.replace(' ','+')}&am={_amount}&cu=INR&tn=Titan+Ultra+{_tier_label}+{_billing.capitalize()}"
+
+        st.markdown(f"""
+<div class='pay-box'>
+  <div style='font-size:.7rem;color:#666;letter-spacing:1.5px;margin-bottom:12px'>PAYMENT DETAILS</div>
+  <div style='background:#1a1a1a;border-radius:10px;padding:12px 16px;margin-bottom:12px'>
+    <div style='font-size:.7rem;color:#666;margin-bottom:4px'>UPI ID</div>
+    <div style='font-size:1rem;font-weight:700;color:#e8e8e8;letter-spacing:.5px'>{OWNER_UPI_ID}</div>
+  </div>
+  <div style='background:#1a1a1a;border-radius:10px;padding:12px 16px;margin-bottom:16px'>
+    <div style='font-size:.7rem;color:#666;margin-bottom:4px'>Amount</div>
+    <div style='font-size:1.1rem;font-weight:700;color:{_tier_color}'>₹{_amount:,}</div>
+  </div>
+  <div style='font-size:.7rem;color:#666;letter-spacing:1.5px;margin-bottom:8px'>PAY USING</div>
+  <a href='{_upi_link}' class='upi-btn'>
+    💜  Open PhonePe / Any UPI App
+  </a>
+  <div style='font-size:.68rem;color:#444;text-align:center;margin:8px 0 16px'>
+    After paying, enter your UTR / Transaction ID below
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+        with st.form("_payment_form"):
+            _utr = st.text_input("", placeholder="Enter UTR / Transaction ID (12-digit number)",
+                                  label_visibility="collapsed", key="_utr_input")
+            _utr_submit = st.form_submit_button("✓  Confirm Payment", use_container_width=True)
+            if _utr_submit:
+                if _utr.strip() and len(_utr.strip()) >= 8:
+                    # Store pending payment in Gist registry
+                    _pay_ok = False
+                    try:
+                        if _registry_ready():
+                            _preg = _load_registry()
+                            _pdid = _get_device_id()
+                            _pemail = st.session_state.get("user_email_reg", "")
+                            if "_pending_payments" not in _preg:
+                                _preg["_pending_payments"] = {}
+                            from datetime import datetime as _dtp
+                            _preg["_pending_payments"][_utr.strip()] = {
+                                "email": _pemail,
+                                "name": st.session_state.get("user_name_reg", ""),
+                                "tier": _sel,
+                                "billing": _billing,
+                                "amount": _amount,
+                                "utr": _utr.strip(),
+                                "submitted_at": _dtp.now().isoformat(),
+                                "device_id": _pdid,
+                                "status": "pending",
+                            }
+                            if _save_registry(_preg):
+                                _pay_ok = True
+                    except Exception:
+                        pass
+                    if _pay_ok:
+                        st.session_state["_upgrade_step"] = "success"
+                        st.session_state["_payment_tier"] = _sel
+                        st.rerun()
+                    else:
+                        st.warning("Payment submitted! Your plan will be activated within 24 hours after verification. Contact support if not activated.")
+                        st.session_state["_upgrade_step"] = "success"
+                        st.rerun()
+                else:
+                    st.error("Please enter a valid UTR / Transaction ID.")
+
+    elif _upg_step == "success":
+        _pay_tier = st.session_state.get("_payment_tier", _upg_sel or "pro")
+        _tier_color2 = "#a78bfa" if _pay_tier == "pro" else "#fbbf24"
+        st.markdown(f"""
+<div style='text-align:center;padding:3rem 1rem'>
+  <div style='font-size:3rem;margin-bottom:12px'>✅</div>
+  <div style='font-size:1.5rem;font-weight:800;color:{_tier_color2};margin-bottom:8px'>
+    Payment Submitted!
+  </div>
+  <div style='font-size:.9rem;color:#aaa;max-width:360px;margin:0 auto;line-height:1.6'>
+    Your Titan Ultra <b style='color:{_tier_color2}'>{_pay_tier.upper()}</b> plan will be activated
+    within <b style='color:#fff'>24 hours</b> after payment verification.<br><br>
+    Once activated, log out and log back in to unlock your new tier.
+  </div>
+</div>""", unsafe_allow_html=True)
+        if st.button("← Back to Titan Ultra", key="_upg_success_back", use_container_width=False):
+            st.session_state["_show_upgrade"] = False
+            st.session_state["_upgrade_step"] = "plans"
+            st.rerun()
+
+    st.stop()
+
 # ── Header ────────────────────────────────────────────────────────────────────
 _user_name = st.session_state.titan_memory.get("name", "")
 if "_titan_phrase" not in st.session_state:
@@ -2416,7 +2755,9 @@ else:
 
 if not cur_msgs():
     st.markdown("<div style='height:28vh'></div>", unsafe_allow_html=True)
-    st.markdown(f"""
+    _greet_col_l, _greet_col_c, _greet_col_r = st.columns([1, 6, 1])
+    with _greet_col_c:
+        st.markdown(f"""
 <div id="titan-greeting" style='text-align:center;margin-bottom:28px'>
     <div style='display:flex;align-items:center;justify-content:center;gap:16px'>
         <span style='font-size:2rem;animation:tridentGlow 3s linear infinite;display:inline-block'>🔱</span>
@@ -2424,6 +2765,17 @@ if not cur_msgs():
     </div>
 </div>
 """, unsafe_allow_html=True)
+    with _greet_col_r:
+        if not _IS_OWNER and st.session_state.get("titan_tier", "basic") == "basic":
+            st.markdown("<div style='padding-top:14px'></div>", unsafe_allow_html=True)
+            if st.button("⬆ Upgrade", key="_home_upgrade_btn", help="Upgrade to Pro or Max",
+                         use_container_width=True):
+                st.session_state["_show_upgrade"] = True
+                st.session_state["_upgrade_step"] = "plans"
+                st.rerun()
+        elif not _IS_OWNER and st.session_state.get("titan_tier") in ("pro", "max"):
+            _t_badge = "🟣 PRO" if st.session_state.titan_tier == "pro" else "🌟 MAX"
+            st.markdown(f"<div style='padding-top:18px;font-size:.7rem;font-weight:700;color:#888;text-align:center'>{_t_badge}</div>", unsafe_allow_html=True)
     if "_home_counter" not in st.session_state:
         st.session_state._home_counter = 0
 
@@ -3791,246 +4143,6 @@ div[data-testid="stButton"] button[kind="secondary"].fc-opt-{_nb_ci}-{_oi} {{
             st.markdown(_nb_ans)
         st.session_state.notebook_chat.append({"role":"assistant","content":_nb_ans})
         st.rerun()
-
-    st.stop()
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ── TITAN CODE PAGE (Max only) ────────────────────────────────────────────────
-if st.session_state.get("show_titan_code") and st.session_state.get("titan_tier") == "max":
-    st.markdown("""
-<style>
-@keyframes tcGold {
-  0%,100%{box-shadow:0 0 16px rgba(245,158,11,.4),0 0 32px rgba(245,158,11,.15)}
-  50%{box-shadow:0 0 28px rgba(251,191,36,.65),0 0 56px rgba(245,158,11,.3)}
-}
-.tc-header{text-align:center;padding:28px 0 18px}
-.tc-header h1{font-size:1.8rem;font-weight:800;letter-spacing:3px;color:#fbbf24;
-  text-shadow:0 0 24px rgba(245,158,11,.6);margin:0;line-height:1.2}
-.tc-header p{color:#78716c;font-size:.82rem;margin:6px 0 0}
-.tc-badge{display:inline-block;background:linear-gradient(135deg,#92400e,#b45309);
-  color:#fde68a;font-size:.58rem;font-weight:700;letter-spacing:2px;padding:3px 10px;
-  border-radius:20px;margin-bottom:12px}
-</style>
-<div class="tc-header">
-  <div class="tc-badge">MAX EXCLUSIVE</div>
-  <h1>⌨ TITAN CODE</h1>
-  <p>The most powerful AI coding terminal on the internet — write, build, debug, fix anything</p>
-</div>
-""", unsafe_allow_html=True)
-
-    # ── Mode tabs ──────────────────────────────────────────────────────────────
-    _tc_mode = st.radio(
-        "Mode", ["⊞ Build Something New", "⊟ Fix / Debug Code", "◎ Code Review", "⊙ Image → Code"],
-        horizontal=True, key="_tc_mode", label_visibility="collapsed"
-    )
-    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-
-    _tc_api = st.session_state.get("api_key", "")
-
-    if "⊞" in _tc_mode and "Build" in _tc_mode:
-        # ── Build New ──────────────────────────────────────────────────────────
-        _tc_c1, _tc_c2 = st.columns([1, 2])
-        with _tc_c1:
-            _tc_lang = st.selectbox("Language / Platform", [
-                "Python", "HTML + CSS + JavaScript", "React (JSX)", "Flutter (Dart)",
-                "Node.js", "FastAPI (Python)", "Java", "C++", "Go", "Rust",
-                "Swift (iOS)", "Kotlin (Android)", "SQL", "Bash / Shell",
-                "Arduino (C++)", "Unity (C#)", "Other (describe below)"
-            ], key="_tc_lang")
-        with _tc_c2:
-            _tc_desc = st.text_area(
-                "What do you want to build?",
-                placeholder="Describe exactly what you want. Be specific!\n\nExamples:\n• A Python web scraper that collects news headlines and saves to CSV\n• A beautiful dark-mode to-do app in HTML/CSS/JS with local storage\n• A REST API in FastAPI with user authentication and PostgreSQL\n• A network router configuration script for home WiFi",
-                height=120, key="_tc_desc"
-            )
-        if st.button("⚡ Generate Code", key="_tc_gen_build", use_container_width=True,
-                     type="primary"):
-            if _tc_desc.strip() and _tc_api:
-                with st.spinner("Titan Code is building your project..."):
-                    try:
-                        from groq import Groq as _TCG
-                        _tc_client = _TCG(api_key=_tc_api)
-                        _tc_prompt = f"Language/Platform: {_tc_lang}\n\nBuild this: {_tc_desc.strip()}"
-                        _tc_resp = _tc_client.chat.completions.create(
-                            model="openai/gpt-oss-120b",
-                            messages=[
-                                {"role": "system", "content": CODE_SYSTEM},
-                                {"role": "user", "content": _tc_prompt}
-                            ],
-                            max_tokens=8192,
-                            temperature=0.15,
-                        )
-                        st.session_state["_tc_last_output"] = _tc_resp.choices[0].message.content or ""
-                    except Exception as _tce:
-                        st.error(f"Error: {_tce}")
-            elif not _tc_desc.strip():
-                st.warning("Describe what you want to build first!")
-
-    elif "⊟" in _tc_mode:
-        # ── Fix / Debug ────────────────────────────────────────────────────────
-        st.markdown("<div style='font-size:.8rem;color:#fbbf24;margin-bottom:4px'>Paste your broken code + describe the error or problem:</div>", unsafe_allow_html=True)
-        _tc_broken = st.text_area(
-            "Broken code",
-            placeholder="Paste the code here that has errors or isn't working...",
-            height=180, key="_tc_broken", label_visibility="collapsed"
-        )
-        _tc_err_desc = st.text_input(
-            "Error message or problem",
-            placeholder="Paste the error message, or describe what's wrong (e.g. 'crashes on line 12', 'returns wrong value', 'TypeError: ...')",
-            key="_tc_err", label_visibility="collapsed"
-        )
-        if st.button("🔧 Fix My Code", key="_tc_fix", use_container_width=True, type="primary"):
-            if (_tc_broken.strip() or _tc_err_desc.strip()) and _tc_api:
-                with st.spinner("Titan Code is diagnosing and fixing..."):
-                    try:
-                        from groq import Groq as _TCG2
-                        _tc_client2 = _TCG2(api_key=_tc_api)
-                        _fix_prompt = (
-                            f"Fix this code completely. Find ALL bugs, not just one.\n\n"
-                            f"BROKEN CODE:\n```\n{_tc_broken.strip()}\n```\n\n"
-                            f"ERROR/PROBLEM: {_tc_err_desc.strip() or 'Code is not working correctly'}\n\n"
-                            "Provide:\n1. Root cause analysis — what exactly is wrong\n"
-                            "2. Complete fixed code (every line, no truncation)\n"
-                            "3. What you changed and why\n4. How to prevent this bug in future"
-                        )
-                        _fix_resp = _tc_client2.chat.completions.create(
-                            model="openai/gpt-oss-120b",
-                            messages=[
-                                {"role": "system", "content": CODE_SYSTEM},
-                                {"role": "user", "content": _fix_prompt}
-                            ],
-                            max_tokens=8192,
-                            temperature=0.1,
-                        )
-                        st.session_state["_tc_last_output"] = _fix_resp.choices[0].message.content or ""
-                    except Exception as _tce2:
-                        st.error(f"Error: {_tce2}")
-            else:
-                st.warning("Paste the broken code or describe the problem first!")
-
-    elif "◎" in _tc_mode:
-        # ── Code Review ────────────────────────────────────────────────────────
-        st.markdown("<div style='font-size:.8rem;color:#fbbf24;margin-bottom:4px'>Paste your code for an expert review:</div>", unsafe_allow_html=True)
-        _tc_review_code = st.text_area(
-            "Code to review",
-            placeholder="Paste any code here for a thorough expert review...",
-            height=200, key="_tc_review", label_visibility="collapsed"
-        )
-        if st.button("🔍 Review My Code", key="_tc_rev_btn", use_container_width=True, type="primary"):
-            if _tc_review_code.strip() and _tc_api:
-                with st.spinner("Titan Code is doing a deep expert review..."):
-                    try:
-                        from groq import Groq as _TCG3
-                        _tc_client3 = _TCG3(api_key=_tc_api)
-                        _rev_prompt = (
-                            f"Do a comprehensive expert code review of this code:\n\n```\n{_tc_review_code.strip()}\n```\n\n"
-                            "Review covering:\n"
-                            "1. **Correctness** — bugs, logic errors, edge cases missed\n"
-                            "2. **Performance** — time/space complexity, bottlenecks, optimizations\n"
-                            "3. **Security** — vulnerabilities (injection, XSS, auth issues, etc.)\n"
-                            "4. **Code Quality** — readability, naming, structure, DRY violations\n"
-                            "5. **Best Practices** — modern patterns, anti-patterns used\n"
-                            "6. **Improved Version** — rewrite the most problematic parts\n"
-                            "Rate it overall: ⭐⭐⭐⭐⭐"
-                        )
-                        _rev_resp = _tc_client3.chat.completions.create(
-                            model="openai/gpt-oss-120b",
-                            messages=[
-                                {"role": "system", "content": CODE_SYSTEM},
-                                {"role": "user", "content": _rev_prompt}
-                            ],
-                            max_tokens=8192,
-                            temperature=0.2,
-                        )
-                        st.session_state["_tc_last_output"] = _rev_resp.choices[0].message.content or ""
-                    except Exception as _tce3:
-                        st.error(f"Error: {_tce3}")
-
-    elif "⊙" in _tc_mode and "Image" in _tc_mode:
-        # ── Image → Code ───────────────────────────────────────────────────────
-        st.markdown("""
-<div style='background:linear-gradient(135deg,#120f00,#1a1200);border:1px solid #f59e0b44;
-border-radius:12px;padding:16px 20px;margin-bottom:12px'>
-  <div style='font-size:.95rem;font-weight:700;color:#fbbf24;margin-bottom:6px'>⊙ Image → Code</div>
-  <div style='font-size:.8rem;color:#a8a29e;line-height:1.7'>
-    Upload a screenshot, mockup, or sketch of how your app should look.<br>
-    Titan Code will analyze the image and generate <b style='color:#fde68a'>complete, working code</b> that matches it exactly.
-  </div>
-</div>
-""", unsafe_allow_html=True)
-        _tc_img_file = st.file_uploader(
-            "Upload image (screenshot, mockup, sketch)",
-            type=["png", "jpg", "jpeg", "webp"],
-            key="_tc_img_upload",
-            label_visibility="collapsed"
-        )
-        _tc_img_lang = st.selectbox("Output Language", [
-            "HTML + CSS + JavaScript", "React (JSX)", "Flutter (Dart)",
-            "Python (Tkinter)", "Python (PyQt5)", "Swift (iOS)", "Other"
-        ], key="_tc_img_lang")
-        _tc_img_notes = st.text_input(
-            "Any extra notes (optional)",
-            placeholder="e.g. 'make it dark mode', 'add animations', 'it should be responsive'",
-            key="_tc_img_notes", label_visibility="collapsed"
-        )
-        if st.button("📸 Generate Code from Image", key="_tc_img_gen", use_container_width=True, type="primary"):
-            if _tc_img_file and _tc_api:
-                with st.spinner("Titan Code is analyzing your image and generating code..."):
-                    try:
-                        import base64 as _b64tc
-                        _img_bytes = _tc_img_file.read()
-                        _img_b64 = _b64tc.b64encode(_img_bytes).decode()
-                        _img_mime = "image/png" if _tc_img_file.type == "image/png" else "image/jpeg"
-                        from groq import Groq as _TCGV
-                        _tc_vlient = _TCGV(api_key=_tc_api)
-                        _vision_prompt = (
-                            f"Look at this image carefully. It shows a UI/app design.\n"
-                            f"Generate complete, working {_tc_img_lang} code that looks EXACTLY like this image.\n"
-                            f"Additional notes: {_tc_img_notes.strip() or 'None'}\n\n"
-                            "Requirements:\n"
-                            "• Match the layout, colors, fonts, spacing as closely as possible\n"
-                            "• Make it fully functional, not just a static mockup\n"
-                            "• Include all UI elements visible in the image\n"
-                            "• Beautiful, production-ready code\n"
-                            "• Complete code — no truncation, every line"
-                        )
-                        _vision_resp = _tc_vlient.chat.completions.create(
-                            model="meta-llama/llama-4-scout-17b-16e-instruct",
-                            messages=[{
-                                "role": "user",
-                                "content": [
-                                    {"type": "text", "text": _vision_prompt},
-                                    {"type": "image_url", "image_url": {"url": f"data:{_img_mime};base64,{_img_b64}"}}
-                                ]
-                            }],
-                            max_tokens=8192,
-                            temperature=0.15,
-                        )
-                        st.session_state["_tc_last_output"] = _vision_resp.choices[0].message.content or ""
-                    except Exception as _tcve:
-                        st.error(f"Error: {_tcve}")
-            else:
-                st.warning("Upload an image first!")
-
-    # ── Output Display ─────────────────────────────────────────────────────────
-    if st.session_state.get("_tc_last_output"):
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        st.markdown("<div style='font-size:.6rem;color:#f59e0b;letter-spacing:2px;margin-bottom:6px'>OUTPUT</div>", unsafe_allow_html=True)
-        st.markdown(st.session_state["_tc_last_output"], unsafe_allow_html=True)
-        _dl_c1, _dl_c2 = st.columns(2)
-        with _dl_c1:
-            st.download_button(
-                "⬇️ Download Code",
-                data=st.session_state["_tc_last_output"],
-                file_name="titan_code_output.md",
-                mime="text/markdown",
-                use_container_width=True,
-                key="_tc_dl"
-            )
-        with _dl_c2:
-            if st.button("🗑️ Clear", key="_tc_clear", use_container_width=True):
-                st.session_state["_tc_last_output"] = ""
-                st.rerun()
 
     st.stop()
 
@@ -7361,7 +7473,18 @@ def _build_full(messages, trim=None):
     # Always keep pairs (user+assistant) so we don't start with an assistant turn
     if hist and hist[0]["role"] == "assistant":
         hist = hist[1:]
-    return [{"role": "system", "content": get_system()}] + hist
+    _sys = get_system()
+    # Inject cross-session memory
+    _all_sessions = st.session_state.get("chat_sessions", {})
+    _active = st.session_state.get("active_session", "")
+    if isinstance(_all_sessions, list):
+        _past = {str(i): s for i, s in enumerate(_all_sessions) if i != _active}
+    else:
+        _past = {k: v for k, v in _all_sessions.items() if k != str(_active)}
+    _ctx = _build_cross_session_context(_past)
+    if _ctx:
+        _sys = _sys + "\n\n" + _ctx
+    return [{"role": "system", "content": _sys}] + hist
 
 @st.cache_data(ttl=120)
 def _get_groq_all_models(api_key):
@@ -7832,38 +7955,15 @@ if not _IS_OWNER and st.session_state.get("_subscription_expired"):
         icon=None
     )
 
-if _USER_HIT_LIMIT:
-    _usage_data_cur = _load_usage_data()
-    _limit_hit_ts = _usage_data_cur.get("limit_hit_at") or _time_mod.time()
-    _remaining_secs = max(0, int(5 * 3600 - (_time_mod.time() - _limit_hit_ts)))
-    st.error("🚫 **You have hit your limits! Come back after your timer runs out.**\n\nFree users get **2 hours** of Titan Ultra. Want unlimited access? Payment options coming soon.")
-    import streamlit.components.v1 as _cv1_timer
-    _cv1_timer.html(f"""
-<div style="text-align:center;padding:24px 0 8px;font-family:-apple-system,Segoe UI,sans-serif">
-  <div style="font-size:.85rem;color:#a78bfa;letter-spacing:2px;margin-bottom:10px">⏳ TIME REMAINING BEFORE YOU CAN ASK AGAIN</div>
-  <div id="tu_timer" style="font-size:3.2rem;font-weight:900;color:#f87171;letter-spacing:6px;font-variant-numeric:tabular-nums">--:--:--</div>
-  <div id="tu_msg" style="margin-top:14px;font-size:.9rem;color:#6b7a99"></div>
-</div>
-<script>
-var rem = {_remaining_secs};
-function fmt(n){{return n.toString().padStart(2,'0');}}
-function tick(){{
-  if(rem<=0){{
-    document.getElementById('tu_timer').innerHTML='00:00:00';
-    document.getElementById('tu_timer').style.color='#34d399';
-    document.getElementById('tu_msg').innerHTML='✅ <b style="color:#34d399">Time is up! You can now ask Titan Ultra questions again.</b>';
-    setTimeout(function(){{window.location.reload();}},2000);
-    return;
-  }}
-  var h=Math.floor(rem/3600),m=Math.floor((rem%3600)/60),s=rem%60;
-  document.getElementById('tu_timer').innerHTML=fmt(h)+':'+fmt(m)+':'+fmt(s);
-  rem--;
-  setTimeout(tick,1000);
-}}
-tick();
-</script>
-""", height=160)
-    st.stop()
+if not _IS_OWNER and _session_is_limited(st.session_state.get("active_session", "")):
+    st.markdown(
+        "<div style='background:#1a1a1a;border-left:3px solid #555;padding:10px 16px;"
+        "border-radius:6px;font-size:.82rem;color:#888;margin:8px 0'>"
+        "⏱ This conversation reached its 2-hour limit. "
+        "Start a <b style='color:#aaa'>New Chat</b> to continue, "
+        "or come back in 5 hours to resume this one.</div>",
+        unsafe_allow_html=True
+    )
 
 # Chat input only shown during active chat (home screen has its own centered input)
 if cur_msgs():
@@ -8555,6 +8655,7 @@ if user_input:
                         if _dhtml_gen:
                             st.session_state.diagram_cache[_dkey_gen] = _dhtml_gen
 
+            _record_chat_message(st.session_state.get("active_session", ""))
             with st.spinner("🔱 TITAN ULTRA is thinking…"):
                 try:
                     _api_msgs = [{"role":m["role"],"content":m["content"]} for m in cur_msgs()]
