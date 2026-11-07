@@ -1,4 +1,4 @@
-# TITAN_VERSION: 102
+# TITAN_VERSION: 104
 import streamlit as st
 from groq import Groq
 import requests, io, re, random as _random
@@ -1867,11 +1867,43 @@ if _boot_ph is not None:
     _boot_ph = None
 
 # ── Background auth tasks (run on first rerun after login/register) ──────────
+def _create_account_safe(name, email, password, gist_id, token, reg_filename):
+    """Thread-safe account creation — uses direct HTTP only, no Streamlit APIs."""
+    try:
+        import requests as _rq, json as _jsa, hashlib as _hsa
+        from datetime import datetime as _dta2
+        _ak = "acc_" + _hsa.sha256(email.strip().lower().encode()).hexdigest()[:20]
+        _r = _rq.get(f"https://api.github.com/gists/{gist_id}",
+                     headers={"Authorization": f"token {token}",
+                              "Accept": "application/vnd.github.v3+json"}, timeout=12)
+        if _r.status_code != 200:
+            return
+        _reg = _jsa.loads(_r.json().get("files", {}).get(reg_filename, {}).get("content", "{}"))
+        if _ak in _reg.get("_accounts", {}):
+            return
+        if "_accounts" not in _reg:
+            _reg["_accounts"] = {}
+        _reg["_accounts"][_ak] = {
+            "name": name.strip(), "email": email.strip().lower(),
+            "password_hash": _hsa.sha256(password.strip().encode()).hexdigest(),
+            "registered_at": _dta2.now().isoformat(),
+        }
+        _rq.patch(f"https://api.github.com/gists/{gist_id}",
+                  headers={"Authorization": f"token {token}",
+                           "Accept": "application/vnd.github.v3+json"},
+                  json={"files": {reg_filename: {
+                      "content": _jsa.dumps(_reg, indent=2, ensure_ascii=False)
+                  }}}, timeout=12)
+    except Exception:
+        pass
+
 if st.session_state.get("_pending_gist_register") and st.session_state.get("user_registered"):
     _bg_pr = st.session_state.pop("_pending_gist_register")
     import threading as _th_reg
-    _th_reg.Thread(target=_create_account,
-                   args=(_bg_pr["n"], _bg_pr["e"], _bg_pr["p"]), daemon=True).start()
+    _th_reg.Thread(target=_create_account_safe,
+                   args=(_bg_pr["n"], _bg_pr["e"], _bg_pr["p"],
+                         REGISTRY_GIST_ID, REGISTRY_TOKEN, REGISTRY_FILENAME),
+                   daemon=True).start()
 
 if st.session_state.get("_pending_login_saves") and st.session_state.get("user_registered"):
     _bg_pl = st.session_state.pop("_pending_login_saves")
@@ -1887,8 +1919,30 @@ if st.session_state.get("_pending_login_saves") and st.session_state.get("user_r
         except Exception:
             pass
     import threading as _th_login
-    _th_login.Thread(target=_link_device_to_account,
-                     args=(_bg_pl["reg"], _bg_pl["email"]), daemon=True).start()
+    def _link_device_safe(_reg_d, _em_d, _gid=REGISTRY_GIST_ID, _tok=REGISTRY_TOKEN, _rfn=REGISTRY_FILENAME):
+        try:
+            import requests as _rqlnk, json as _jslnk, hashlib as _hslnk
+            from datetime import datetime as _dtlnk
+            _r2 = _rqlnk.get(f"https://api.github.com/gists/{_gid}",
+                             headers={"Authorization": f"token {_tok}",
+                                      "Accept": "application/vnd.github.v3+json"}, timeout=12)
+            if _r2.status_code != 200: return
+            _rg2 = _jslnk.loads(_r2.json().get("files", {}).get(_rfn, {}).get("content", "{}"))
+            _did2 = str(__import__("uuid").uuid4())
+            if _did2 not in _rg2: _rg2[_did2] = {}
+            _rg2[_did2]["email"] = _em_d.strip().lower()
+            _rg2[_did2]["account_verified"] = True
+            _rg2[_did2]["last_seen"] = _dtlnk.now().isoformat()
+            _rqlnk.patch(f"https://api.github.com/gists/{_gid}",
+                        headers={"Authorization": f"token {_tok}",
+                                 "Accept": "application/vnd.github.v3+json"},
+                        json={"files": {_rfn: {
+                            "content": _jslnk.dumps(_rg2, indent=2, ensure_ascii=False)
+                        }}}, timeout=12)
+        except Exception:
+            pass
+    _th_login.Thread(target=_link_device_safe,
+                     args=(_bg_pl.get("reg", {}), _bg_pl["email"]), daemon=True).start()
 
 # ── Login / Register ─────────────────────────────────────────────────────────
 if not _IS_OWNER and not st.session_state.get("user_registered"):
@@ -2091,39 +2145,23 @@ div:has(#tu-g-anchor) + div[data-testid="stButton"] button::before {
                             if len(_ri_pass.strip()) < 6:
                                 st.error("Password must be at least 6 characters.")
                             else:
-                                if _registry_ready():
-                                    try:
-                                        _ri_reg = _load_registry()
-                                        if _get_account(_ri_reg, _ri_email.strip()):
-                                            st.error(
-                                                "An account with this email already "
-                                                "exists. Please log in.")
-                                        else:
-                                            st.session_state["user_registered"] = True
-                                            st.session_state["user_name_reg"]   = \
-                                                _ri_name.strip()
-                                            st.session_state["user_email_reg"]  = \
-                                                _ri_email.strip().lower()
-                                            if not st.session_state.titan_memory.get("name"):
-                                                st.session_state.titan_memory["name"] = \
-                                                    _ri_name.strip().split()[0]
-                                            _ri_fkey = _family_key(_ri_email.strip())
-                                            st.session_state["_family_key"] = _ri_fkey
-                                            st.session_state["_gist_loaded"] = True
-                                            st.session_state["_sub_checked"] = True
-                                            st.session_state["_pending_gist_register"] = {
-                                                "n": _ri_name.strip(),
-                                                "e": _ri_email.strip(),
-                                                "p": _ri_pass.strip(),
-                                            }
-                                            st.rerun()
-                                    except Exception:
-                                        st.error("Something went wrong. Please try again.")
-                                else:
-                                    st.session_state["user_registered"] = True
-                                    st.session_state["user_name_reg"]   = _ri_name.strip()
-                                    st.session_state["user_email_reg"]  = _ri_email.strip()
-                                    st.rerun()
+                                # Register instantly — no blocking API call
+                                st.session_state["user_registered"] = True
+                                st.session_state["user_name_reg"]   = _ri_name.strip()
+                                st.session_state["user_email_reg"]  = _ri_email.strip().lower()
+                                if not st.session_state.titan_memory.get("name"):
+                                    st.session_state.titan_memory["name"] = \
+                                        _ri_name.strip().split()[0]
+                                _ri_fkey = _family_key(_ri_email.strip())
+                                st.session_state["_family_key"] = _ri_fkey
+                                st.session_state["_gist_loaded"] = True
+                                st.session_state["_sub_checked"] = True
+                                st.session_state["_pending_gist_register"] = {
+                                    "n": _ri_name.strip(),
+                                    "e": _ri_email.strip(),
+                                    "p": _ri_pass.strip(),
+                                }
+                                st.rerun()
                         else:
                             st.error("Please fill in all fields with a valid email.")
 
