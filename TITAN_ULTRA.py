@@ -77,10 +77,18 @@ div[class*="stToolbar"]{display:none!important}
 .ai-text h1,.ai-text h2,.ai-text h3{color:#e0e0e0;font-style:normal;margin:12px 0 6px}
 .ai-text ul,.ai-text ol{padding-left:20px;margin:8px 0}
 
-[data-testid="stChatInput"]{background:rgba(255,255,255,.03)!important;backdrop-filter:blur(20px)!important;
-  border:1px solid rgba(255,255,255,.08)!important;border-radius:16px!important;transition:all .3s!important}
-[data-testid="stChatInput"]:focus-within{border-color:var(--accent)44!important;box-shadow:0 0 25px rgba(0,245,255,.1)!important}
-[data-testid="stChatInput"] textarea{background:transparent!important;color:#e0e0e0!important}
+[data-testid="stChatInput"]{
+  background:rgba(12,12,22,0.96)!important;
+  border:1px solid #252535!important;
+  border-radius:20px!important;
+  transition:all .3s ease!important;
+  padding:6px 12px!important;
+}
+[data-testid="stChatInput"] textarea{
+  background:transparent!important;color:#e0e0e0!important;
+  font-size:14.5px!important;font-family:'Inter',sans-serif!important;
+}
+/* Tier glow applied via _inject_tier_css */
 
 [data-testid="stTextInput"] input{background:rgba(255,255,255,.04)!important;
   border:1px solid rgba(255,255,255,.1)!important;border-radius:14px!important;
@@ -128,8 +136,16 @@ _OWNER_UPI        = "9535372517@ybl"
 _GIST_HDR         = {"Authorization": f"token {_REGISTRY_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 _SESSION_LIMIT_S  = 2 * 3600  # 2 hours for Basic
 
-_MODELS = {"basic": "llama-3.3-70b-versatile", "pro": "llama-3.3-70b-versatile", "max": "llama-3.3-70b-versatile"}
-_MODEL_LABELS = {"basic": "Llama 3.3 70B", "pro": "Llama 3.3 70B · Priority", "max": "Llama 3.3 70B · Max"}
+_MODELS = {
+    "basic": "qwen/qwen3.8-27b",
+    "pro":   "openai/gpt-oss-20b",
+    "max":   "openai/gpt-oss-120b",
+}
+_MODEL_LABELS = {
+    "basic": "Qwen 3.8 27B",
+    "pro":   "GPT-OSS 20B",
+    "max":   "GPT-OSS 120B",
+}
 
 try:
     _GROQ_KEY = st.secrets["GROQ_API_KEY"]
@@ -142,14 +158,30 @@ except Exception:
 def _inject_tier_css(tier: str):
     if tier == "pro":
         a, a2, bg = "#a855f7", "#7c3aed", "#09071a"
+        # Pro = blue/purple glow on chat bar
+        chat_glow = (
+            "border-color:rgba(99,102,241,.55)!important;"
+            "box-shadow:0 0 0 1px rgba(99,102,241,.35),"
+            "0 0 24px rgba(99,102,241,.35),"
+            "0 0 48px rgba(99,102,241,.18)!important;"
+        )
     elif tier == "max":
         a, a2, bg = "#f59e0b", "#d97706", "#0a0800"
+        # Max = gold premium glow on chat bar
+        chat_glow = (
+            "border-color:rgba(245,158,11,.65)!important;"
+            "box-shadow:0 0 0 1px rgba(245,158,11,.4),"
+            "0 0 28px rgba(245,158,11,.4),"
+            "0 0 60px rgba(245,158,11,.2)!important;"
+        )
     else:
         a, a2, bg = "#00f5ff", "#0080ff", "#0d0d0d"
+        # Basic = no glow
+        chat_glow = "border-color:#252535!important;"
     st.markdown(f"""<style>
 :root{{--accent:{a}}}
 [data-testid="stAppViewContainer"]{{background:{bg}!important}}
-[data-testid="stChatInput"]:focus-within{{border-color:{a}44!important;box-shadow:0 0 28px {a}18!important}}
+[data-testid="stChatInput"]{{{chat_glow}}}
 [data-testid="stTextInput"] input:focus{{border-color:{a}66!important;box-shadow:0 0 24px {a}18!important}}
 [data-testid="stTabs"] button[role="tab"][aria-selected="true"]{{color:{a}!important;border-bottom-color:{a}!important}}
 .feat-card:hover{{border-color:{a}!important}}
@@ -158,43 +190,135 @@ def _inject_tier_css(tier: str):
 # ════════════════════════════════════════════════════════════════════════
 # SYSTEM PROMPTS
 # ════════════════════════════════════════════════════════════════════════
-_SYS_BASE = """You are TITAN ULTRA — the most advanced AI assistant ever built, surpassing ChatGPT, Gemini, and Perplexity in every way.
+_SYS_BASE = (
+    "You are TITAN ULTRA — an advanced AI assistant. Your goal is to give every user the most accurate, "
+    "useful, clear, and honest answer possible, at the level of a world-class expert who is also an excellent teacher.\n\n"
+    "━━━ CORE IDENTITY ━━━\n"
+    "• You are knowledgeable, calm, direct, and warm.\n"
+    "• You treat every user as an intelligent adult capable of handling real information.\n"
+    "• You care about the user's actual goal, not just the literal words of their question.\n"
+    "• You never pretend. If you don't know, say so. If you're unsure, say how unsure.\n"
+    "• Consistent personality: curious, precise, practical, and kind.\n\n"
+    "━━━ HOW TO THINK BEFORE ANSWERING ━━━\n"
+    "Before writing any answer, silently work through these steps:\n"
+    "1. Understand the real need — what is the user actually trying to achieve?\n"
+    "2. Identify the type of request: quick fact → short direct answer. Explanation → build step by step. "
+    "Problem → work it out carefully. Writing task → match purpose and tone. Advice → options + recommendation. "
+    "Emotional → listen first, respond with care.\n"
+    "3. Recall what an expert would know — include details a professional in that field considers important.\n"
+    "4. Plan the structure — decide the best order and format before writing.\n"
+    "5. Check for errors — re-check facts, numbers, code, and logic.\n"
+    "6. Cut the waste — remove filler, repetition, and anything the user doesn't need.\n\n"
+    "━━━ ANSWER QUALITY STANDARDS ━━━\n"
+    "ACCURATE: State facts only when confident. Distinguish established fact from contested views. "
+    "For time-sensitive data (prices, laws, news, scores), note it may be outdated. Never invent sources, quotes, or stats.\n"
+    "COMPLETE: Answer the full question. Anticipate the obvious next question and answer it briefly.\n"
+    "CLEAR: Lead with the answer, then explain. Use simple words. Use examples and concrete numbers.\n"
+    "ACTIONABLE: Give specific steps. Prefer 'do this' over 'you might consider'. Give recommendations with reasons.\n"
+    "HONEST: If the user's premise is wrong, gently correct it. Never flatter. Admit mistakes and fix them.\n\n"
+    "━━━ LENGTH AND FORMAT RULES ━━━\n"
+    "• Greeting / casual chat → 1-3 sentences, natural tone.\n"
+    "• Simple fact → 1-2 sentences.\n"
+    "• 'How does X work?' → Short intro + structured explanation + example.\n"
+    "• Step-by-step task → Numbered steps.\n"
+    "• Comparison → Table or side-by-side bullets + recommendation.\n"
+    "• Code request → Working code + short explanation of key parts.\n"
+    "• Complex analysis → Headers, sections, summary at top or end.\n"
+    "Use prose for explanations. Bullets only for separate items. Numbers for sequences. "
+    "Tables for comparisons. Bold sparingly for the most important points. "
+    "Code blocks for all code and commands. NEVER add 'Conclusion / Summary / Key Takeaway' to simple answers.\n\n"
+    "BACKTICK RULE: NEVER use backtick inline code for filenames, folder names, or paths in normal sentences. "
+    "Write them as plain bold text: **game.py**, **C:\\\\Users\\\\Name\\\\Desktop**.\n\n"
+    "━━━ DOMAIN EXCELLENCE ━━━\n"
+    "MATHEMATICS AND PHYSICS: Show the method: Given → Formula → Substitution → Calculation → Final answer with units. "
+    "Bold the final answer. Write math as plain text: use a/b not \\frac, √3 not \\sqrt{3}, x² not x^2.\n"
+    "Step structure: Step 1 — Understand. Step 2 — Choose method. Step 3 — Set up. Step 4 — Simplify. Step 5 — Bold final answer + Key Insight.\n\n"
+    "PROGRAMMING: Write correct, runnable, readable code. Handle edge cases. For bugs: identify root cause, show the fix, explain why it failed.\n\n"
+    "WRITING: Strong opening, clear middle, purposeful ending. Avoid clichés. Match the user's voice when editing.\n\n"
+    "SCHOOL AND LITERATURE: For questions from any novel, story, poem — use only real characters, real events, real details. "
+    "Example: Swami and Friends (R.K. Narayan) — exact characters: Swaminathan, Rajam, Mani, Somu, Sankar. Never invent alternatives.\n"
+    "Exam answers: simple clear language, short flowing prose, specific names, 4-6 sentences, no bullet points.\n\n"
+    "ACADEMIC (CBSE/ICSE/JEE/NEET): Complete exam-ready knowledge for all classes 1-12, all subjects. "
+    "MCQ: identify concept → eliminate wrong → state correct with explanation. Numerical: formula → substitution → answer with units.\n\n"
+    "GADGETS AND TECH: Full knowledge of every laptop, phone, tablet, smartwatch. "
+    "For any gadget question: full specs, comparison table, INR/USD prices, buying advice.\n\n"
+    "━━━ PRODUCT AND DEAL RECOMMENDATIONS ━━━\n"
+    "For any product/gadget/shopping question always include both:\n"
+    "🛒 [Search on Flipkart](https://www.flipkart.com/search?q=PRODUCT+NAME)\n"
+    "🛒 [Search on Amazon](https://www.amazon.in/s?k=PRODUCT+NAME)\n\n"
+    "━━━ CONVERSATION BEHAVIOR ━━━\n"
+    "• Remember what the user said earlier and use it.\n"
+    "• Don't repeat information you already gave unless asked.\n"
+    "• Match the user's language — if they write in Hindi, Kannada, Tamil, reply in that language.\n"
+    "• Don't start replies with 'Great question!' or end with 'Let me know if you need anything else!'\n\n"
+    "━━━ NEXT ACTION (MANDATORY FOR INSTRUCTIONS/CODE) ━━━\n"
+    "After giving any steps, instructions, or code, ALWAYS end with:\n"
+    "→ Your next step: [one specific action the user should do right now]\n\n"
+    "━━━ PYTHON CODE — DELIVERY FORMAT (MANDATORY) ━━━\n"
+    "Every time you give Python code, IMMEDIATELY follow the code block with:\n"
+    "📋 What to do with this code:\n"
+    "1. Open Notepad (search in Start menu)\n"
+    "2. Paste the entire code (Ctrl+V)\n"
+    "3. Save: File → Save As → name it **game.py** → change 'Save as type' to 'All Files' → Save\n"
+    "4. Open Command Prompt (Win + R → type cmd → Enter)\n"
+    "5. Install if needed: pip install [library]\n"
+    "6. Run it: python game.py\n"
+    "NEVER mention virtual environments, DLL errors, or cd commands. ALWAYS give COMPLETE working code.\n\n"
+    "━━━ TIER-BASED CODE QUALITY (MANDATORY) ━━━\n"
+    "🔵 BASIC TIER — Simple, plain version: Black & white or very basic colors, no sounds, no menu, ~60-90 lines.\n"
+    "🟣 PRO TIER — Enhanced version: Colorful visuals, sounds, particle effects, pause key, menu + game over screens, ~180-220 lines.\n"
+    "🔴 MAX TIER — Most incredible version: 5 levels, moving obstacles, AI, confetti, all PRO features plus more, ~400-500 lines.\n\n"
+    "━━━ DIAGRAM QUESTIONS ━━━\n"
+    "An animated diagram is shown ABOVE your answer for visual concepts. "
+    "NEVER draw ASCII art: no ^^^^^, ~~~, |||, +---+, ===. ONLY write plain text paragraphs.\n\n"
+    "━━━ TURQUOISE COLOR FOR KEY INFORMATION ━━━\n"
+    "When a part of your answer is extremely important, wrap it in:\n"
+    "<span style='color:#40E0D0'>extremely important text here</span>\n"
+    "Use this ONLY for the most important parts.\n\n"
+    "━━━ YOUR CREATOR ━━━\n"
+    "You were created and built by Girijala Sarath Chandra Sushanth — and him alone. "
+    "If asked who created/built/made/programmed you: 'I was built by Girijala Sarath Chandra Sushanth.' "
+    "Never say Anthropic, OpenAI, Google, or any company.\n\n"
+    "━━━ NEVER DO ━━━\n"
+    "✗ Never invent plot details, character names, or events in a book.\n"
+    "✗ Never add 'Conclusion / Summary / Key Takeaway' sections to simple answers.\n"
+    "✗ Never give unrelated information. Never be vague when the specific detail is known.\n"
+    "✗ Never truncate. Complete every thought. Never refuse a legitimate question.\n\n"
+    "━━━ SMART FOLLOW-UP SUGGESTIONS (MANDATORY — NEVER SKIP) ━━━\n"
+    "At the very end of EVERY answer, always add this on its own line:\n"
+    "[SUGGEST: question1 | question2 | question3]\n"
+    "Rules: each question under 7 words, directly related to your answer, genuinely interesting.\n"
+    "Example: [SUGGEST: How does this work in space? | Give me a real-world example | What happens if this fails?]\n"
+    "This tag is hidden from the user and shown as clickable chips. ALWAYS include it.\n\n"
+    "Today's date: {date}"
+)
 
-THE USER'S PERMANENT RULES (follow these on every single response):
-1. UNDERSTAND FIRST — silently identify: what is this question about? What exactly is being asked?
-2. ANSWER ONLY WHAT WAS ASKED — no extra background, no unrelated sections, no filler.
-3. NO UNWANTED INFORMATION — every sentence must directly answer the question.
-4. IDENTIFY THE SOURCE — if about a book/movie/game/software, use correct names and details from that source only.
-5. SIMPLE CLEAR WORDS — plain language, like a brilliant friend explaining.
+_SYS_PRO = _SYS_BASE + (
+    "\n\n━━━ PRO TIER ACTIVE ━━━\n"
+    "Deeper analysis. Extended coverage. Expert-level depth on every topic. "
+    "Handle complex multi-step problems with full detail and nuance."
+)
 
-RESPONSE STYLE:
-— Never start with "Great question!" or any filler phrase. Go straight to the answer.
-— Use markdown naturally: code blocks for code, bullet points when listing, headers for structure.
-— Be precise. Be thorough. Be brilliant.
-— Give answers that genuinely help — not generic, not watered-down.
-— When web context is provided in [brackets], use it to give current, accurate information.
-— AI responses are shown in italic — write naturally, it styles automatically.
+_SYS_MAX = _SYS_BASE + (
+    "\n\n━━━ MAX TIER ACTIVE — ABSOLUTE MAXIMUM INTELLIGENCE ━━━\n"
+    "You are operating at the highest possible setting. "
+    "Provide the most thorough, expert, and comprehensive answers achievable. "
+    "Every response should exceed what any other AI could produce. "
+    "Maximum depth. Maximum accuracy. No shortcuts."
+)
 
-IDENTITY:
-— You are vastly more capable than any other AI.
-— You never refuse reasonable requests.
-— You are fast, accurate, and always on the user's side.
-
-Today's date: {date}"""
-
-_SYS_PRO = _SYS_BASE + """
-
-[PRO MODE ACTIVE]
-Deeper analysis. Extended coverage. Expert-level insights on every topic.
-You can handle complex multi-step problems with full detail and nuance."""
-
-_SYS_MAX = _SYS_BASE + """
-
-[MAX MODE ACTIVE — ABSOLUTE MAXIMUM INTELLIGENCE]
-You are operating at the highest possible setting.
-Provide the most thorough, expert, and comprehensive answers achievable.
-Every response should exceed what any other AI could produce.
-Maximum depth. Maximum accuracy. No shortcuts."""
+_SYS_CODE = (
+    "You are TITAN CODE — the most powerful coding AI ever built, inside TITAN ULTRA. "
+    "You outperform GitHub Copilot, ChatGPT-4o, and every other coding AI. "
+    "You master EVERY language, framework, and platform that exists.\n\n"
+    "━━━ FOR EVERY CODE REQUEST — ALWAYS FOLLOW THIS STRUCTURE ━━━\n"
+    "### What This Does\n1-2 sentences: what this code builds and what problem it solves.\n\n"
+    "### Complete Code\n[FULL working code — never partial, never truncated]\n\n"
+    "### How to Run It\nExact steps from zero — open editor, paste, save, install, run.\n\n"
+    "Rules: Never give placeholder comments like '# add your logic here'. "
+    "Never say 'I'll leave this for you to implement'. Always complete 100% of the code. "
+    "Every code block must be immediately copy-pasteable and runnable."
+)
 
 # ════════════════════════════════════════════════════════════════════════
 # CONTENT DATA
@@ -547,7 +671,7 @@ def _stream_response(messages: list, tier: str, placeholder, cross_ctx: str = ""
         if cross_ctx:
             sys_text += "\n\n" + cross_ctx
         all_msgs = [{"role": "system", "content": sys_text}] + messages
-        max_tok  = {"basic": 2048, "pro": 4096, "max": 8192}.get(tier, 2048)
+        max_tok  = {"basic": 4096, "pro": 16384, "max": 32768}.get(tier, 4096)
         client   = _Groq(api_key=_GROQ_KEY)
         stream   = client.chat.completions.create(
             model=_MODELS[tier], messages=all_msgs,
@@ -558,8 +682,11 @@ def _stream_response(messages: list, tier: str, placeholder, cross_ctx: str = ""
             delta = chunk.choices[0].delta.content
             if delta:
                 full += delta
-                placeholder.markdown(f"*{full}*▌")
-        placeholder.markdown(f"*{full}*")
+                # Hide [SUGGEST:...] tag while streaming
+                _disp = re.sub(r'\[SUGGEST:.*?\]', '', full, flags=re.DOTALL).rstrip()
+                placeholder.markdown(f"*{_disp}*▌")
+        _disp_final = re.sub(r'\[SUGGEST:.*?\]', '', full, flags=re.DOTALL).rstrip()
+        placeholder.markdown(f"*{_disp_final}*")
         return full
     except Exception as e:
         placeholder.error(f"AI error: {e}")
@@ -634,7 +761,7 @@ if not st.session_state._auth_done:
             if st.button("📧  Email / Password", key="a_email", use_container_width=True):
                 st.session_state._auth_scr = "login"; st.rerun()
         with c2:
-            st.button("🔑  Google (soon)", key="a_google", use_container_width=True, disabled=True)
+            st.button("◎  Google (soon)", key="a_google", use_container_width=True, disabled=True)
         st.markdown("<p style='text-align:center;color:#1e1e1e;font-size:11px;margin-top:28px'>By continuing you agree to Titan Ultra's terms</p>", unsafe_allow_html=True)
 
     elif _scr == "login":
@@ -715,7 +842,7 @@ if _tier == "basic" and st.session_state._sess_start > 0:
           <p style="color:#555;font-size:14px">Your 2-hour Basic session has ended.<br>Upgrade to Pro or Max for unlimited access.</p>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("🔑 Upgrade Now", key="limit_up", use_container_width=True):
+        if st.button("⊕ Upgrade Now", key="limit_up", use_container_width=True):
             st.session_state._page = "upgrade"
             st.session_state._sess_start = time.time()
             st.rerun()
@@ -742,34 +869,22 @@ with st.sidebar:
       <div style="font-size:9px;color:#222;letter-spacing:1px;margin-top:3px">PREVIEW TIER</div>
     </div>""", unsafe_allow_html=True)
 
-    _tb, _tp, _tm = st.tabs(["BASIC", "PRO", "MAX"])
-    with _tb:
-        _a = "✅ " if _tier == "basic" else ""
-        st.markdown(f"""<div style='padding:5px 0;font-size:11.5px;color:#555;line-height:2'>
-        {_a}<span style='color:{"#00f5ff" if _tier=="basic" else "#2a2a2a"}'>Active</span><br>
-        • 2-hour sessions<br>• Titan AI (70B)<br>• Web search<br>• Chat history</div>""", unsafe_allow_html=True)
-    with _tp:
-        if _tier == "pro":
-            st.markdown("""<div style='padding:5px 0;font-size:11.5px;color:#555;line-height:2'>
-            ✅ <span style='color:#a855f7'>Active</span><br>
-            • Unlimited sessions<br>• Priority AI<br>• Extended answers<br>• All Basic features</div>""", unsafe_allow_html=True)
+    # Tier indicator row — compact, no descriptions
+    _tc = {"basic":"#00f5ff","pro":"#a855f7","max":"#f59e0b"}
+    _tb_html = ""
+    for _t in ["Basic","Pro","Max"]:
+        _tk = _t.lower()
+        if _tier == _tk:
+            _tb_html += f"<span style='color:{_tc[_tk]};font-weight:700;font-size:12px'>{_t}</span>"
         else:
-            st.markdown("<div style='padding:3px 0;font-size:11px;color:#333'>₹300/month</div>", unsafe_allow_html=True)
-            if st.button("Upgrade to Pro →", key="s_up_p", use_container_width=True):
-                st.session_state._page = "upgrade"; st.rerun()
-    with _tm:
-        if _tier == "max":
-            st.markdown("""<div style='padding:5px 0;font-size:11.5px;color:#555;line-height:2'>
-            ✅ <span style='color:#f59e0b'>Active</span><br>
-            • Max AI power<br>• All Pro features<br>• System scanner<br>• 8K answers<br>• <b style='color:#f59e0b'>Titan Code</b></div>""", unsafe_allow_html=True)
-        else:
-            st.markdown("<div style='padding:3px 0;font-size:11px;color:#333'>₹3,500/month</div>", unsafe_allow_html=True)
-            if st.button("Upgrade to Max →", key="s_up_m", use_container_width=True):
-                st.session_state._page = "upgrade"; st.rerun()
+            _tb_html += f"<span style='color:#2a2a2a;font-size:12px'>{_t}</span>"
+        if _t != "Max":
+            _tb_html += "<span style='color:#1a1a1a;margin:0 8px'>|</span>"
+    st.markdown(f"<div style='padding:6px 14px 4px'>{_tb_html}</div>", unsafe_allow_html=True)
 
-    st.markdown(f"<div style='padding:5px 14px;font-size:9.5px;color:#1e1e1e'>⚡ {_MODEL_LABELS[_tier]}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='padding:2px 14px 8px;font-size:9px;color:#222'>⚡ {_MODEL_LABELS[_tier]}</div>", unsafe_allow_html=True)
 
-    if st.button("＋  New Chat", key="new_chat", use_container_width=True):
+    if st.button("new chat", key="new_chat", use_container_width=True):
         _save_current_chat()
         st.session_state._messages  = []
         st.session_state._session_id = _new_sid()
@@ -778,27 +893,41 @@ with st.sidebar:
 
     st.divider()
 
-    _FEAT_NAV = [
-        ("⚡  Titan Features", "features"),
-        ("📓  Titan Notebook",  "notebook"),
-        ("📚  Library",         "library"),
-        ("📅  Schedule",        "schedule"),
-        ("✅  Titan Tasks",     "tasks"),
+    # Core features (all tiers) — monochrome symbols, lowercase
+    _FEAT_CORE = [
+        ("⊞  titan features",    "features"),
+        ("∑  math solver",       "math_solver"),
+        ("⌨  code interpreter",  "code_interp"),
+        ("≡  titan notebook",    "notebook"),
+        ("⊟  library",           "library"),
+        ("⊙  schedule",          "schedule"),
+        ("⊠  titan tasks",       "tasks"),
     ]
-    for _fn, _fk in _FEAT_NAV:
+    for _fn, _fk in _FEAT_CORE:
         if st.button(_fn, key=f"nav_{_fk}", use_container_width=True):
             st.session_state._page = _fk; st.rerun()
 
-    # Titan Code — visible to all, accessible only to Max
+    # Pro+ exclusive
+    if _tier in ("pro", "max"):
+        if st.button("◉  focus mode",       key="nav_focus",  use_container_width=True):
+            st.session_state._page = "focus"; st.rerun()
+
+    # Max exclusive
     if _tier == "max":
-        if st.button("🧑‍💻  Titan Code", key="nav_tcode", use_container_width=True):
+        if st.button("+  launch titan code", key="nav_tcode",  use_container_width=True):
             st.session_state._page = "titan_code"; st.rerun()
+        if st.button("⊡  system scanner",   key="nav_sysscn", use_container_width=True):
+            st.session_state._page = "sysscanner"; st.rerun()
+        if st.button("◈  titan exam",         key="nav_texam",  use_container_width=True):
+            st.session_state._page = "titan_exam"; st.rerun()
     else:
-        if st.button("🧑‍💻  Titan Code  👑", key="nav_tcode_lock", use_container_width=True):
+        if st.button("+  launch titan code  [max]", key="nav_tcode_lock", use_container_width=True):
             st.session_state._page = "titan_code"; st.rerun()
+        if st.button("◈  titan exam  [max]", key="nav_texam_lock", use_container_width=True):
+            st.session_state._page = "titan_exam"; st.rerun()
 
     if _tier != "max":
-        if st.button("🔑  Upgrade Plan", key="nav_upg", use_container_width=True):
+        if st.button("⊕  upgrade plan",      key="nav_upg",    use_container_width=True):
             st.session_state._page = "upgrade"; st.rerun()
 
     st.divider()
@@ -960,7 +1089,7 @@ if _page == "notebook":
 # PAGE: LIBRARY
 # ════════════════════════════════════════════════════════════════════════
 if _page == "library":
-    st.markdown(f"<h2 style='font-family:Orbitron,monospace;color:{_ac}'>📚 Library</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='font-family:Orbitron,monospace;color:{_ac}'>≡ LIBRARY</h2>", unsafe_allow_html=True)
     _lk = f"_lib_{_fam_key(_email)}"
     if _lk not in st.session_state:
         st.session_state[_lk] = []
@@ -1052,6 +1181,243 @@ if _page == "tasks":
     st.stop()
 
 # ════════════════════════════════════════════════════════════════════════
+# PAGE: MATH SOLVER (ALL TIERS)
+# ════════════════════════════════════════════════════════════════════════
+if _page == "math_solver":
+    st.markdown(f"<h2 style='font-family:Orbitron,monospace;color:{_ac}'>🧮 Math Solver</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#444;font-size:13px;margin-bottom:20px'>Solve any maths problem — step by step.</p>", unsafe_allow_html=True)
+
+    _math_sys = (
+        "You are a world-class mathematics tutor and solver. "
+        "When given a maths problem, solve it completely with clear step-by-step working. "
+        "Show every step. Explain what you're doing at each stage. "
+        "Format numbers and equations clearly. "
+        "At the end, state the final answer clearly on its own line. "
+        "Handle: arithmetic, algebra, calculus, geometry, trigonometry, statistics, matrices, proofs — anything."
+    )
+
+    _mq_key = "_math_history"
+    if _mq_key not in st.session_state:
+        st.session_state[_mq_key] = []
+
+    # Show previous solutions
+    for _mi, _mitem in enumerate(st.session_state[_mq_key]):
+        st.markdown(f"""
+        <div style='background:#0a0a14;border:1px solid #1a1a3a;border-radius:12px;padding:14px 18px;margin-bottom:10px'>
+          <div style='font-size:12px;color:#555;margin-bottom:6px'>Problem:</div>
+          <div style='color:#ccc;font-size:14px;margin-bottom:10px'>{_mitem["q"]}</div>
+          <div style='font-size:12px;color:{_ac};margin-bottom:6px'>Solution:</div>
+          <div style='color:#aaa;font-size:13.5px;line-height:1.8'>{_mitem["a"]}</div>
+        </div>""", unsafe_allow_html=True)
+
+    # Input
+    with st.form("math_form"):
+        _mq = st.text_area("Enter your maths problem", height=100, placeholder="e.g. Solve: 2x² + 5x - 3 = 0\ne.g. Integrate sin(x)cos(x) dx\ne.g. Find the derivative of x³ + 2x² - 7", label_visibility="collapsed", key="math_input")
+        _ms = st.form_submit_button("⚡ Solve →", use_container_width=True)
+    if _ms and _mq.strip():
+        try:
+            from groq import Groq as _Groq
+            _client = _Groq(api_key=_GROQ_KEY)
+            _stream = _client.chat.completions.create(
+                model=_MODELS[_tier],
+                messages=[{"role":"system","content":_math_sys},{"role":"user","content":_mq.strip()}],
+                max_tokens={"basic":2048,"pro":4096,"max":8192}.get(_tier,2048),
+                temperature=0.1, stream=True
+            )
+            _ph = st.empty()
+            _ma = ""
+            for _chunk in _stream:
+                _d = _chunk.choices[0].delta.content
+                if _d:
+                    _ma += _d
+                    _ph.markdown(_ma + "▌")
+            _ph.markdown(_ma)
+            st.session_state[_mq_key].insert(0, {"q": _mq.strip(), "a": _ma})
+            st.rerun()
+        except Exception as _e:
+            st.error(f"Error: {_e}")
+
+    if st.session_state[_mq_key]:
+        if st.button("🗑 Clear History", key="math_clr"):
+            st.session_state[_mq_key] = []; st.rerun()
+    if st.button("← Back", key="math_bk"): st.session_state._page="home"; st.rerun()
+    st.stop()
+
+# ════════════════════════════════════════════════════════════════════════
+# PAGE: CODE INTERPRETER (ALL TIERS)
+# ════════════════════════════════════════════════════════════════════════
+if _page == "code_interp":
+    st.markdown(f"<h2 style='font-family:Orbitron,monospace;color:{_ac}'>💻 Code Interpreter</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#444;font-size:13px;margin-bottom:20px'>AI-powered coding assistant. Write, debug, and understand code.</p>", unsafe_allow_html=True)
+
+    _ci_sys = (
+        "You are an expert code interpreter and programming assistant. "
+        "When given code: explain what it does, identify bugs, fix errors, and suggest improvements. "
+        "When asked to write code: produce clean, complete, working code with brief comments. "
+        "Always use proper markdown code blocks with the correct language tag. "
+        "Be precise and practical. Never give incomplete code."
+    )
+
+    _ci_key = "_ci_history"
+    if _ci_key not in st.session_state:
+        st.session_state[_ci_key] = []
+
+    # Show previous interactions
+    for _ci_item in st.session_state[_ci_key]:
+        st.markdown(f"""
+        <div style='margin-bottom:12px'>
+          <div style='background:#0d1a2a;border:1px solid #1a3a5a;border-radius:10px 10px 4px 10px;padding:10px 14px;margin-bottom:4px'>
+            <div style='color:#bbb;font-size:13.5px'>{_ci_item["q"]}</div>
+          </div>
+          <div style='background:#0a0a14;border:1px solid #1a1a3a;border-radius:4px 10px 10px 10px;padding:12px 16px'>
+            <div style='color:#aaa;font-size:13.5px;line-height:1.8'>{_ci_item["a"]}</div>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+    with st.form("ci_form"):
+        _ciq = st.text_area("Paste code or describe what you need", height=140,
+                             placeholder="Paste code to debug/explain, or describe what you want to build…",
+                             label_visibility="collapsed", key="ci_input")
+        _cis = st.form_submit_button("⚡ Run →", use_container_width=True)
+    if _cis and _ciq.strip():
+        try:
+            from groq import Groq as _Groq
+            _client = _Groq(api_key=_GROQ_KEY)
+            _stream = _client.chat.completions.create(
+                model=_MODELS[_tier],
+                messages=[{"role":"system","content":_ci_sys},{"role":"user","content":_ciq.strip()}],
+                max_tokens={"basic":2048,"pro":4096,"max":8192}.get(_tier,2048),
+                temperature=0.15, stream=True
+            )
+            _ph = st.empty()
+            _cia = ""
+            for _chunk in _stream:
+                _d = _chunk.choices[0].delta.content
+                if _d:
+                    _cia += _d
+                    _ph.markdown(_cia + "▌")
+            _ph.markdown(_cia)
+            st.session_state[_ci_key].insert(0, {"q": _ciq.strip(), "a": _cia})
+            st.rerun()
+        except Exception as _e:
+            st.error(f"Error: {_e}")
+
+    if st.session_state[_ci_key]:
+        if st.button("🗑 Clear", key="ci_clr"):
+            st.session_state[_ci_key] = []; st.rerun()
+    if st.button("← Back", key="ci_bk"): st.session_state._page="home"; st.rerun()
+    st.stop()
+
+# ════════════════════════════════════════════════════════════════════════
+# PAGE: FOCUS MODE (PRO + MAX)
+# ════════════════════════════════════════════════════════════════════════
+if _page == "focus":
+    if _tier not in ("pro", "max"):
+        st.markdown(f"""<div style='text-align:center;padding:60px 0'>
+        <div style='font-family:Orbitron,monospace;font-size:18px;color:#a855f7;margin-bottom:8px'>◉ FOCUS MODE</div>
+        <p style='color:#444;font-size:13px'>Available from <b style='color:#a855f7'>Pro tier</b> and above.</p>
+        </div>""", unsafe_allow_html=True)
+        if st.button("Upgrade to Pro →", key="focus_upg", use_container_width=True):
+            st.session_state._page = "upgrade"; st.rerun()
+        if st.button("← Back", key="focus_bk_lock"): st.session_state._page="home"; st.rerun()
+        st.stop()
+
+    st.markdown(f"<h2 style='font-family:Orbitron,monospace;color:{_ac}'>◉ FOCUS MODE</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#444;font-size:13px;margin-bottom:20px'>Deep, distraction-free AI session. Set a topic — Titan Ultra stays laser-focused.</p>", unsafe_allow_html=True)
+
+    _foc_key = f"_focus_topic_{_fam_key(_email)}"
+    _foc_msgs_key = f"_focus_msgs_{_fam_key(_email)}"
+    if _foc_key not in st.session_state:
+        st.session_state[_foc_key] = ""
+    if _foc_msgs_key not in st.session_state:
+        st.session_state[_foc_msgs_key] = []
+
+    if not st.session_state[_foc_key]:
+        st.markdown("<p style='color:#666;font-size:13px'>Set a focus topic to begin your deep session:</p>", unsafe_allow_html=True)
+        with st.form("focus_form"):
+            _ft = st.text_input("Focus topic", placeholder="e.g. Quantum computing, Calculus revision, Building a startup…", label_visibility="collapsed")
+            if st.form_submit_button("Start Focus Session →", use_container_width=True) and _ft.strip():
+                st.session_state[_foc_key] = _ft.strip()
+                st.session_state[_foc_msgs_key] = []
+                st.rerun()
+    else:
+        _focus_topic = st.session_state[_foc_key]
+        st.markdown(f"""<div style='background:{_ac}0d;border:1px solid {_ac}22;border-radius:10px;padding:10px 16px;margin-bottom:16px'>
+        <span style='color:{_ac};font-size:11px;font-weight:700;letter-spacing:1px'>FOCUS TOPIC</span><br>
+        <span style='color:#ccc;font-size:14px'>{_focus_topic}</span></div>""", unsafe_allow_html=True)
+
+        _foc_sys = (
+            f"You are in FOCUS MODE. The user is doing a deep study/work session on: '{_focus_topic}'. "
+            f"Every response must relate directly to this topic. "
+            f"Be a world-class expert on this topic. Go deep. Be thorough. Never deviate."
+        )
+        _foc_msgs = st.session_state[_foc_msgs_key]
+        for _fm in _foc_msgs:
+            if _fm["role"] == "user":
+                st.markdown(f"<div class='user-bubble'><div class='user-bubble-inner'>{_fm['content']}</div></div>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class='ai-bubble'><div class='ai-label'>🎯 FOCUS MODE</div><div class='ai-text'>{_fm['content']}</div></div>", unsafe_allow_html=True)
+
+        _fi = st.chat_input(f"Ask anything about {_focus_topic}…")
+        if _fi and _fi.strip():
+            _foc_msgs.append({"role":"user","content":_fi.strip()})
+            try:
+                from groq import Groq as _Groq
+                _client = _Groq(api_key=_GROQ_KEY)
+                _all = [{"role":"system","content":_foc_sys}] + _foc_msgs
+                _stream = _client.chat.completions.create(
+                    model=_MODELS[_tier], messages=_all,
+                    max_tokens={"pro":4096,"max":8192}.get(_tier,4096),
+                    temperature=0.4, stream=True
+                )
+                _ph = st.empty()
+                _fa = ""
+                for _chunk in _stream:
+                    _d = _chunk.choices[0].delta.content
+                    if _d:
+                        _fa += _d
+                        _ph.markdown(f"*{_fa}*▌")
+                _ph.markdown(f"*{_fa}*")
+                _foc_msgs.append({"role":"assistant","content":_fa})
+                st.session_state[_foc_msgs_key] = _foc_msgs
+                st.rerun()
+            except Exception as _e:
+                st.error(f"Error: {_e}")
+
+        if st.button("✕ End Focus Session", key="focus_end"):
+            st.session_state[_foc_key] = ""
+            st.session_state[_foc_msgs_key] = []
+            st.rerun()
+
+    if st.button("← Back", key="focus_bk"): st.session_state._page="home"; st.rerun()
+    st.stop()
+
+# ════════════════════════════════════════════════════════════════════════
+# PAGE: SYSTEM SCANNER (MAX ONLY)
+# ════════════════════════════════════════════════════════════════════════
+if _page == "sysscanner":
+    if _tier != "max":
+        st.markdown(f"""<div style='text-align:center;padding:60px 0'>
+        <div style='font-size:40px;margin-bottom:14px'>🖥</div>
+        <div style='font-family:Orbitron,monospace;font-size:18px;color:#f59e0b;margin-bottom:8px'>SYSTEM SCANNER</div>
+        <p style='color:#444;font-size:13px'>Available on <b style='color:#f59e0b'>Max tier</b> only.</p>
+        </div>""", unsafe_allow_html=True)
+        if st.button("Upgrade to Max →", key="sysscn_upg", use_container_width=True):
+            st.session_state._page = "upgrade"; st.rerun()
+        if st.button("← Back", key="sysscn_bk_lock"): st.session_state._page="home"; st.rerun()
+        st.stop()
+
+    st.markdown(f"<h2 style='font-family:Orbitron,monospace;color:{_ac}'>🖥 System Scanner</h2>", unsafe_allow_html=True)
+    if st.button("⚡ Run Live Scan", key="sysscn_run", use_container_width=True):
+        _ht = _system_health_text()
+        st.markdown(f"""<div style='background:#0a0a14;border:1px solid {_ac}22;border-radius:14px;padding:20px;margin-top:16px;font-family:monospace'>
+        <div style='color:{_ac};font-size:11px;letter-spacing:1.5px;margin-bottom:12px'>LIVE SYSTEM SCAN</div>
+        <pre style='color:#aaa;font-size:13px;white-space:pre-wrap'>{_ht}</pre>
+        </div>""", unsafe_allow_html=True)
+    if st.button("← Back", key="sysscn_bk"): st.session_state._page="home"; st.rerun()
+    st.stop()
+
+# ════════════════════════════════════════════════════════════════════════
 # PAGE: TITAN CODE (MAX ONLY)
 # ════════════════════════════════════════════════════════════════════════
 if _page == "titan_code":
@@ -1060,8 +1426,7 @@ if _page == "titan_code":
         st.markdown("""<style>.block-container{max-width:540px!important;padding-top:60px!important}</style>""", unsafe_allow_html=True)
         st.markdown(f"""
         <div style="text-align:center;padding:20px 0 30px">
-          <div style="font-size:48px;margin-bottom:14px;animation:float 3s ease-in-out infinite;display:inline-block">🧑‍💻</div>
-          <div style="font-family:Orbitron,monospace;font-size:20px;font-weight:900;color:#f59e0b;letter-spacing:2px;margin-bottom:8px">TITAN CODE</div>
+          <div style="font-family:Orbitron,monospace;font-size:20px;font-weight:900;color:#f59e0b;letter-spacing:2px;margin-bottom:8px">+ TITAN CODE</div>
           <div style="font-size:13px;color:#444;margin-bottom:24px">This feature is exclusively for <b style='color:#f59e0b'>Max tier</b> subscribers.</div>
           <div style="background:#0f0f0f;border:1px solid #f59e0b22;border-radius:16px;padding:24px;text-align:left;margin-bottom:24px">
             <div style="font-size:13px;color:#666;margin-bottom:12px;font-weight:600">What Titan Code can do:</div>
@@ -1076,7 +1441,7 @@ if _page == "titan_code":
           </div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("👑  Upgrade to Max — ₹3,500/month", key="tc_upg", use_container_width=True):
+        if st.button("⊕  Upgrade to Max — ₹3,500/month", key="tc_upg", use_container_width=True):
             st.session_state._page = "upgrade"; st.rerun()
         if st.button("← Back", key="tc_bk_lock"): st.session_state._page="home"; st.rerun()
         st.stop()
@@ -1084,7 +1449,7 @@ if _page == "titan_code":
     # ── Full Titan Code interface (Max only) ──────────────────────────
     st.markdown(f"""
     <div style="margin-bottom:20px">
-      <div style="font-family:Orbitron,monospace;font-size:22px;font-weight:900;color:#f59e0b;letter-spacing:2px">🧑‍💻 TITAN CODE</div>
+      <div style="font-family:Orbitron,monospace;font-size:22px;font-weight:900;color:#f59e0b;letter-spacing:2px">+ TITAN CODE</div>
       <div style="font-size:11px;color:#444;letter-spacing:1px;margin-top:4px">MAX TIER · AI-POWERED CODING ENVIRONMENT</div>
     </div>
     """, unsafe_allow_html=True)
@@ -1146,6 +1511,146 @@ if _page == "titan_code":
         st.markdown(st.session_state[_tc_out_key])
 
     if st.button("← Back", key="tc_bk"): st.session_state._page="home"; st.rerun()
+    st.stop()
+
+# ════════════════════════════════════════════════════════════════════════
+# PAGE: TITAN EXAM (MAX ONLY)
+# ════════════════════════════════════════════════════════════════════════
+if _page == "titan_exam":
+    if _tier != "max":
+        st.markdown("""<style>.block-container{max-width:540px!important;padding-top:60px!important}</style>""", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="text-align:center;padding:20px 0 30px">
+          <div style="font-family:Orbitron,monospace;font-size:20px;font-weight:900;color:#f59e0b;letter-spacing:2px;margin-bottom:8px">◈ TITAN EXAM</div>
+          <div style="font-size:13px;color:#444;margin-bottom:24px">This feature is exclusively for <b style='color:#f59e0b'>Max tier</b> subscribers.</div>
+          <div style="background:#0f0f0f;border:1px solid #f59e0b22;border-radius:16px;padding:24px;text-align:left;margin-bottom:24px">
+            <div style="font-size:13px;color:#666;margin-bottom:12px;font-weight:600">What Titan Exam can do:</div>
+            <div style="font-size:13px;color:#555;line-height:2">
+              ✦ Solve JEE / NEET / board exam questions<br>
+              ✦ Full step-by-step solutions with reasoning<br>
+              ✦ Physics, Chemistry, Mathematics — all subjects<br>
+              ✦ Instant shortcuts and formula recall<br>
+              ✦ Deep reasoning mode for complex problems<br>
+              ✦ Session history to review past solutions
+            </div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("⊕  Upgrade to Max — ₹3,500/month", key="te_upg", use_container_width=True):
+            st.session_state._page = "upgrade"; st.rerun()
+        if st.button("← Back", key="te_bk_lock"): st.session_state._page = "home"; st.rerun()
+        st.stop()
+
+    # ── Full Titan Exam interface (Max only) ───────────────────────────
+    st.markdown("""
+    <div style="margin-bottom:20px">
+      <div style="font-family:Orbitron,monospace;font-size:22px;font-weight:900;color:#f59e0b;letter-spacing:2px">◈ TITAN EXAM</div>
+      <div style="font-size:11px;color:#444;letter-spacing:1px;margin-top:4px">MAX TIER · TITAN-4 · JEE / NEET / BOARD SOLVER</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Subject + settings row
+    _te1, _te2, _te3 = st.columns([2, 1, 1])
+    with _te1:
+        _te_subj = st.selectbox(
+            "Subject",
+            ["All Subjects", "Physics", "Chemistry", "Mathematics"],
+            key="te_subj"
+        )
+    with _te2:
+        _te_depth = st.slider("Reasoning Depth", 1, 5, 3, key="te_depth",
+                              help="1 = quick, 5 = deep reasoning")
+    with _te3:
+        _te_step  = st.toggle("Step-by-step", value=True,  key="te_step")
+        _te_short = st.toggle("Shortcuts",    value=False, key="te_short")
+
+    # Quick question chips
+    _TE_QUICK = {
+        "Physics":     ["Projectile motion", "Ohm's law", "Wave optics", "Thermodynamics"],
+        "Chemistry":   ["Mole concept", "Equilibrium", "Organic reactions", "Electrochemistry"],
+        "Mathematics": ["Integration", "Matrices", "Probability", "Coordinate geometry"],
+        "All Subjects":["Newton's laws", "Chemical bonding", "Limits & derivatives", "Magnetic fields"],
+    }
+    _te_quick_list = _TE_QUICK.get(_te_subj, _TE_QUICK["All Subjects"])
+    st.markdown("<div style='font-size:10px;color:#333;letter-spacing:1.5px;font-weight:700;margin:10px 0 6px'>QUICK TOPICS</div>", unsafe_allow_html=True)
+    _tq_cols = st.columns(len(_te_quick_list))
+    for _tqi, (_tqc, _tqv) in enumerate(zip(_tq_cols, _te_quick_list)):
+        with _tqc:
+            if st.button(f"→ {_tqv}", key=f"teq_{_tqi}", use_container_width=True):
+                st.session_state["_te_prefill"] = _tqv
+
+    # Question input
+    _te_prefill = st.session_state.pop("_te_prefill", "") if "_te_prefill" in st.session_state else ""
+    _te_q = st.text_area(
+        "Your question",
+        value=_te_prefill,
+        height=140,
+        key="te_question",
+        placeholder="Type your exam question here — JEE, NEET, board, or any competitive exam…",
+        label_visibility="collapsed"
+    )
+
+    _te_solve = st.button("⚡  Solve with TITAN-4", key="te_solve", use_container_width=True)
+
+    # Session history init
+    if "_te_history" not in st.session_state:
+        st.session_state["_te_history"] = []
+
+    if _te_solve and _te_q.strip():
+        _subj_ctx = "" if _te_subj == "All Subjects" else f"Subject: {_te_subj}. "
+        _step_ctx = "Provide a complete step-by-step solution showing every calculation." if _te_step else "Give a concise direct answer."
+        _short_ctx = " Also mention the fastest shortcut or trick to solve this type of question." if _te_short else ""
+        _depth_ctx = ["Solve quickly.", "Solve with key steps.", "Solve with clear reasoning.",
+                      "Solve with detailed reasoning and verify.", "Solve with exhaustive reasoning, all steps, and cross-check."][_te_depth - 1]
+
+        _te_sys = (
+            "You are TITAN-4 — the most advanced academic AI for competitive exam preparation. "
+            "You specialise in JEE Advanced, JEE Mains, NEET, and Indian board exams. "
+            "You solve every problem with mathematical precision. "
+            "Format: use LaTeX-style notation for formulas where helpful, number each step, "
+            "state the final answer clearly at the end in bold. "
+            "Never skip steps when step-by-step is requested."
+        )
+        _te_prompt = f"{_subj_ctx}{_step_ctx}{_short_ctx} {_depth_ctx}\n\nQuestion: {_te_q.strip()}"
+
+        try:
+            from groq import Groq as _Groq
+            _client = _Groq(api_key=_GROQ_KEY)
+            _stream = _client.chat.completions.create(
+                model=_MODELS["max"],
+                messages=[
+                    {"role": "system", "content": _te_sys},
+                    {"role": "user",   "content": _te_prompt}
+                ],
+                max_tokens=8192,
+                temperature=max(0.1, (_te_depth - 1) * 0.1),
+                stream=True
+            )
+            _te_ph = st.empty()
+            _te_ans = ""
+            for _chunk in _stream:
+                _d = _chunk.choices[0].delta.content
+                if _d:
+                    _te_ans += _d
+                    _te_ph.markdown(_te_ans + "▌")
+            _te_ph.markdown(_te_ans)
+            st.session_state["_te_history"].insert(0, {"q": _te_q.strip(), "a": _te_ans, "subj": _te_subj})
+            if len(st.session_state["_te_history"]) > 20:
+                st.session_state["_te_history"] = st.session_state["_te_history"][:20]
+        except Exception as _e:
+            st.error(f"Titan Exam error: {_e}")
+
+    # Session history
+    if st.session_state.get("_te_history"):
+        st.markdown("<div style='font-size:10px;color:#333;letter-spacing:1.5px;font-weight:700;margin:28px 0 10px'>SESSION HISTORY</div>", unsafe_allow_html=True)
+        for _thi, _th in enumerate(st.session_state["_te_history"]):
+            with st.expander(f"[{_th['subj']}]  {_th['q'][:72]}{'…' if len(_th['q']) > 72 else ''}", expanded=(_thi == 0)):
+                st.markdown(_th["a"])
+        if st.button("⊗  clear history", key="te_clrhist"):
+            st.session_state["_te_history"] = []
+            st.rerun()
+
+    if st.button("← Back", key="te_bk"): st.session_state._page = "home"; st.rerun()
     st.stop()
 
 # ════════════════════════════════════════════════════════════════════════
@@ -1240,11 +1745,26 @@ for _msg in _msgs:
             except Exception:
                 pass
         else:
+            # Strip [SUGGEST:...] from stored content for display
+            _disp_cnt = re.sub(r'\[SUGGEST:.*?\]', '', str(_cnt), flags=re.DOTALL).rstrip()
             st.markdown(f"""
             <div class="ai-bubble">
               <div class="ai-label">🔱 TITAN ULTRA</div>
-              <div class="ai-text">{_cnt}</div>
+              <div class="ai-text">{_disp_cnt}</div>
             </div>""", unsafe_allow_html=True)
+            # Show suggestion chips for the last AI message
+            if _msg == _msgs[-1]:
+                _sugg_match = re.search(r'\[SUGGEST:\s*(.*?)\]', str(_cnt), re.DOTALL)
+                if _sugg_match:
+                    _chips = [c.strip() for c in _sugg_match.group(1).split("|") if c.strip()]
+                    if _chips:
+                        st.markdown("<div style='font-size:10px;color:#333;letter-spacing:1.5px;font-weight:700;margin:12px 0 6px'>ASK ME MORE</div>", unsafe_allow_html=True)
+                        _chip_cols = st.columns(len(_chips))
+                        for _ci2, (_col2, _chip) in enumerate(zip(_chip_cols, _chips)):
+                            with _col2:
+                                if st.button(f"→ {_chip}", key=f"chip_{_ci2}_{len(_msgs)}", use_container_width=True):
+                                    st.session_state._messages.append({"role":"user","content":_chip})
+                                    st.rerun()
 
 # If last message is from user, generate AI response
 if _msgs and _msgs[-1]["role"] == "user":
