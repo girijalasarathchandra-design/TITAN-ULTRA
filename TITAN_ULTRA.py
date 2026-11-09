@@ -329,7 +329,7 @@ html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testi
 
 # ── Tier CSS (owner previews Basic / Pro / Max look) ─────────────────────────
 def _inject_tier_css():
-    _tier = st.session_state.get("titan_tier", "max")
+    _tier = st.session_state.get("titan_tier", "basic")
     if _tier == "pro":
         st.markdown("""<style>
 @keyframes proGlow {
@@ -1244,6 +1244,23 @@ st.html("""
     }
     // else: nonce already consistent — no action needed
 })();
+// ── Sync name + tier from localStorage → URL params ──────────────────────────
+(function() {
+    try {
+        var url = new URL(window.parent.location.href);
+        var ls = window.parent.localStorage;
+        var name = ls.getItem('tu_name');
+        var tier = ls.getItem('tu_tier');
+        var changed = false;
+        if (name && !url.searchParams.get('_tname')) {
+            url.searchParams.set('_tname', name); changed = true;
+        }
+        if (tier && !url.searchParams.get('_ttier')) {
+            url.searchParams.set('_ttier', tier); changed = true;
+        }
+        if (changed) window.parent.history.replaceState(null, '', url.toString());
+    } catch(e) {}
+})();
 </script>
 <script>
 // Remove Streamlit's built-in sidebar top padding so TITAN ULTRA is flush to the top
@@ -1273,7 +1290,7 @@ _inject_tier_css()
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     # ── Tier selector (owner — preview Basic / Pro / Max) ─────────────────────
-    _sb_tier_now = st.session_state.get("titan_tier", "max")
+    _sb_tier_now = st.session_state.get("titan_tier", "basic")
     if _sb_tier_now == "pro":
         _tier_badge_html = "<span style='background:#7c3aed;color:#fff;font-size:.58rem;font-weight:700;padding:2px 7px;border-radius:8px;letter-spacing:1px;vertical-align:middle;margin-left:8px'>PRO</span>"
     elif _sb_tier_now == "max":
@@ -1394,26 +1411,90 @@ with st.sidebar:
     model_id   = _TIER_MODELS.get(st.session_state.get("titan_tier", "basic"), "qwen/qwen3.8-27b")
     model_name = {v: k for k, v in GROQ_MODELS.items()}.get(model_id, list(GROQ_MODELS.keys())[0])
 
-    # ── History — always open, flat list ─────────────────────────────────────
+    # ── History — latest on top, with 3-dot context menu ─────────────────────
     st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:.6rem;color:#4a5568;letter-spacing:1px;padding:0 2px 4px'>history</div>", unsafe_allow_html=True)
 
-    _hist_all = _load_history()
+    _hist_all = _load_history()  # already newest-first (insert at 0)
     if not _hist_all:
         st.markdown("<div style='font-size:.72rem;color:#4a5568;padding:2px 4px'>No chats yet</div>", unsafe_allow_html=True)
     else:
+        _hm_open = st.session_state.get("_hist_menu_open")  # id of item whose menu is open
         for _hs in _hist_all[:80]:
-            if st.button(_hs.get("title","Chat")[:42], key=f"_hn_{_hs.get('id',0)}",
-                         use_container_width=True):
-                _save_chat_sessions()
-                st.session_state.chat_sessions = [_hs]
-                st.session_state.active_session = 0
-                st.session_state.notebook_mode = False
-                st.session_state.library_mode = False
-                st.session_state.schedule_mode = False
-                st.session_state.tasks_mode = False
-                st.session_state.show_titan_features = False
-                st.rerun()
+            _hid = _hs.get("id", 0)
+            _htitle = _hs.get("title", "Chat")[:42]
+            _hcol1, _hcol2 = st.columns([5, 1])
+            with _hcol1:
+                if st.button(_htitle, key=f"_hn_{_hid}", use_container_width=True):
+                    _save_chat_sessions()
+                    st.session_state.chat_sessions = [_hs]
+                    st.session_state.active_session = 0
+                    st.session_state.notebook_mode = False
+                    st.session_state.library_mode = False
+                    st.session_state.schedule_mode = False
+                    st.session_state.tasks_mode = False
+                    st.session_state.show_titan_features = False
+                    st.session_state._hist_menu_open = None
+                    st.rerun()
+            with _hcol2:
+                if st.button("···", key=f"_hm_{_hid}", use_container_width=True):
+                    st.session_state._hist_menu_open = _hid if _hm_open != _hid else None
+                    st.rerun()
+            # Context menu for this item
+            if _hm_open == _hid:
+                # Rename
+                if st.session_state.get(f"_hren_{_hid}"):
+                    _new_title = st.text_input("", value=_htitle, key=f"_hren_in_{_hid}",
+                                               label_visibility="collapsed")
+                    _rc1, _rc2 = st.columns(2)
+                    if _rc1.button("Save", key=f"_hren_ok_{_hid}", use_container_width=True):
+                        _hall2 = _load_history()
+                        for _s2 in _hall2:
+                            if _s2.get("id") == _hid:
+                                _s2["title"] = _new_title.strip() or _htitle
+                        try:
+                            with open(_CHAT_FILE, "w", encoding="utf-8") as _hf:
+                                _json.dump(_hall2, _hf, ensure_ascii=False, indent=2)
+                        except Exception:
+                            pass
+                        st.session_state.pop(f"_hren_{_hid}", None)
+                        st.session_state._hist_menu_open = None
+                        st.rerun()
+                    if _rc2.button("Cancel", key=f"_hren_no_{_hid}", use_container_width=True):
+                        st.session_state.pop(f"_hren_{_hid}", None)
+                        st.rerun()
+                else:
+                    _ma, _mb, _mc = st.columns(3)
+                    if _ma.button("Delete", key=f"_hdel_{_hid}", use_container_width=True):
+                        _hall3 = [_s3 for _s3 in _load_history() if _s3.get("id") != _hid]
+                        try:
+                            with open(_CHAT_FILE, "w", encoding="utf-8") as _hf:
+                                _json.dump(_hall3, _hf, ensure_ascii=False, indent=2)
+                        except Exception:
+                            pass
+                        st.session_state._hist_menu_open = None
+                        st.rerun()
+                    if _mb.button("Rename", key=f"_hrn_{_hid}", use_container_width=True):
+                        st.session_state[f"_hren_{_hid}"] = True
+                        st.rerun()
+                    if _mc.button("Share", key=f"_hsh_{_hid}", use_container_width=True):
+                        # Build a readable text summary of the conversation
+                        _share_lines = [f"**{_htitle}**\n"]
+                        for _smsg in _hs.get("messages", [])[:30]:
+                            _srole = "You" if _smsg.get("role") == "user" else "Titan"
+                            _scont = str(_smsg.get("content",""))[:300]
+                            _share_lines.append(f"**{_srole}:** {_scont}")
+                        st.session_state["_share_text"] = "\n\n".join(_share_lines)
+                        st.session_state._hist_menu_open = None
+                        st.rerun()
+        # Share preview
+        if st.session_state.get("_share_text"):
+            with st.expander("Share this conversation", expanded=True):
+                st.text_area("Copy and share:", value=st.session_state["_share_text"],
+                             height=150, label_visibility="collapsed", key="_share_ta")
+                if st.button("Close", key="_share_close", use_container_width=True):
+                    st.session_state.pop("_share_text", None)
+                    st.rerun()
 
     # ── Upgrade (Basic → Pro or Max via code) ────────────────────────────────
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
@@ -1428,9 +1509,13 @@ with st.sidebar:
                 if _up_code and _up_code == _max_code:
                     st.session_state.titan_tier = "max"
                     st.session_state.pop("_tc_locked_msg", None)
+                    st.query_params["_ttier"] = "max"
+                    st.html('<script>try{window.parent.localStorage.setItem("tu_tier","max");}catch(e){}</script>')
                     st.rerun()
                 elif _up_code and _up_code == _pro_code:
                     st.session_state.titan_tier = "pro"
+                    st.query_params["_ttier"] = "pro"
+                    st.html('<script>try{window.parent.localStorage.setItem("tu_tier","pro");}catch(e){}</script>')
                     st.rerun()
                 else:
                     st.error("Invalid code.")
@@ -1457,6 +1542,111 @@ with st.sidebar:
         st.session_state.pending_vision = None
 
 
+
+# ── Restore name + tier from localStorage (via URL params) ────────────────────
+_qp_name = st.query_params.get("_tname", "").strip()
+if _qp_name and not st.session_state.titan_memory.get("name"):
+    st.session_state.titan_memory["name"] = _qp_name
+    _save_memory(st.session_state.titan_memory)
+
+_qp_tier = st.query_params.get("_ttier", "").strip().lower()
+if _qp_tier in ("pro", "max") and st.session_state.get("titan_tier", "basic") == "basic":
+    st.session_state.titan_tier = _qp_tier
+
+# ── First-visit name prompt ───────────────────────────────────────────────────
+if not st.session_state.titan_memory.get("name", "").strip():
+    st.markdown("""
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-height:60vh;text-align:center;padding:40px 20px">
+  <div style="font-size:2.2rem;margin-bottom:8px">🔱</div>
+  <div style="font-family:'Segoe UI',sans-serif;font-size:1.6rem;font-weight:700;
+      color:#ffffff;margin-bottom:6px">Welcome to Titan Ultra</div>
+  <div style="color:#9ca3af;font-size:.95rem;margin-bottom:28px">What should I call you?</div>
+</div>""", unsafe_allow_html=True)
+    _nc1, _nc2, _nc3 = st.columns([1, 2, 1])
+    with _nc2:
+        _entered_name = st.text_input("", placeholder="Your name", label_visibility="collapsed",
+                                      key="_name_prompt_input")
+        if st.button("Continue  →", use_container_width=True, key="_name_prompt_btn", type="primary"):
+            _n = _entered_name.strip()
+            if _n:
+                st.session_state.titan_memory["name"] = _n
+                _save_memory(st.session_state.titan_memory)
+                st.query_params["_tname"] = _n
+                # Save to localStorage so it persists across visits
+                st.html(f"""<script>
+try{{window.parent.localStorage.setItem('tu_name',{_json.dumps(_n)});}}catch(e){{}}
+</script>""")
+                st.rerun()
+            else:
+                st.error("Please enter your name to continue.")
+    st.stop()
+
+# ── Upgrade pricing dialog ─────────────────────────────────────────────────────
+@st.dialog("Upgrade Titan Ultra")
+def _show_upgrade_dialog():
+    _dtier = st.session_state.get("titan_tier", "basic")
+    _tab_mo, _tab_yr = st.tabs(["Monthly", "Annual"])
+    with _tab_mo:
+        st.markdown("""
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:8px 0">
+  <div style="background:#1a1a2e;border:1px solid #374151;border-radius:12px;padding:16px;text-align:center">
+    <div style="font-size:.7rem;letter-spacing:2px;color:#9ca3af;margin-bottom:6px">BASIC</div>
+    <div style="font-size:1.8rem;font-weight:800;color:#fff">Free</div>
+    <div style="font-size:.72rem;color:#6b7a99;margin:8px 0 10px">2 hrs active chat/session</div>
+    <div style="font-size:.72rem;color:#9ca3af">🔱 Qwen 3.8 27B</div>
+    <div style="font-size:.72rem;color:#9ca3af">All core features</div>
+  </div>
+  <div style="background:#1a1a2e;border:2px solid #7c3aed;border-radius:12px;padding:16px;text-align:center">
+    <div style="font-size:.7rem;letter-spacing:2px;color:#a78bfa;margin-bottom:6px">PRO</div>
+    <div style="font-size:1.8rem;font-weight:800;color:#a78bfa">₹300<span style="font-size:.85rem;font-weight:400">/mo</span></div>
+    <div style="font-size:.72rem;color:#6b7a99;margin:8px 0 10px">Unlimited chat</div>
+    <div style="font-size:.72rem;color:#a78bfa">⚡ GPT-OSS 20B</div>
+    <div style="font-size:.72rem;color:#a78bfa">Answer Depth control</div>
+  </div>
+  <div style="background:#1a1a2e;border:2px solid #f59e0b;border-radius:12px;padding:16px;text-align:center">
+    <div style="font-size:.7rem;letter-spacing:2px;color:#f59e0b;margin-bottom:6px">MAX</div>
+    <div style="font-size:1.8rem;font-weight:800;color:#f59e0b">₹3500<span style="font-size:.85rem;font-weight:400">/mo</span></div>
+    <div style="font-size:.72rem;color:#6b7a99;margin:8px 0 10px">Unlimited + priority</div>
+    <div style="font-size:.72rem;color:#f59e0b">👑 TITAN-4 (GPT-OSS 120B)</div>
+    <div style="font-size:.72rem;color:#f59e0b">Titan Code + Focus Mode</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+    with _tab_yr:
+        st.markdown("""
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:8px 0">
+  <div style="background:#1a1a2e;border:1px solid #374151;border-radius:12px;padding:16px;text-align:center">
+    <div style="font-size:.7rem;letter-spacing:2px;color:#9ca3af;margin-bottom:6px">BASIC</div>
+    <div style="font-size:1.8rem;font-weight:800;color:#fff">Free</div>
+    <div style="font-size:.72rem;color:#6b7a99;margin:8px 0 10px">Forever free</div>
+    <div style="font-size:.72rem;color:#9ca3af">🔱 Qwen 3.8 27B</div>
+  </div>
+  <div style="background:#1a1a2e;border:2px solid #7c3aed;border-radius:12px;padding:16px;text-align:center">
+    <div style="font-size:.7rem;letter-spacing:2px;color:#a78bfa;margin-bottom:6px">PRO</div>
+    <div style="font-size:1.8rem;font-weight:800;color:#a78bfa">₹2500<span style="font-size:.85rem;font-weight:400">/yr</span></div>
+    <div style="font-size:.7rem;color:#22c55e;margin-bottom:6px">Save ₹1100</div>
+    <div style="font-size:.72rem;color:#6b7a99;margin:4px 0 8px">≈ ₹208/mo</div>
+    <div style="font-size:.72rem;color:#a78bfa">⚡ GPT-OSS 20B</div>
+  </div>
+  <div style="background:#1a1a2e;border:2px solid #f59e0b;border-radius:12px;padding:16px;text-align:center">
+    <div style="font-size:.7rem;letter-spacing:2px;color:#f59e0b;margin-bottom:6px">MAX</div>
+    <div style="font-size:1.8rem;font-weight:800;color:#f59e0b">₹18000<span style="font-size:.85rem;font-weight:400">/yr</span></div>
+    <div style="font-size:.7rem;color:#22c55e;margin-bottom:6px">Save ₹24000</div>
+    <div style="font-size:.72rem;color:#6b7a99;margin:4px 0 8px">≈ ₹1500/mo</div>
+    <div style="font-size:.72rem;color:#f59e0b">👑 TITAN-4 (GPT-OSS 120B)</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:.75rem;color:#9ca3af'>Have an upgrade code? Enter it in the sidebar → <b>upgrade</b> expander.</div>", unsafe_allow_html=True)
+
+# ── Upgrade button at top (Basic/Pro only) ────────────────────────────────────
+_top_tier = st.session_state.get("titan_tier", "basic")
+if _top_tier != "max":
+    _ub1, _ub2 = st.columns([6, 1])
+    with _ub2:
+        _ub_label = "✦ Upgrade" if _top_tier == "basic" else "✦ Go Max"
+        if st.button(_ub_label, key="_top_upgrade_btn", use_container_width=True, type="primary"):
+            _show_upgrade_dialog()
 
 # ── Header ────────────────────────────────────────────────────────────────────
 _user_name = st.session_state.titan_memory.get("name", "")
@@ -1533,7 +1723,7 @@ if not cur_msgs():
     ]
     _sp_idx_o = _dtsp_o.now().day % len(_SPARKS_O)
     _sp_title_o, _sp_text_o, _sp_color_o, _sp_hint_o, _sp_btn_o = _SPARKS_O[_sp_idx_o]
-    _tier_now_o = st.session_state.get("titan_tier", "max")
+    _tier_now_o = st.session_state.get("titan_tier", "basic")
     _sp_border_o = "#f59e0b" if _tier_now_o == "max" else ("#7c3aed" if _tier_now_o == "pro" else _sp_color_o)
     st.markdown(f"""
 <style>
@@ -4061,7 +4251,7 @@ for _mi, msg in enumerate(_msgs_list):
             _spk = _re_sb.sub(r'\n?\[SUGGEST:[^\]]{0,300}\]', '', _spk)
             _spk = _re_sb.sub(r'\s+', ' ', _spk).strip()[:4500]
             _spk_payload = _json_sb.dumps(_spk)
-            _rxn_tier_o = st.session_state.get("titan_tier", "max")
+            _rxn_tier_o = st.session_state.get("titan_tier", "basic")
             _show_rxn_o = _rxn_tier_o in ("pro", "max")
             _rxn_accent_o = "#f59e0b" if _rxn_tier_o == "max" else "#a78bfa"
             st.html(f"""
@@ -4232,7 +4422,7 @@ if cur_msgs():
 
 # ── Smart Follow-up Suggestion Chips (Pro + Max only) ────────────────────────
 import re as _re_sfup_o
-_sfup_tier_o = st.session_state.get("titan_tier", "max")
+_sfup_tier_o = st.session_state.get("titan_tier", "basic")
 if _sfup_tier_o in ("pro", "max") and _last_asst_content and cur_msgs():
     _sfup_match_o = _re_sfup_o.search(r'\[SUGGEST:\s*([^\]]{1,300})\]', _last_asst_content)
     if _sfup_match_o:
@@ -5984,7 +6174,7 @@ def get_system():
     _now = _dtnow.datetime.now()
     base = SYSTEM + f"\n\nCurrent date: {_now.strftime('%A, %d %B %Y')}. Current time: {_now.strftime('%I:%M %p')} (IST)."
     # ── Tier-based prompt additions ────────────────────────────────────────────
-    _sys_tier_o = st.session_state.get("titan_tier", "max")
+    _sys_tier_o = st.session_state.get("titan_tier", "basic")
     if _sys_tier_o == "pro":
         _pro_depth_o = st.session_state.get("_answer_depth", "normal")
         if _pro_depth_o == "quick":
@@ -6570,36 +6760,17 @@ def _do_ai_call(api_msgs):
 q_val      = st.session_state.pop("quick_q","") or voice_text
 
 if _USER_HIT_LIMIT:
-    _usage_data_cur = _load_usage_data()
-    _limit_hit_ts = _usage_data_cur.get("limit_hit_at") or _time_mod.time()
-    _remaining_secs = max(0, int(5 * 3600 - (_time_mod.time() - _limit_hit_ts)))
-    st.error("🚫 **You have hit your limits! Come back after your timer runs out.**\n\nFree users get **2 hours** of Titan Ultra. Want unlimited access? Payment options coming soon.")
-    import streamlit.components.v1 as _cv1_timer
-    _cv1_timer.html(f"""
+    st.error("🚫 **You've used 2 hours of active chat today.**\n\nBasic tier includes 2 hours of continuous conversation. Upgrade to Pro or Max for unlimited access.")
+    st.markdown("""
 <div style="text-align:center;padding:24px 0 8px;font-family:-apple-system,Segoe UI,sans-serif">
-  <div style="font-size:.85rem;color:#a78bfa;letter-spacing:2px;margin-bottom:10px">⏳ TIME REMAINING BEFORE YOU CAN ASK AGAIN</div>
-  <div id="tu_timer" style="font-size:3.2rem;font-weight:900;color:#f87171;letter-spacing:6px;font-variant-numeric:tabular-nums">--:--:--</div>
-  <div id="tu_msg" style="margin-top:14px;font-size:.9rem;color:#6b7a99"></div>
-</div>
-<script>
-var rem = {_remaining_secs};
-function fmt(n){{return n.toString().padStart(2,'0');}}
-function tick(){{
-  if(rem<=0){{
-    document.getElementById('tu_timer').innerHTML='00:00:00';
-    document.getElementById('tu_timer').style.color='#34d399';
-    document.getElementById('tu_msg').innerHTML='✅ <b style="color:#34d399">Time is up! You can now ask Titan Ultra questions again.</b>';
-    setTimeout(function(){{window.location.reload();}},2000);
-    return;
-  }}
-  var h=Math.floor(rem/3600),m=Math.floor((rem%3600)/60),s=rem%60;
-  document.getElementById('tu_timer').innerHTML=fmt(h)+':'+fmt(m)+':'+fmt(s);
-  rem--;
-  setTimeout(tick,1000);
-}}
-tick();
-</script>
-""", height=160)
+  <div style="font-size:.85rem;color:#a78bfa;letter-spacing:2px;margin-bottom:10px">START A NEW SESSION TO CONTINUE</div>
+  <div style="font-size:.8rem;color:#6b7a99">Or upgrade in the sidebar to unlock unlimited chat.</div>
+</div>""", unsafe_allow_html=True)
+    if st.button("Start Fresh Session", key="_reset_usage_limit"):
+        st.session_state.pop("_usage_hit_limit", None)
+        st.session_state.pop("_usage_active_secs", None)
+        st.session_state.pop("_usage_last_msg_ts", None)
+        st.rerun()
     st.stop()
 
 # Chat input only shown during active chat (home screen has its own centered input)
@@ -7009,6 +7180,7 @@ if not user_input and uploaded_file:
     user_input = "Please analyze the attached file."
 
 if user_input:
+    _update_usage_on_message()
     # ── Auto-detect memory commands ───────────────────────────────────────────
     import re as _re_mem
     _mem_cmd = _re_mem.match(
