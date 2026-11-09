@@ -178,11 +178,35 @@ def _inject_tier_css(tier: str):
         a, a2, bg = "#00f5ff", "#0080ff", "#0d0d0d"
         # Basic = no glow
         chat_glow = "border-color:#252535!important;"
+    # Home input pill border per tier
+    if tier == "pro":
+        home_inp = (f"border:1px solid rgba(168,85,247,.55)!important;"
+                    f"box-shadow:0 0 0 1px rgba(168,85,247,.2),0 0 20px rgba(168,85,247,.15)!important;")
+    elif tier == "max":
+        home_inp = (f"border:1px solid rgba(245,158,11,.55)!important;"
+                    f"box-shadow:0 0 0 1px rgba(245,158,11,.2),0 0 20px rgba(245,158,11,.15)!important;")
+    else:
+        home_inp = "border:1px solid #2a2a3a!important;"
+
     st.markdown(f"""<style>
 :root{{--accent:{a}}}
 [data-testid="stAppViewContainer"]{{background:{bg}!important}}
 [data-testid="stChatInput"]{{{chat_glow}}}
-[data-testid="stTextInput"] input:focus{{border-color:{a}66!important;box-shadow:0 0 24px {a}18!important}}
+/* Home pill input */
+[data-testid="stTextInput"] input{{
+    border-radius:50px!important;
+    padding:14px 28px!important;
+    height:54px!important;
+    font-size:15px!important;
+    background:rgba(255,255,255,.03)!important;
+    color:#cccccc!important;
+    {home_inp}
+}}
+[data-testid="stTextInput"] input:focus{{
+    border-color:{a}88!important;
+    box-shadow:0 0 0 1px {a}33,0 0 28px {a}22!important;
+    outline:none!important;
+}}
 [data-testid="stTabs"] button[role="tab"][aria-selected="true"]{{color:{a}!important;border-bottom-color:{a}!important}}
 .feat-card:hover{{border-color:{a}!important}}
 </style>""", unsafe_allow_html=True)
@@ -336,32 +360,30 @@ _PHRASES = [
     "What's the challenge","Let's crack it","Bring it on","I'm dialled in","What shall we do",
 ]
 
+# (icon, category, fact, follow_up_question)
 _SPARKS = [
-    "The human brain generates about 70,000 thoughts per day — most repeat from the day before.",
-    "Honey never spoils. Archaeologists found 3,000-year-old honey in Egyptian tombs still edible.",
-    "A group of flamingos is called a flamboyance. They turn pink from the algae they eat.",
-    "The Milky Way smells like rum — astronomers detected ethyl formate in its dust clouds.",
-    "Octopuses have three hearts, blue blood, and can edit their own RNA — unique in all of nature.",
-    "The shortest war in history lasted 38 minutes — the Anglo-Zanzibar War of 1896.",
-    "A single lightning bolt contains enough energy to toast 100,000 slices of bread.",
-    "Trees communicate through underground fungal networks known as the Wood Wide Web.",
-    "Venus rotates so slowly that a day on Venus is longer than a year on Venus.",
-    "Cleopatra lived closer in time to the Moon landing than to the construction of the Great Pyramid.",
-    "There are more possible chess games than atoms in the observable universe.",
-    "Your body replaces most cells every 7–10 years, but your neurons largely stay for life.",
-    "The speed of light is exactly 299,792,458 metres per second — not an approximation.",
-    "Bananas are slightly radioactive due to their potassium-40 content.",
-    "The original name for the butterfly was 'flutterby'.",
+    ("⊟", "Tech History",   "The first ever computer bug was a REAL bug — a moth stuck in a Harvard relay in 1947, taped into the logbook!", "Who invented the computer?"),
+    ("◎", "Space",          "Venus rotates so slowly that a day on Venus is longer than a year on Venus — it spins backwards too!", "How far is Venus from Earth?"),
+    ("∑", "Mathematics",    "There are more possible chess games than atoms in the observable universe — it's called the Shannon Number.", "What is the hardest board game ever made?"),
+    ("⊙", "Biology",        "Octopuses have three hearts, blue blood, and can edit their own RNA — no other animal on Earth can do this.", "How intelligent are octopuses?"),
+    ("≡", "History",        "Cleopatra lived closer in time to the Moon landing than to the construction of the Great Pyramid of Giza.", "What year was Cleopatra born?"),
+    ("⊞", "Science",        "A single lightning bolt contains enough energy to toast 100,000 slices of bread in one instant.", "How hot is a lightning bolt?"),
+    ("⊟", "Nature",         "Trees communicate through underground fungal networks — scientists call it the Wood Wide Web.", "How do trees share nutrients?"),
+    ("◈", "Physics",        "The speed of light is exactly 299,792,458 metres per second — not an estimate, it defines the metre itself.", "What happens if you travel at the speed of light?"),
+    ("⊠", "Human Body",     "Your body replaces most cells every 7–10 years, but the neurons in your brain largely stay with you for life.", "How many neurons does the human brain have?"),
+    ("⊡", "Astronomy",      "The Milky Way smells like rum and tastes like raspberries — astronomers found ethyl formate in its dust clouds.", "How big is the Milky Way?"),
+    ("⊗", "History",        "The shortest war in history lasted only 38 minutes — the Anglo-Zanzibar War of 1896.", "What is the longest war in history?"),
+    ("◉", "Chemistry",      "Honey never spoils. Archaeologists found 3,000-year-old honey in Egyptian tombs and it was still perfectly edible.", "Why does honey never expire?"),
+    ("⊛", "Animals",        "Flamingos are actually white — they turn pink from the beta-carotene in the algae and shrimp they eat.", "What do flamingos eat?"),
+    ("∑", "Human Body",     "The human brain generates about 70,000 thoughts per day — and most of them are repeats from the day before.", "How fast does the brain process information?"),
+    ("⊟", "Science",        "Bananas are slightly radioactive — they contain potassium-40, a naturally occurring radioactive isotope.", "Is radiation from bananas dangerous?"),
+    ("◎", "Space",          "On Mars, a sunset looks blue — the dust in the Martian atmosphere scatters light in the opposite way to Earth.", "What is the temperature on Mars?"),
+    ("⊞", "Tech",           "The first message ever sent over ARPANET (the internet's ancestor) in 1969 was 'lo' — the system crashed after two letters.", "Who invented the internet?"),
+    ("≡", "Mathematics",    "Zero was invented in India by Brahmagupta around 628 AD — before that, most cultures had no concept of 'nothing' in math.", "What is the most important number in mathematics?"),
+    ("⊙", "Biology",        "A shrimp's heart is in its head. And a snail can sleep for three years at a stretch.", "What animal has the most unusual biology?"),
+    ("◈", "Physics",        "If you removed all the empty space from atoms in every human on Earth, all 8 billion of us would fit inside a sugar cube.", "What is an atom made of?"),
 ]
 
-_QUICK_ACTIONS = [
-    ("💡 Explain", "Explain "),
-    ("🔭 Research", "Tell me everything about "),
-    ("📝 Write", "Write a "),
-    ("🧮 Solve", "Solve this: "),
-    ("🛒 Shop", "Best "),
-    ("💻 Code", "Help me code: "),
-]
 
 # ════════════════════════════════════════════════════════════════════════
 # GIST HELPERS
@@ -518,6 +540,46 @@ def _build_cross_ctx(sessions: list) -> str:
 
 def _new_sid() -> str:
     return f"s_{int(time.time() * 1000)}"
+
+def _get_daily_spark() -> tuple:
+    today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+    cache_key = f"_spark_{today_str}"
+    if cache_key in st.session_state:
+        return st.session_state[cache_key]
+    # Try AI-generated fresh spark
+    try:
+        from groq import Groq as _G
+        _cl = _G(api_key=_GROQ_KEY)
+        _r = _cl.chat.completions.create(
+            model=_MODELS["basic"],
+            messages=[
+                {"role": "system", "content":
+                    "You are a fact curator. Generate ONE fascinating, 100% true and verified fact. "
+                    "Respond in EXACTLY this pipe-separated format with nothing else:\n"
+                    "ICON|CATEGORY|FACT|FOLLOW_UP_QUESTION\n"
+                    "ICON must be one of: ⊟ ◎ ∑ ⊙ ≡ ⊞ ◈ ⊠ ⊡ ⊗ ◉ ⊛\n"
+                    "Example: ⊟|Tech History|The first computer bug was a real moth stuck in a Harvard relay in 1947.|Who invented the computer?"},
+                {"role": "user", "content":
+                    f"Date: {today_str}. Generate a surprising educational fact that most people don't know. "
+                    "Categories: Science, Space, History, Technology, Biology, Mathematics, Geography, "
+                    "Animals, Physics, Chemistry, Human Body, Psychology, Art, Engineering. "
+                    "The fact must be 100% real and verifiable. Never invent facts."}
+            ],
+            max_tokens=180, temperature=0.95
+        )
+        raw = _r.choices[0].message.content.strip()
+        parts = [p.strip() for p in raw.split("|")]
+        if len(parts) == 4 and parts[2]:
+            result = tuple(parts)
+            st.session_state[cache_key] = result
+            return result
+    except Exception:
+        pass
+    # Fallback: rotate through pre-defined list by day-of-year × year
+    _idx = (datetime.datetime.now().timetuple().tm_yday + datetime.datetime.now().year * 7) % len(_SPARKS)
+    result = _SPARKS[_idx]
+    st.session_state[cache_key] = result
+    return result
 
 def _ensure_session():
     if not st.session_state.get("_session_id"):
@@ -1709,65 +1771,78 @@ def _has_msgs():
 
 if _page == "home" and not _has_msgs():
     st.markdown("""<style>
-    [data-testid="stMain"] .block-container{display:flex;flex-direction:column;justify-content:center;min-height:88vh;padding-top:10px!important}
+    [data-testid="stMain"] .block-container{
+        display:flex;flex-direction:column;justify-content:center;
+        min-height:88vh;padding-top:0!important;max-width:780px!important;margin:0 auto!important}
     [data-testid="stBottom"]{display:none!important}
     </style>""", unsafe_allow_html=True)
 
-    _phrase = random.choice(_PHRASES)
-    _first  = (_name.split()[0] if _name else "there")
-    _hr     = datetime.datetime.now().hour
-    _tod    = "Good morning" if _hr < 12 else "Good afternoon" if _hr < 17 else "Good evening"
+    _first = (_name.split()[0] if _name else "there")
+    _greet = f"Talk to me, {_first}" if _tier == "basic" else "What needs solving?"
+    _greet_color = "#ffffff" if _tier == "basic" else _ac
 
+    # Trident + greeting on same line
     st.markdown(f"""
-    <div style="text-align:center;padding:16px 0 24px;animation:fadeIn .6s ease">
-      <div style="position:relative;display:inline-block;margin-bottom:14px">
-        <div style="font-size:50px;animation:float 3s ease-in-out infinite;display:inline-block">🔱</div>
-        <div style="position:absolute;top:50%;left:50%;width:88px;height:88px;border:1px solid {_ac}22;
-                    border-radius:50%;transform:translate(-50%,-50%);animation:spin 8s linear infinite"></div>
-        <div style="position:absolute;top:50%;left:50%;width:116px;height:116px;border:1px solid {_ac}0d;
-                    border-radius:50%;transform:translate(-50%,-50%);animation:spin 14s linear infinite reverse"></div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:16px;
+                margin-bottom:32px;padding-top:20px">
+      <div style="position:relative;display:flex;align-items:center;justify-content:center;
+                  width:48px;height:48px">
+        <div style="position:absolute;width:60px;height:60px;border-radius:50%;
+                    background:radial-gradient(circle,rgba(255,255,255,.14) 0%,transparent 70%)"></div>
+        <span style="font-size:34px;color:#ffffff;position:relative">ψ</span>
       </div>
-      <div style="font-family:'Orbitron',monospace;font-size:13px;color:{_ac};letter-spacing:3px;font-weight:700;margin-bottom:8px">{_tod}, {_first}</div>
-      <div style="font-family:'Orbitron',monospace;font-size:20px;font-weight:400;color:#bbb;letter-spacing:1px">{_phrase}</div>
+      <div style="font-size:30px;font-weight:700;color:{_greet_color};letter-spacing:-0.5px">{_greet}</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Daily Spark
-    _spark = _SPARKS[datetime.datetime.now().day % len(_SPARKS)]
+    # Pill input
+    _home_in = st.text_input(
+        "", placeholder="Message TITAN ULTRA...",
+        key="_home_input", label_visibility="collapsed"
+    )
+    if _home_in and _home_in.strip():
+        st.session_state._messages = [{"role": "user", "content": _home_in.strip()}]
+        if not st.session_state._session_id:
+            st.session_state._session_id = _new_sid()
+        st.session_state._page = "chat"
+        st.rerun()
+
+    # Daily Spark card — AI-generated fresh fact every day
+    _sp_icon, _sp_cat, _sp_fact, _sp_q = _get_daily_spark()
+    _sp_date = datetime.datetime.now().strftime("%-d %b") if hasattr(datetime.datetime.now(), "strftime") else datetime.datetime.now().strftime("%d %b")
+    try:
+        _sp_date = datetime.datetime.now().strftime("%-d %b")
+    except Exception:
+        _sp_date = datetime.datetime.now().strftime("%d %b").lstrip("0")
+
+    if _tier == "pro":
+        _card_border = "rgba(168,85,247,.35)"
+        _card_bg     = "rgba(168,85,247,.05)"
+    elif _tier == "max":
+        _card_border = "rgba(245,158,11,.35)"
+        _card_bg     = "rgba(245,158,11,.05)"
+    else:
+        _card_border = "rgba(0,245,255,.25)"
+        _card_bg     = "rgba(0,245,255,.03)"
+
     st.markdown(f"""
-    <div class="spark-card">
-      <div class="spark-label">✦ DAILY SPARK</div>
-      <div class="spark-text">{_spark}</div>
-    </div>""", unsafe_allow_html=True)
-
-    # Quick actions
-    _qcols = st.columns(len(_QUICK_ACTIONS))
-    for _qi, (_ql, _qp) in enumerate(_QUICK_ACTIONS):
-        with _qcols[_qi]:
-            if st.button(_ql, key=f"qa_{_qi}", use_container_width=True):
-                st.session_state._home_pend = _qp
-                st.rerun()
-
-    # Main home input
-    _, _hc, _ = st.columns([1, 5, 1])
-    with _hc:
-        _pend = st.session_state.pop("_home_pend", "") if hasattr(st.session_state, "_home_pend") else ""
-        _home_in = st.text_input(
-            "", placeholder="Ask Titan Ultra anything…",
-            key="_home_input", label_visibility="collapsed",
-            value=_pend if _pend else ""
-        )
-        if _home_in and _home_in.strip():
-            st.session_state._messages = [{"role": "user", "content": _home_in.strip()}]
-            if not st.session_state._session_id:
-                st.session_state._session_id = _new_sid()
-            st.session_state._page = "chat"
-            st.rerun()
+    <div style="margin-top:24px;border-radius:16px;padding:20px 24px;
+                background:{_card_bg};border:1px solid {_card_border}">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <span style="color:#00f5ff;font-size:11px;font-weight:700;letter-spacing:2px">✦ DAILY SPARK</span>
+        <span style="color:#2e2e2e;font-size:11px"> · {_sp_date}</span>
+      </div>
+      <div style="font-size:15px;font-weight:700;color:#e8e8e8;line-height:1.5;margin-bottom:12px">
+        {_sp_icon} {_sp_cat}&nbsp;&nbsp;&nbsp;{_sp_fact}
+      </div>
+      <div style="font-size:13px;color:#3a3a3a">{_sp_q}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     if _tier == "basic" and st.session_state._sess_start > 0:
-        _rem = max(0, _SESSION_LIMIT_S - (time.time() - st.session_state._sess_start))
+        _rem   = max(0, _SESSION_LIMIT_S - (time.time() - st.session_state._sess_start))
         _rem_m = int(_rem // 60)
-        st.markdown(f"<p style='text-align:center;color:#1a1a2a;font-size:11px;margin-top:14px'>⏱ {_rem_m} min remaining in Basic session</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align:center;color:#222;font-size:11px;margin-top:16px'>⏱ {_rem_m} min remaining in Basic session</p>", unsafe_allow_html=True)
 
     st.stop()
 
