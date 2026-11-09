@@ -413,7 +413,18 @@ def _hash_pw(pw: str) -> str:
     return hashlib.sha256(pw.encode()).hexdigest()
 
 def _verify_login(email: str, pw: str):
-    registry = _fetch_registry_cached()
+    # Always fetch fresh from Gist — bypasses per-worker cache so cross-device login works
+    registry = {}
+    try:
+        r = requests.get(f"https://api.github.com/gists/{_REGISTRY_GIST_ID}",
+                         headers=_GIST_HDR, timeout=10)
+        if r.status_code == 200:
+            files = r.json()["files"]
+            if _REGISTRY_FILE in files:
+                registry = json.loads(files[_REGISTRY_FILE]["content"])
+        _fetch_registry_cached.clear()  # sync the cache with fresh data
+    except Exception:
+        registry = _fetch_registry_cached()  # fall back to cache if network error
     key = _fam_key(email)
     user = registry.get(key)
     if not user:
@@ -426,10 +437,15 @@ def _create_account_safe(email: str, name: str, pw: str, key: str):
     def _worker():
         try:
             r = requests.get(f"https://api.github.com/gists/{_REGISTRY_GIST_ID}",
-                             headers=_GIST_HDR, timeout=8)
+                             headers=_GIST_HDR, timeout=10)
             registry = {}
             if r.status_code == 200:
-                registry = json.loads(r.json()["files"][_REGISTRY_FILE]["content"])
+                files = r.json()["files"]
+                if _REGISTRY_FILE in files:
+                    try:
+                        registry = json.loads(files[_REGISTRY_FILE]["content"])
+                    except Exception:
+                        registry = {}
             registry[key] = {
                 "email": email, "name": name,
                 "password_hash": _hash_pw(pw),
@@ -437,9 +453,10 @@ def _create_account_safe(email: str, name: str, pw: str, key: str):
                 "created": datetime.datetime.utcnow().isoformat(),
             }
             payload = {"files": {_REGISTRY_FILE: {"content": json.dumps(registry, indent=2)}}}
-            requests.patch(f"https://api.github.com/gists/{_REGISTRY_GIST_ID}",
-                           headers=_GIST_HDR, json=payload, timeout=10)
-            _fetch_registry_cached.clear()
+            resp = requests.patch(f"https://api.github.com/gists/{_REGISTRY_GIST_ID}",
+                                  headers=_GIST_HDR, json=payload, timeout=12)
+            if resp.status_code in (200, 201):
+                _fetch_registry_cached.clear()
         except Exception:
             pass
     threading.Thread(target=_worker, daemon=True).start()
@@ -730,6 +747,20 @@ if st.session_state._pending_login:
     st.session_state._tier    = _get_tier(_pl["email"])
     st.session_state._history = _load_user_history(_pl["email"])
 
+# ── Auto-login via URL token (persists across new tabs / bookmarks) ───
+if not st.session_state._auth_done:
+    _qt = st.query_params.get("_t", "")
+    if _qt:
+        _reg_snap = _fetch_registry_cached()
+        if _qt in _reg_snap:
+            _qu = _reg_snap[_qt]
+            st.session_state._auth_done  = True
+            st.session_state._email      = _qu["email"]
+            st.session_state._name       = _qu.get("name", "User")
+            st.session_state._tier       = _get_tier(_qu["email"])
+            st.session_state._sess_start = time.time()
+            st.session_state._history    = _load_user_history(_qu["email"])
+
 _inject_tier_css(st.session_state._tier)
 
 # ════════════════════════════════════════════════════════════════════════
@@ -824,6 +855,11 @@ if not st.session_state._auth_done:
 # ════════════════════════════════════════════════════════════════════════
 # MAIN APP — authenticated
 # ════════════════════════════════════════════════════════════════════════
+# Keep session token in URL so new tabs / bookmarks auto-login
+_autotok = _fam_key(st.session_state._email)
+if st.query_params.get("_t") != _autotok:
+    st.query_params["_t"] = _autotok
+
 _ensure_session()
 _tier    = st.session_state._tier
 _name    = st.session_state._name
@@ -856,101 +892,113 @@ _ac     = _TIER_C[_tier]
 # SIDEBAR
 # ════════════════════════════════════════════════════════════════════════
 with st.sidebar:
+    # Flat button CSS — matches Image 2 clean text-link style
+    st.markdown("""
+    <style>
+    section[data-testid="stSidebar"] .stButton>button {
+        background:transparent!important;
+        border:none!important;
+        box-shadow:none!important;
+        text-align:left!important;
+        justify-content:flex-start!important;
+        padding:5px 16px!important;
+        color:#bbbbbb!important;
+        font-size:14px!important;
+        font-weight:400!important;
+        letter-spacing:0.2px!important;
+        border-radius:0!important;
+        width:100%!important;
+    }
+    section[data-testid="stSidebar"] .stButton>button:hover {
+        color:#ffffff!important;
+        background:#181818!important;
+    }
+    section[data-testid="stSidebar"] .stButton>button:focus {
+        box-shadow:none!important;
+        outline:none!important;
+    }
+    section[data-testid="stSidebar"] hr {
+        margin:8px 0!important;
+        border-color:#1a1a1a!important;
+    }
+    </style>""", unsafe_allow_html=True)
+
+    # Header — trident + TITAN ULTRA + tier name
     st.markdown(f"""
-    <div style="padding:18px 14px 12px;border-bottom:1px solid #161626">
-      <div style="font-family:'Orbitron',monospace;font-size:17px;font-weight:900;letter-spacing:2px;
-           background:linear-gradient(90deg,{_ac},{_ac}88,{_ac});background-size:200% auto;
-           -webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 3s linear infinite">
-           🔱 TITAN ULTRA</div>
-      <div style="margin-top:5px">
-        <span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:9px;font-weight:700;
-              letter-spacing:1.5px;background:{_ac}18;color:{_ac};border:1px solid {_ac}33">{_TIER_L[_tier]}</span>
-      </div>
-      <div style="font-size:9px;color:#222;letter-spacing:1px;margin-top:3px">PREVIEW TIER</div>
+    <div style="padding:22px 16px 18px">
+      <div style="font-size:24px;color:#c8a060;line-height:1;margin-bottom:6px">ψ</div>
+      <div style="font-family:'Orbitron',monospace;font-size:15px;font-weight:900;
+                  letter-spacing:2.5px;color:#ffffff">TITAN ULTRA</div>
+      <div style="font-size:11px;color:{_ac};letter-spacing:1.5px;margin-top:5px;font-weight:600">{_tier}</div>
     </div>""", unsafe_allow_html=True)
 
-    # Tier indicator row — compact, no descriptions
-    _tc = {"basic":"#00f5ff","pro":"#a855f7","max":"#f59e0b"}
-    _tb_html = ""
-    for _t in ["Basic","Pro","Max"]:
-        _tk = _t.lower()
-        if _tier == _tk:
-            _tb_html += f"<span style='color:{_tc[_tk]};font-weight:700;font-size:12px'>{_t}</span>"
-        else:
-            _tb_html += f"<span style='color:#2a2a2a;font-size:12px'>{_t}</span>"
-        if _t != "Max":
-            _tb_html += "<span style='color:#1a1a1a;margin:0 8px'>|</span>"
-    st.markdown(f"<div style='padding:6px 14px 4px'>{_tb_html}</div>", unsafe_allow_html=True)
-
-    st.markdown(f"<div style='padding:2px 14px 8px;font-size:9px;color:#222'>⚡ {_MODEL_LABELS[_tier]}</div>", unsafe_allow_html=True)
-
+    # new chat
     if st.button("new chat", key="new_chat", use_container_width=True):
         _save_current_chat()
-        st.session_state._messages  = []
+        st.session_state._messages   = []
         st.session_state._session_id = _new_sid()
-        st.session_state._page = "home"
+        st.session_state._page       = "home"
         st.rerun()
 
-    st.divider()
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
-    # Core features (all tiers) — monochrome symbols, lowercase
-    _FEAT_CORE = [
-        ("⊞  titan features",    "features"),
-        ("∑  math solver",       "math_solver"),
-        ("⌨  code interpreter",  "code_interp"),
-        ("≡  titan notebook",    "notebook"),
-        ("⊟  library",           "library"),
-        ("⊙  schedule",          "schedule"),
-        ("⊠  titan tasks",       "tasks"),
-    ]
-    for _fn, _fk in _FEAT_CORE:
-        if st.button(_fn, key=f"nav_{_fk}", use_container_width=True):
-            st.session_state._page = _fk; st.rerun()
-
-    # Pro+ exclusive
-    if _tier in ("pro", "max"):
-        if st.button("◉  focus mode",       key="nav_focus",  use_container_width=True):
-            st.session_state._page = "focus"; st.rerun()
-
-    # Max exclusive
+    # + launch titan code (locked for non-Max)
     if _tier == "max":
-        if st.button("+  launch titan code", key="nav_tcode",  use_container_width=True):
+        if st.button("+  launch titan code", key="nav_tcode", use_container_width=True):
             st.session_state._page = "titan_code"; st.rerun()
-        if st.button("⊡  system scanner",   key="nav_sysscn", use_container_width=True):
-            st.session_state._page = "sysscanner"; st.rerun()
-        if st.button("◈  titan exam",         key="nav_texam",  use_container_width=True):
-            st.session_state._page = "titan_exam"; st.rerun()
     else:
         if st.button("+  launch titan code  [max]", key="nav_tcode_lock", use_container_width=True):
             st.session_state._page = "titan_code"; st.rerun()
+
+    # Core nav — same order as Image 2
+    _NAV = [
+        ("⊞  titan features", "features"),
+        ("≡  titan notebook",  "notebook"),
+        ("⊟  library",         "library"),
+        ("⊙  schedule",        "schedule"),
+        ("⊠  titan tasks",     "tasks"),
+    ]
+    for _fn, _fk in _NAV:
+        if st.button(_fn, key=f"nav_{_fk}", use_container_width=True):
+            st.session_state._page = _fk; st.rerun()
+
+    # Pro+ nav
+    if _tier in ("pro", "max"):
+        if st.button("◉  focus mode", key="nav_focus", use_container_width=True):
+            st.session_state._page = "focus"; st.rerun()
+
+    # Max-only nav
+    if _tier == "max":
+        if st.button("⊡  system scanner", key="nav_sysscn", use_container_width=True):
+            st.session_state._page = "sysscanner"; st.rerun()
+        if st.button("◈  titan exam",     key="nav_texam",  use_container_width=True):
+            st.session_state._page = "titan_exam"; st.rerun()
+    else:
         if st.button("◈  titan exam  [max]", key="nav_texam_lock", use_container_width=True):
             st.session_state._page = "titan_exam"; st.rerun()
 
-    if _tier != "max":
-        if st.button("⊕  upgrade plan",      key="nav_upg",    use_container_width=True):
-            st.session_state._page = "upgrade"; st.rerun()
-
-    st.divider()
-    st.markdown("<div style='padding:0 14px 4px;font-size:9px;color:#1e1e1e;letter-spacing:1px'>HISTORY</div>", unsafe_allow_html=True)
+    # History
+    st.markdown("<div style='height:30px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='padding:0 16px 6px;font-size:12px;color:#3a3a3a;letter-spacing:0.5px'>history</div>", unsafe_allow_html=True)
 
     _ren_id = st.session_state._rename_id
     for _i, _sess in enumerate(_history[:20]):
-        _sid   = _sess.get("id", "")
-        _stit  = _sess.get("title", "Chat")
+        _sid  = _sess.get("id", "")
+        _stit = _sess.get("title", "Chat")
         if _ren_id == _sid:
             _nn = st.text_input("", value=_stit, key=f"ren_{_sid}", label_visibility="collapsed")
             _rc1, _rc2 = st.columns(2)
             with _rc1:
-                if st.button("✓ Save", key=f"rok_{_sid}", use_container_width=True):
+                if st.button("✓", key=f"rok_{_sid}", use_container_width=True):
                     _update_title(_sid, _nn.strip() or _stit)
                     st.session_state._rename_id = None; st.rerun()
             with _rc2:
-                if st.button("Cancel", key=f"rca_{_sid}", use_container_width=True):
+                if st.button("✕", key=f"rca_{_sid}", use_container_width=True):
                     st.session_state._rename_id = None; st.rerun()
         else:
-            _h1, _h2, _h3 = st.columns([9, 1, 1])
+            _h1, _h2, _h3 = st.columns([8, 1, 1])
             with _h1:
-                _lbl = (_stit[:24] + "…") if len(_stit) > 24 else _stit
+                _lbl = (_stit[:30] + "…") if len(_stit) > 30 else _stit
                 if st.button(_lbl, key=f"h_{_sid}_{_i}", use_container_width=True):
                     _load_history_into_session(_sid); st.rerun()
             with _h2:
@@ -960,8 +1008,8 @@ with st.sidebar:
                 if st.button("×", key=f"hd_{_sid}_{_i}", help="Delete"):
                     _delete_hist(_sid); st.rerun()
 
-    st.divider()
-    if st.button("⬡  Sign out", key="signout", use_container_width=True):
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+    if st.button("⬡  sign out", key="signout", use_container_width=True):
         _save_current_chat()
         for _k in list(st.session_state.keys()):
             del st.session_state[_k]
