@@ -4330,7 +4330,7 @@ for _mi, msg in enumerate(_msgs_list):
   const b = document.getElementById('b');
   b.addEventListener('click', function() {{
     try {{
-      const synth = window.speechSynthesis;
+      const synth = window.parent.speechSynthesis;
       if (b.classList.contains('on')) {{
         synth.cancel();
         b.classList.remove('on');
@@ -4338,7 +4338,7 @@ for _mi, msg in enumerate(_msgs_list):
         return;
       }}
       synth.cancel();
-      const u = new SpeechSynthesisUtterance(TEXT);
+      const u = new window.parent.SpeechSynthesisUtterance(TEXT);
       u.rate = 0.95; u.pitch = 0.7; u.volume = 1.0; u.lang = 'en-US';
       const speakWith = function(vs) {{
         const femaleRe = /zira|hazel|susan|jenny|aria|eva|female|woman|girl|samantha|victoria|karen|tessa|moira|fiona|catherine|linda/i;
