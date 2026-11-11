@@ -1036,7 +1036,9 @@ def _delete_history_session(sid):
 
 # ── Shared key + memory ───────────────────────────────────────────────────────
 _saved_key    = _GROQ_KEY
-_saved_memory = _load_memory()
+# Never pre-load memory from file — each user's name/memory comes from their
+# own browser (localStorage → URL param). File on server is shared, so ignore it.
+_saved_memory = {}
 
 # No owner system in public duplicate — always False
 _IS_OWNER = False
@@ -1567,7 +1569,8 @@ if not st.session_state.titan_memory.get("name", "").strip():
     with _nc2:
         _entered_name = st.text_input("", placeholder="Your name", label_visibility="collapsed",
                                       key="_name_prompt_input")
-        if st.button("Continue  →", use_container_width=True, key="_name_prompt_btn", type="primary"):
+        _name_btn = st.button("Continue  →", use_container_width=True, key="_name_prompt_btn", type="primary")
+        if _name_btn or _entered_name.strip():
             _n = _entered_name.strip()
             if _n:
                 st.session_state.titan_memory["name"] = _n
@@ -1639,14 +1642,49 @@ def _show_upgrade_dialog():
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:.75rem;color:#9ca3af'>Have an upgrade code? Enter it in the sidebar → <b>upgrade</b> expander.</div>", unsafe_allow_html=True)
 
-# ── Upgrade button at top (Basic/Pro only) ────────────────────────────────────
+# ── Upgrade button — fixed top-right + inline (Basic/Pro only) ───────────────
 _top_tier = st.session_state.get("titan_tier", "basic")
 if _top_tier != "max":
+    _ub_label = "✦ Upgrade" if _top_tier == "basic" else "✦ Go Max"
+
+    # Fixed top-right floating button (like Gemini) — clicking sets URL param
+    st.markdown(f"""
+<style>
+#tu-upgrade-pill {{
+    position:fixed;top:12px;right:16px;z-index:9999;
+    background:linear-gradient(135deg,#6366f1,#a855f7);
+    color:#fff!important;font-weight:700;font-size:.8rem;
+    letter-spacing:.4px;padding:7px 20px;border-radius:999px;
+    cursor:pointer;border:none;text-decoration:none;
+    box-shadow:0 2px 14px rgba(99,102,241,.5);transition:opacity .15s;
+}}
+#tu-upgrade-pill:hover{{opacity:.85}}
+</style>
+<a id="tu-upgrade-pill" onclick="
+  (function(){{
+    var url=new URL(window.parent.location.href);
+    url.searchParams.set('_upg','1');
+    window.parent.history.replaceState(null,'',url.toString());
+    // also click the hidden Streamlit trigger button
+    setTimeout(function(){{
+      var btns=window.parent.document.querySelectorAll('button');
+      for(var i=0;i<btns.length;i++){{
+        if(btns[i].getAttribute('data-tu-upgrade')==='1'){{btns[i].click();return;}}
+      }}
+    }},80);
+  }})();
+">{_ub_label}</a>
+""", unsafe_allow_html=True)
+
+    # Inline right-aligned button (always visible, works without JS)
     _ub1, _ub2 = st.columns([6, 1])
     with _ub2:
-        _ub_label = "✦ Upgrade" if _top_tier == "basic" else "✦ Go Max"
-        if st.button(_ub_label, key="_top_upgrade_btn", use_container_width=True, type="primary"):
-            _show_upgrade_dialog()
+        _ub_btn = st.button(_ub_label, key="_top_upgrade_btn",
+                            use_container_width=True, type="primary")
+    if _ub_btn or st.query_params.get("_upg") == "1":
+        if st.query_params.get("_upg") == "1":
+            st.query_params.pop("_upg", None)
+        _show_upgrade_dialog()
 
 # ── Header ────────────────────────────────────────────────────────────────────
 _user_name = st.session_state.titan_memory.get("name", "")
