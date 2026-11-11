@@ -1260,7 +1260,7 @@ st.html("""
         if (tier && !url.searchParams.get('_ttier')) {
             url.searchParams.set('_ttier', tier); changed = true;
         }
-        if (changed) window.parent.history.replaceState(null, '', url.toString());
+        if (changed) { window.parent.location.href = url.toString(); }
     } catch(e) {}
 })();
 </script>
