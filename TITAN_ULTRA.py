@@ -1036,9 +1036,7 @@ def _delete_history_session(sid):
 
 # ── Shared key + memory ───────────────────────────────────────────────────────
 _saved_key    = _GROQ_KEY
-# Never pre-load memory from file — each user's name/memory comes from their
-# own browser (localStorage → URL param). File on server is shared, so ignore it.
-_saved_memory = {}
+_saved_memory = _load_memory()
 
 # No owner system in public duplicate — always False
 _IS_OWNER = False
