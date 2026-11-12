@@ -1036,7 +1036,9 @@ def _delete_history_session(sid):
 
 # ── Shared key + memory ───────────────────────────────────────────────────────
 _saved_key    = _GROQ_KEY
-_saved_memory = _load_memory()
+# Each user's name comes from their own browser (localStorage → URL param).
+# Never read from file on startup — titan_memory.json is server-side and shared.
+_saved_memory = {}
 
 # No owner system in public duplicate — always False
 _IS_OWNER = False
@@ -1555,6 +1557,20 @@ if _qp_tier in ("pro", "max") and st.session_state.get("titan_tier", "basic") ==
 
 # ── First-visit name prompt ───────────────────────────────────────────────────
 if not st.session_state.titan_memory.get("name", "").strip():
+    # If this device has a saved name in localStorage, redirect immediately (no flash)
+    st.html("""<script>
+(function(){
+  try{
+    var n=window.parent.localStorage.getItem('tu_name');
+    if(n){
+      window.parent.document.body.style.visibility='hidden';
+      var u=new URL(window.parent.location.href);
+      u.searchParams.set('_tname',n);
+      window.parent.location.href=u.toString();
+    }
+  }catch(e){}
+})();
+</script>""")
     st.markdown("""
 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
     min-height:60vh;text-align:center;padding:40px 20px">
