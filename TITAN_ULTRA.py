@@ -297,15 +297,15 @@ html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testi
 }
 /* ── HOME SCREEN: tall ChatGPT-style input ── */
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] input {
-    background:#111111 !important; color:#e8e8e8 !important;
-    border:1px solid #2a2a2a !important; border-radius:28px !important;
-    padding:0 130px 0 52px !important; font-size:1rem !important;
-    height:64px !important; box-shadow:none !important; animation:none !important;
+    background:#141414 !important; color:#e8e8e8 !important;
+    border:1px solid #333333 !important; border-radius:999px !important;
+    padding:0 130px 0 28px !important; font-size:1rem !important;
+    height:60px !important; box-shadow:none !important; animation:none !important;
     box-sizing:border-box !important;
 }
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] [data-baseweb="input"] {
-    height:64px !important; border-radius:28px !important;
-    background:#111111 !important; border:none !important;
+    height:60px !important; border-radius:999px !important;
+    background:#141414 !important; border:none !important;
 }
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] input:focus {
     border-color:#444444 !important; outline:none !important;
