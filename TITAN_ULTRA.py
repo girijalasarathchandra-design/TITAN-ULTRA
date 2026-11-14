@@ -6,6 +6,174 @@ import requests, io, re, random as _random
 st.set_page_config(page_title="TITAN ULTRA", page_icon="🔱",
                    layout="wide", initial_sidebar_state="expanded")
 
+# ── Splash Screen (plays once per session) ────────────────────────────────────
+st.html("""<script>
+(function(){
+  var pd = window.parent.document;
+  if (pd.getElementById('titan-splash')) return;
+  if (window.parent.sessionStorage.getItem('tu_splash_done')) return;
+  window.parent.sessionStorage.setItem('tu_splash_done','1');
+
+  // Full-screen overlay injected into parent document
+  var ov = pd.createElement('div');
+  ov.id = 'titan-splash';
+  ov.style.cssText = [
+    'position:fixed','top:0','left:0','width:100vw','height:100vh',
+    'background:#000000','z-index:2147483647',
+    'display:flex','align-items:center','justify-content:center',
+    'flex-direction:column','overflow:hidden','transition:opacity 0.6s ease'
+  ].join(';');
+
+  // Canvas for particles
+  var cvs = pd.createElement('canvas');
+  cvs.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;';
+  ov.appendChild(cvs);
+
+  // Text wrapper
+  var wrap = pd.createElement('div');
+  wrap.style.cssText = 'position:relative;z-index:10;text-align:center;';
+
+  var trident = pd.createElement('div');
+  trident.id = 'ts-trident';
+  trident.textContent = '🔱';
+  trident.style.cssText = [
+    'font-size:0px','opacity:0','transition:all 0.5s ease',
+    'filter:drop-shadow(0 0 30px #f59e0b) drop-shadow(0 0 60px #f59e0b)'
+  ].join(';');
+
+  var title = pd.createElement('div');
+  title.id = 'ts-title';
+  title.textContent = 'TITAN ULTRA';
+  title.style.cssText = [
+    'font-family:\'Segoe UI\',sans-serif','font-size:0px','font-weight:900',
+    'color:#ffffff','letter-spacing:12px','opacity:0',
+    'text-shadow:0 0 40px rgba(245,158,11,0.8),0 0 80px rgba(245,158,11,0.4)',
+    'transition:all 0.5s ease','white-space:nowrap'
+  ].join(';');
+
+  wrap.appendChild(trident);
+  wrap.appendChild(title);
+  ov.appendChild(wrap);
+  pd.body.appendChild(ov);
+
+  // ── Canvas particle system ───────────────────────────────────────────────
+  var W = ov.offsetWidth  || window.parent.innerWidth;
+  var H = ov.offsetHeight || window.parent.innerHeight;
+  cvs.width  = W;
+  cvs.height = H;
+  var ctx = cvs.getContext('2d');
+  var cx  = W / 2, cy = H / 2;
+
+  var particles = [];
+  function mkParticle(phase) {
+    var angle  = Math.random() * Math.PI * 2;
+    var speed  = 2 + Math.random() * 5;
+    var colors = ['#f59e0b','#fbbf24','#ffffff','#fde68a','#ff9900'];
+    return {
+      x: cx, y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      r:  1 + Math.random() * 2.5,
+      a:  1,
+      c:  colors[Math.floor(Math.random() * colors.length)],
+      phase: phase
+    };
+  }
+
+  var startTime = null;
+  var PHASE1 = 400;   // dot grows
+  var PHASE2 = 1000;  // explosion
+  var PHASE3 = 2000;  // particles fade
+  var PHASE4 = 2600;  // text + trident appear
+  var PHASE5 = 3400;  // spin
+  var PHASE6 = 4200;  // lock + hold
+  var PHASE7 = 4800;  // fade out
+
+  function step(ts) {
+    if (!startTime) startTime = ts;
+    var t = ts - startTime;
+    ctx.clearRect(0, 0, W, H);
+
+    // ── Phase 1: glowing dot ─────────────────────────────────────────────
+    if (t < PHASE2) {
+      var dotR = t < PHASE1 ? (t / PHASE1) * 18 : 18 - ((t - PHASE1) / (PHASE2 - PHASE1)) * 18;
+      dotR = Math.max(0, dotR);
+      var grd = ctx.createRadialGradient(cx,cy,0,cx,cy,dotR*4);
+      grd.addColorStop(0,'rgba(255,210,80,1)');
+      grd.addColorStop(0.3,'rgba(245,158,11,0.8)');
+      grd.addColorStop(1,'rgba(245,158,11,0)');
+      ctx.beginPath();
+      ctx.arc(cx, cy, dotR*4, 0, Math.PI*2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx, cy, dotR, 0, Math.PI*2);
+      ctx.fillStyle = '#ffe066';
+      ctx.fill();
+    }
+
+    // ── Phase 2: spawn + move particles ──────────────────────────────────
+    if (t >= PHASE1 && t < PHASE3) {
+      if (t < PHASE2 && Math.random() < 0.6) particles.push(mkParticle(t));
+    }
+    for (var i = particles.length-1; i >= 0; i--) {
+      var p = particles[i];
+      p.x += p.vx; p.y += p.vy;
+      p.vx *= 0.97; p.vy *= 0.97;
+      p.a -= 0.012;
+      if (p.a <= 0) { particles.splice(i,1); continue; }
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fillStyle = p.c;
+      ctx.globalAlpha = p.a;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // ── Phase 4: reveal trident + title ──────────────────────────────────
+    if (t >= PHASE4 && t < PHASE5) {
+      var prog = (t - PHASE4) / (PHASE5 - PHASE4);
+      var sz = Math.round(prog * 52);
+      trident.style.fontSize  = sz + 'px';
+      trident.style.opacity   = prog.toString();
+      title.style.fontSize    = Math.round(prog * 48) + 'px';
+      title.style.opacity     = prog.toString();
+      title.style.transform   = 'none';
+      title.style.perspective = '';
+    }
+
+    // ── Phase 5: 3D spin ──────────────────────────────────────────────────
+    if (t >= PHASE5 && t < PHASE6) {
+      var sp = (t - PHASE5) / (PHASE6 - PHASE5); // 0→1
+      var deg = sp * 360;
+      wrap.style.transform    = 'rotateY(' + deg + 'deg)';
+      wrap.style.perspective  = '600px';
+    }
+
+    // ── Phase 6: lock in ─────────────────────────────────────────────────
+    if (t >= PHASE6 && t < PHASE7) {
+      wrap.style.transform = 'rotateY(0deg)';
+      trident.style.fontSize = '52px';
+      trident.style.opacity  = '1';
+      title.style.fontSize   = '48px';
+      title.style.opacity    = '1';
+    }
+
+    // ── Phase 7: fade out overlay ─────────────────────────────────────────
+    if (t >= PHASE7) {
+      ov.style.opacity = '0';
+      ov.style.pointerEvents = 'none';
+      setTimeout(function(){ if(ov.parentNode) ov.parentNode.removeChild(ov); }, 650);
+      return;
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  requestAnimationFrame(step);
+})();
+</script>""")
+
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -1036,9 +1204,7 @@ def _delete_history_session(sid):
 
 # ── Shared key + memory ───────────────────────────────────────────────────────
 _saved_key    = _GROQ_KEY
-# Each user's name comes from their own browser (localStorage → URL param).
-# Never read from file on startup — titan_memory.json is server-side and shared.
-_saved_memory = {}
+_saved_memory = _load_memory()
 
 # No owner system in public duplicate — always False
 _IS_OWNER = False
@@ -1557,20 +1723,6 @@ if _qp_tier in ("pro", "max") and st.session_state.get("titan_tier", "basic") ==
 
 # ── First-visit name prompt ───────────────────────────────────────────────────
 if not st.session_state.titan_memory.get("name", "").strip():
-    # If this device has a saved name in localStorage, redirect immediately (no flash)
-    st.html("""<script>
-(function(){
-  try{
-    var n=window.parent.localStorage.getItem('tu_name');
-    if(n){
-      window.parent.document.body.style.visibility='hidden';
-      var u=new URL(window.parent.location.href);
-      u.searchParams.set('_tname',n);
-      window.parent.location.href=u.toString();
-    }
-  }catch(e){}
-})();
-</script>""")
     st.markdown("""
 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
     min-height:60vh;text-align:center;padding:40px 20px">
