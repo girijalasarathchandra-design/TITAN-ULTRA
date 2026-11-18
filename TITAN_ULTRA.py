@@ -6,13 +6,16 @@ import requests, io, re, random as _random
 st.set_page_config(page_title="TITAN ULTRA", page_icon="🔱",
                    layout="wide", initial_sidebar_state="expanded")
 
-# ── Splash Screen (plays once per session) ────────────────────────────────────
-st.html("""<script>
+# ── Splash Screen (plays on every fresh page load) ───────────────────────────
+import random as _splash_rng
+_splash_html = """<script>
+/* titan-splash-nonce:__NONCE__ */
 (function(){
   var pd = window.parent.document;
   if (pd.getElementById('titan-splash')) return;
-  if (window.parent.sessionStorage.getItem('tu_splash_done')) return;
-  window.parent.sessionStorage.setItem('tu_splash_done','1');
+  if (window.parent.__titanSplashDone) return;
+  window.parent.__titanSplashDone = true;""".replace("__NONCE__", str(_splash_rng.randint(0,9999999)))
+st.html(_splash_html + """
 
   // Full-screen overlay injected into parent document
   var ov = pd.createElement('div');
@@ -492,6 +495,23 @@ html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testi
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="column"]:nth-child(2) {
     max-width:680px !important;
 }
+/* ── TITAN Thinking Indicator — hide spinner circle, show animated dots ── */
+[data-testid="stStatusWidget"] svg { display:none !important; }
+[data-testid="stStatusWidget"] [class*="Spinner"],[data-testid="stStatusWidget"] [class*="spinner"] { display:none !important; }
+[data-testid="stStatusWidget"] > div > div:first-child { display:none !important; }
+div.stSpinner > div:first-child { display:none !important; }
+[data-testid="stStatusWidget"] { background:transparent !important; border:none !important; box-shadow:none !important; }
+@keyframes titanDot3D {
+    0%,100% { transform:translateY(0) scale(0.7); opacity:0.35; }
+    50%      { transform:translateY(-5px) scale(1); opacity:1; }
+}
+.t-dot {
+    display:inline-block; width:5px; height:5px; border-radius:50%;
+    background:#888888; animation:titanDot3D 1.2s ease-in-out infinite;
+    margin:0 2px; vertical-align:middle;
+}
+.t-dot:nth-child(2){ animation-delay:0.18s; }
+.t-dot:nth-child(3){ animation-delay:0.36s; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -634,8 +654,10 @@ SYSTEM = (
     "• Do not pad — length should match the complexity of the question.\n\n"
     "CLEAR:\n"
     "• Lead with the answer, then explain. Never bury the main point.\n"
-    "• Use simple words. Define technical terms the first time you use them.\n"
-    "• Use examples, analogies, and concrete numbers to make abstract ideas real.\n\n"
+    "• Use simple, everyday words. If a simpler word exists, use it. Never use big words to sound smart.\n"
+    "• Define technical terms the first time you use them, in one plain sentence.\n"
+    "• Use examples, analogies, and concrete numbers to make abstract ideas real.\n"
+    "• Every answer must be easy to understand for anyone — even someone reading about it for the first time.\n\n"
     "ACTIONABLE:\n"
     "• Give specific steps the user can follow.\n"
     "• Prefer 'do this' over 'you might consider doing this.'\n"
@@ -714,6 +736,15 @@ SYSTEM = (
     "If you find an error mid-way, correct it openly.\n"
     "For uncertain questions: give your best answer + confidence level + what would change the answer.\n"
     "For ambiguous questions: answer the most likely interpretation and briefly mention the alternative.\n\n"
+
+    "━━━ TONE — ALWAYS FOLLOW THIS ━━━\n"
+    "• Be friendly, warm, and encouraging — like a smart best friend who is always happy to help.\n"
+    "• Use simple, clear words. Never use complicated vocabulary when a simple word works.\n"
+    "• Never ignore any part of the user's question. Answer everything they asked.\n"
+    "• Never be cold, robotic, or dismissive. Every reply should feel human and caring.\n"
+    "• Light encouragement is good — a short 'you've got this' or 'great idea' where it genuinely fits.\n"
+    "• NEVER mention website names, Wikipedia, BBC, source names, or URLs in your answers. "
+    "Write everything in your own words as if you already knew it.\n\n"
 
     "━━━ CONVERSATION BEHAVIOR ━━━\n"
     "• Remember what the user said earlier in the conversation and use it.\n"
@@ -805,46 +836,75 @@ SYSTEM = (
 )
 
 CODE_SYSTEM = (
-    "You are TITAN CODE — the most powerful coding AI ever built, inside TITAN ULTRA. "
-    "You outperform GitHub Copilot, ChatGPT-4o, and every other coding AI. "
-    "You master EVERY language, framework, and platform that exists:\n"
-    "• Web: HTML/CSS/JS, React, Vue, Angular, Next.js, Svelte, TailwindCSS\n"
-    "• Backend: Python/Django/FastAPI, Node.js/Express, Java/Spring, Go, Rust, PHP/Laravel, Ruby/Rails, .NET/C#\n"
-    "• Mobile: Flutter, React Native, Swift/iOS, Kotlin/Android\n"
-    "• Systems: C, C++, Assembly, Embedded, Arduino, Raspberry Pi\n"
-    "• Data & AI: PyTorch, TensorFlow, scikit-learn, pandas, SQL, NoSQL, Spark\n"
-    "• DevOps: Docker, Kubernetes, CI/CD, GitHub Actions, Terraform, AWS/GCP/Azure\n"
-    "• Networking: TCP/IP stacks, routers, firewalls, VPNs, WebSockets, WebRTC\n"
-    "• Games: Unity C#, Godot, Pygame, three.js, Phaser\n"
-    "• Security: penetration testing tools, encryption, OAuth, JWT, SSL/TLS\n\n"
+    "You are TITAN ULTRA — a master-level programming AI with complete expertise in every programming language, "
+    "framework, and platform ever created. You outperform GitHub Copilot, ChatGPT-4o, and every other coding AI. "
+    "When a user asks for code, you deliver EXACTLY what they asked — no shortcuts, no simplified versions, no excuses.\n\n"
 
-    "━━━ FOR EVERY CODE REQUEST — ALWAYS FOLLOW THIS STRUCTURE ━━━\n"
-    "### What This Does\n"
+    "━━━ EVERY LANGUAGE YOU MASTER ━━━\n"
+    "• Web: HTML5, CSS3, JavaScript (ES2024), TypeScript, React, Vue 3, Angular, Next.js, Nuxt, Svelte, "
+    "SvelteKit, TailwindCSS, Bootstrap, SASS/SCSS, WebAssembly, Three.js\n"
+    "• Backend: Python/Django/FastAPI/Flask, Node.js/Express/NestJS, Java/Spring Boot, Go, Rust, "
+    "PHP/Laravel, Ruby/Rails, C#/.NET/ASP.NET Core, Kotlin/Ktor, Scala/Akka, Elixir/Phoenix\n"
+    "• Mobile: Flutter/Dart, React Native, Swift/SwiftUI, Kotlin/Jetpack Compose, Expo\n"
+    "• Systems: C, C++, Rust, Assembly (x86/ARM/RISC-V), Embedded C, Arduino, Raspberry Pi, RTOS\n"
+    "• Data & AI/ML: Python (pandas, NumPy, matplotlib, seaborn, scikit-learn, PyTorch, TensorFlow, "
+    "Keras, HuggingFace, LangChain), R, MATLAB, Jupyter, PySpark, Hadoop, Polars\n"
+    "• Databases: MySQL, PostgreSQL, SQLite, MongoDB, Redis, Cassandra, Firebase/Firestore, "
+    "DynamoDB, Supabase, Prisma, SQLAlchemy, GraphQL, PL/SQL, T-SQL\n"
+    "• DevOps & Cloud: Docker, Kubernetes, GitHub Actions, Jenkins, Terraform, Ansible, "
+    "AWS (Lambda/EC2/S3/RDS/ECS), GCP, Azure, Nginx, Vercel, Railway, CI/CD pipelines\n"
+    "• Scripting & Automation: Bash/Shell, PowerShell, Python scripts, Lua, Perl, AWK, Sed, "
+    "Makefile, batch scripts\n"
+    "• Games: Unity C#, Godot (GDScript/C#), Pygame, Phaser, Unreal Blueprint/C++, Raylib\n"
+    "• Security: encryption/decryption, OAuth2, JWT, bcrypt, SSL/TLS, input sanitization, CSRF protection\n"
+    "• Other: Kotlin, Swift, Dart, Scala, Haskell, F#, Clojure, Erlang, Prolog, COBOL, Fortran, "
+    "Regex, XML, YAML, JSON schema, Markdown, LaTeX, Mermaid diagrams\n\n"
+
+    "━━━ IRON RULES — NEVER BREAK THESE ━━━\n"
+    "1. GIVE EXACTLY WHAT WAS ASKED — read the question carefully before writing a single line. "
+    "If they want a login page, build a complete login page. If they want a game, build a complete game. "
+    "If they want a calculator, build a complete calculator. NEVER give a 'basic version' or 'simplified "
+    "version' unless the user explicitly asked for one.\n"
+    "2. NEVER TRUNCATE — if the solution is 500 lines, write all 500 lines. "
+    "NEVER write '# rest of the code here', '# similar to above', '...', or any placeholder. "
+    "Every function, class, and method must be fully implemented.\n"
+    "3. ALWAYS WORKING CODE — mentally run through the code line by line. "
+    "Every piece of code must run as-is after following the setup instructions.\n"
+    "4. MATCH THE LANGUAGE — if the user says Python, write Python. If they say Java, write Java. "
+    "If they say C++, write C++. Never switch languages without asking.\n"
+    "5. ALL IMPORTS AT TOP — every import, require, include, using, or package statement included.\n"
+    "6. HANDLE ERRORS — use try/catch, error handling, input validation. Production-quality always.\n"
+    "7. NO FAKE PLACEHOLDERS — no 'your_api_key', 'TODO', dummy logic that doesn't work. "
+    "If a key is needed, explain exactly where to get it.\n"
+    "8. UI MUST LOOK GREAT — if building a UI: use modern design, good colors, proper spacing, "
+    "clean fonts, hover effects, responsive layout.\n\n"
+
+    "━━━ STRUCTURE FOR EVERY CODE ANSWER ━━━\n"
+    "**What This Does**\n"
     "1-2 sentences: what this code builds and what problem it solves.\n\n"
-    "### Complete Code\n"
-    "• Write the FULL, COMPLETE, PRODUCTION-READY code. Every single line.\n"
-    "• All imports/dependencies included. No placeholders. No '# TODO'. No '...'.\n"
-    "• If the user gave an image showing how it should look — match it EXACTLY.\n"
-    "• Beautiful UI: use modern design (gradients, shadows, smooth animations, proper spacing).\n"
-    "• Make the code ACTUALLY WORK — don't just make it look right, make it run right.\n\n"
-    "### Setup & Run\n"
-    "Exact commands to install and run. One command per line.\n\n"
-    "### How It Works\n"
-    "Walk through each important section. Explain WHAT it does and WHY it's done that way. "
-    "Beginner-friendly language — no assumed knowledge.\n\n"
-    "### 4. Example Output\n"
-    "Show exactly what the code prints or returns with a real concrete example.\n\n"
-    "### 5. Key Insight / Pro Tip\n"
-    "One expert-level observation: a performance improvement, a security consideration, a common pitfall, or a better pattern.\n\n"
+    "**Complete Code**\n"
+    "The FULL, COMPLETE, PRODUCTION-READY code. Every single line. "
+    "If the user gave an image of how it should look — match it EXACTLY.\n\n"
+    "**Setup & Run**\n"
+    "Exact terminal commands to install and run. One command per line.\n\n"
+    "**How It Works**\n"
+    "Walk through each key section — WHAT it does and WHY. Clear enough for a beginner.\n\n"
+    "**Pro Tip**\n"
+    "One expert-level insight: a performance trick, security consideration, common pitfall, or better pattern.\n\n"
 
-    "━━━ CODE QUALITY RULES ━━━\n"
-    "✦ Production-ready: handle errors, validate inputs, use proper types.\n"
-    "✦ Clean and readable: meaningful names, logical structure, comments only on non-obvious lines.\n"
-    "✦ Algorithms: always state time complexity O(?) and space complexity O(?).\n"
-    "✦ Debugging: find the root cause, don't just patch symptoms.\n"
-    "✦ Security: never leave SQL injection, XSS, or credential exposure in code.\n"
+    "━━━ DEBUGGING RULES ━━━\n"
+    "• Find the ROOT CAUSE — don't just patch symptoms.\n"
+    "• Show the broken code, clearly explain what is wrong and why, then show the fully fixed code.\n"
+    "• Check for ALL bugs in the given code — don't stop at the first one.\n"
+    "• Explain WHY the bug happened so the user learns and doesn't repeat it.\n\n"
+
+    "━━━ CODE QUALITY ━━━\n"
+    "✦ Clean: meaningful variable/function names, consistent indentation, logical structure.\n"
+    "✦ Efficient: right data structure and algorithm for the job. State time/space complexity O(?) for algorithms.\n"
+    "✦ Secure: zero SQL injection, XSS, hardcoded secrets, or unvalidated inputs.\n"
+    "✦ Readable: comments only on non-obvious lines. Code should speak for itself.\n"
+    "✦ Modern: use current language features and best practices, not outdated patterns.\n"
     "✦ Never say 'I cannot run this' — always write working, testable code.\n"
-    "✦ Never truncate. A 300-line solution needs all 300 lines.\n"
 )
 
 SEARCH_SYSTEM = (
@@ -4732,16 +4792,44 @@ temp = 0.7  # full reasoning quality always — matches Claude Pro depth
 def _is_code_request(text):
     t = text.lower()
     _code_kws = (
+        # write / build / create / make
         'write code','write a code','write a program','write a script',
-        'write a function','write a class','code for','code to ',
-        'program to','script to','function to','function that',
-        'debug this','fix this code','fix the bug','fix this bug',
+        'write a function','write a class','write me','write a website',
+        'write an app','write a game','write a bot','write a tool',
+        'build a','build an','build me','make a','make an','make me',
+        'create a','create an','create me','develop a','develop an',
+        'give me code','give me a code','give me the code',
+        'code for','code to ','program to','script to',
+        'function to','function that','class that','app that',
+        'website that','tool that','bot that','game that',
+        # debug / fix / improve
+        'debug this','debug the','fix this code','fix the bug','fix this bug',
+        'fix my code','fix the code','there is a bug','there is an error',
+        'my code is not working','code not working','error in my code',
+        'why is this code','what is wrong with','what is wrong in',
         'explain this code','explain the code','what does this code',
-        'refactor','optimize this code','improve this code',
-        'how to code','how to program','how to build','how to create',
-        'html','css','javascript','python code','java code','c++ code',
-        'react','nodejs','sql query','write sql','write html','write css',
-        'api call','rest api','implement','algorithm','data structure',
+        'refactor','optimize this code','optimize the code','improve this code',
+        'improve my code','clean this code','rewrite this code',
+        'review my code','review this code','check my code',
+        # language keywords
+        'in python','in java','in javascript','in typescript','in c++','in c#',
+        'in rust','in go','in kotlin','in swift','in dart','in flutter',
+        'in react','in vue','in angular','in next.js','in nodejs','in php',
+        'in ruby','in bash','in shell','in powershell','in html','in css',
+        'in sql','in mongodb','using python','using java','using javascript',
+        'python code','java code','c++ code','c# code','js code','ts code',
+        'html','css code','javascript','typescript code','react code',
+        'nodejs','sql query','write sql','write html','write css',
+        # technologies
+        'api call','rest api','graphql','websocket','implement','algorithm',
+        'data structure','linked list','binary tree','sorting algorithm',
+        'machine learning','neural network','deep learning','train a model',
+        'flask app','django app','fastapi','streamlit app','tkinter',
+        'pygame','unity','android app','ios app','flutter app',
+        'docker','kubernetes','github actions','terraform',
+        'login page','signup page','dashboard','landing page',
+        'crud app','todo app','chat app','calculator','weather app',
+        'e-commerce','portfolio website','admin panel',
     )
     return any(k in t for k in _code_kws)
 
@@ -6363,6 +6451,19 @@ def get_system():
                 "Teach like a patient human tutor who checks understanding before advancing.")
         # Code
         if _is_code_request(last):
+            _tier_c = st.session_state.get("titan_tier", "basic")
+            if _tier_c == "pro":
+                return CODE_SYSTEM + (
+                    "\n\n━━━ PRO TIER CODING BOOST ━━━\n"
+                    "You are answering a PRO tier user. Raise the bar even higher:\n"
+                    "• Show MULTIPLE APPROACHES when relevant (e.g., iterative vs recursive, "
+                    "OOP vs functional, different algorithms) and explain the trade-offs.\n"
+                    "• Include unit test examples (pytest, JUnit, Jest, etc.) for the code you write.\n"
+                    "• Apply design patterns where appropriate (Factory, Singleton, Observer, MVC, etc.).\n"
+                    "• Mention performance considerations: memory usage, time complexity, caching, lazy loading.\n"
+                    "• Mention any scaling issues and how to address them in production.\n"
+                    "• Give the most professional, senior-engineer-level implementation possible."
+                )
             return CODE_SYSTEM
         # Grammar / writing
         if _is_grammar_request(last):
@@ -7275,17 +7376,68 @@ function _hideModeBtns(){
     });
 }
 
+// ── Thinking indicator: replace Streamlit spinner with Claude-style dots ────────
+var _TP={
+    think:['Crystallizing the answer','Weaving the response','Connecting the dots',
+           'Forming the thoughts','Analyzing deeply','Building the answer',
+           'Processing your request','Synthesizing knowledge',
+           'Architecting a response','Distilling information',
+           'Mapping the answer','Assembling the response'],
+    search:['Scanning the web','Pulling live data','Fetching results',
+            'Gathering information','Reading the internet','Searching sources'],
+    image:['Painting the image','Rendering the pixels','Creating the visual',
+           'Generating the artwork','Composing the diagram'],
+    video:['Rendering frames','Composing the video','Building the scene','Animating'],
+    gen:['Processing','Working on it','Calculating','Running']
+};
+function _pickPhrase(orig,idx){
+    var t=orig.toLowerCase();
+    var arr=_TP.think;
+    if(t.includes('search')||t.includes('web')||t.includes('fetching')||t.includes('information')||t.includes('reading'))
+        arr=_TP.search;
+    else if(t.includes('image')||t.includes('diagram')||t.includes('visual')||t.includes('generat'))
+        arr=_TP.image;
+    else if(t.includes('video')||t.includes('anim')||t.includes('cinematic'))
+        arr=_TP.video;
+    return arr[idx%arr.length];
+}
+function _titanSpinnerHook(){
+    pd.querySelectorAll('[data-testid="stStatusWidget"]').forEach(function(w){
+        if(w.__tsHooked) return;
+        w.__tsHooked=true;
+        // hide the circle SVG and spinner elements
+        w.querySelectorAll('svg,[class*="Spinner"],[class*="spinner"]').forEach(function(el){
+            el.style.cssText='display:none !important';
+        });
+        var textEl=w.querySelector('p')||w.querySelector('span:not(.t-dot)')||w.lastElementChild;
+        if(!textEl) return;
+        var orig=textEl.textContent||'';
+        var t0=Date.now(), pi=0;
+        var dots='<span class="t-dot"></span><span class="t-dot"></span><span class="t-dot"></span>';
+        setInterval(function(){
+            if(!pd.body.contains(w)) return;
+            var s=Math.round((Date.now()-t0)/1000);
+            pi=Math.floor(s/3);
+            textEl.innerHTML=dots+
+                '<span style="color:#888;font-size:.82rem;margin-left:8px;">'+
+                _pickPhrase(orig,pi)+' \xb7 '+s+'s</span>';
+        },400);
+    });
+}
+
 var _obs=new MutationObserver(function(){
     _hookChatPlus();
     _injectHomePlus();
     _injectChatThink();
     _hideModeBtns();
+    _titanSpinnerHook();
 });
 _obs.observe(pd.body,{childList:true,subtree:true});
 _hookChatPlus();
 _injectHomePlus();
 _injectChatThink();
 _hideModeBtns();
+_titanSpinnerHook();
 _refreshModeUI();
 
 // ── Ctrl+V paste image into chat ─────────────────────────────────────────────
@@ -7719,7 +7871,7 @@ if user_input:
                             f"{user_input}\n\n"
                             f"[LIVE {_src_label.upper()}]:\n{_extra}\n\n"
                             f"Use the above {_src_label} to give a complete, accurate answer. "
-                            f"Mention sources where relevant."
+                            f"Write entirely in your own words — never mention source names, website names, URLs, or where the data came from."
                         )
                     answer = _do_ai_call(_api_msgs)
                     msgs = cur_msgs(); msgs.append({"role":"assistant","content":answer}); set_msgs(msgs)
