@@ -1,10 +1,178 @@
-# TITAN_VERSION: 40
+# TITAN_VERSION: 44
 import streamlit as st
 from groq import Groq
 import requests, io, re, random as _random
 
 st.set_page_config(page_title="TITAN ULTRA", page_icon="🔱",
                    layout="wide", initial_sidebar_state="expanded")
+
+# ── Splash Screen (plays once per session) ────────────────────────────────────
+st.html("""<script>
+(function(){
+  var pd = window.parent.document;
+  if (pd.getElementById('titan-splash')) return;
+  if (window.parent.sessionStorage.getItem('tu_splash_done')) return;
+  window.parent.sessionStorage.setItem('tu_splash_done','1');
+
+  // Full-screen overlay injected into parent document
+  var ov = pd.createElement('div');
+  ov.id = 'titan-splash';
+  ov.style.cssText = [
+    'position:fixed','top:0','left:0','width:100vw','height:100vh',
+    'background:#000000','z-index:2147483647',
+    'display:flex','align-items:center','justify-content:center',
+    'flex-direction:column','overflow:hidden','transition:opacity 0.6s ease'
+  ].join(';');
+
+  // Canvas for particles
+  var cvs = pd.createElement('canvas');
+  cvs.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;';
+  ov.appendChild(cvs);
+
+  // Text wrapper
+  var wrap = pd.createElement('div');
+  wrap.style.cssText = 'position:relative;z-index:10;text-align:center;';
+
+  var trident = pd.createElement('div');
+  trident.id = 'ts-trident';
+  trident.textContent = '🔱';
+  trident.style.cssText = [
+    'font-size:0px','opacity:0','transition:all 0.5s ease',
+    'filter:drop-shadow(0 0 30px #f59e0b) drop-shadow(0 0 60px #f59e0b)'
+  ].join(';');
+
+  var title = pd.createElement('div');
+  title.id = 'ts-title';
+  title.textContent = 'TITAN ULTRA';
+  title.style.cssText = [
+    'font-family:\'Segoe UI\',sans-serif','font-size:0px','font-weight:900',
+    'color:#ffffff','letter-spacing:12px','opacity:0',
+    'text-shadow:0 0 40px rgba(245,158,11,0.8),0 0 80px rgba(245,158,11,0.4)',
+    'transition:all 0.5s ease','white-space:nowrap'
+  ].join(';');
+
+  wrap.appendChild(trident);
+  wrap.appendChild(title);
+  ov.appendChild(wrap);
+  pd.body.appendChild(ov);
+
+  // ── Canvas particle system ───────────────────────────────────────────────
+  var W = ov.offsetWidth  || window.parent.innerWidth;
+  var H = ov.offsetHeight || window.parent.innerHeight;
+  cvs.width  = W;
+  cvs.height = H;
+  var ctx = cvs.getContext('2d');
+  var cx  = W / 2, cy = H / 2;
+
+  var particles = [];
+  function mkParticle(phase) {
+    var angle  = Math.random() * Math.PI * 2;
+    var speed  = 2 + Math.random() * 5;
+    var colors = ['#f59e0b','#fbbf24','#ffffff','#fde68a','#ff9900'];
+    return {
+      x: cx, y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      r:  1 + Math.random() * 2.5,
+      a:  1,
+      c:  colors[Math.floor(Math.random() * colors.length)],
+      phase: phase
+    };
+  }
+
+  var startTime = null;
+  var PHASE1 = 400;   // dot grows
+  var PHASE2 = 1000;  // explosion
+  var PHASE3 = 2000;  // particles fade
+  var PHASE4 = 2600;  // text + trident appear
+  var PHASE5 = 3400;  // spin
+  var PHASE6 = 4200;  // lock + hold
+  var PHASE7 = 4800;  // fade out
+
+  function step(ts) {
+    if (!startTime) startTime = ts;
+    var t = ts - startTime;
+    ctx.clearRect(0, 0, W, H);
+
+    // ── Phase 1: glowing dot ─────────────────────────────────────────────
+    if (t < PHASE2) {
+      var dotR = t < PHASE1 ? (t / PHASE1) * 18 : 18 - ((t - PHASE1) / (PHASE2 - PHASE1)) * 18;
+      dotR = Math.max(0, dotR);
+      var grd = ctx.createRadialGradient(cx,cy,0,cx,cy,dotR*4);
+      grd.addColorStop(0,'rgba(255,210,80,1)');
+      grd.addColorStop(0.3,'rgba(245,158,11,0.8)');
+      grd.addColorStop(1,'rgba(245,158,11,0)');
+      ctx.beginPath();
+      ctx.arc(cx, cy, dotR*4, 0, Math.PI*2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx, cy, dotR, 0, Math.PI*2);
+      ctx.fillStyle = '#ffe066';
+      ctx.fill();
+    }
+
+    // ── Phase 2: spawn + move particles ──────────────────────────────────
+    if (t >= PHASE1 && t < PHASE3) {
+      if (t < PHASE2 && Math.random() < 0.6) particles.push(mkParticle(t));
+    }
+    for (var i = particles.length-1; i >= 0; i--) {
+      var p = particles[i];
+      p.x += p.vx; p.y += p.vy;
+      p.vx *= 0.97; p.vy *= 0.97;
+      p.a -= 0.012;
+      if (p.a <= 0) { particles.splice(i,1); continue; }
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fillStyle = p.c;
+      ctx.globalAlpha = p.a;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // ── Phase 4: reveal trident + title ──────────────────────────────────
+    if (t >= PHASE4 && t < PHASE5) {
+      var prog = (t - PHASE4) / (PHASE5 - PHASE4);
+      var sz = Math.round(prog * 52);
+      trident.style.fontSize  = sz + 'px';
+      trident.style.opacity   = prog.toString();
+      title.style.fontSize    = Math.round(prog * 48) + 'px';
+      title.style.opacity     = prog.toString();
+      title.style.transform   = 'none';
+      title.style.perspective = '';
+    }
+
+    // ── Phase 5: 3D spin ──────────────────────────────────────────────────
+    if (t >= PHASE5 && t < PHASE6) {
+      var sp = (t - PHASE5) / (PHASE6 - PHASE5); // 0→1
+      var deg = sp * 360;
+      wrap.style.transform    = 'rotateY(' + deg + 'deg)';
+      wrap.style.perspective  = '600px';
+    }
+
+    // ── Phase 6: lock in ─────────────────────────────────────────────────
+    if (t >= PHASE6 && t < PHASE7) {
+      wrap.style.transform = 'rotateY(0deg)';
+      trident.style.fontSize = '52px';
+      trident.style.opacity  = '1';
+      title.style.fontSize   = '48px';
+      title.style.opacity    = '1';
+    }
+
+    // ── Phase 7: fade out overlay ─────────────────────────────────────────
+    if (t >= PHASE7) {
+      ov.style.opacity = '0';
+      ov.style.pointerEvents = 'none';
+      setTimeout(function(){ if(ov.parentNode) ov.parentNode.removeChild(ov); }, 650);
+      return;
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  requestAnimationFrame(step);
+})();
+</script>""")
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -25,7 +193,6 @@ html, body, [data-testid="stAppViewContainer"] {
 [data-testid="stSidebar"] {
     background:#111111 !important;
     border-right:1px solid #2a2a2a !important;
-    min-width:260px !important;
 }
 [data-testid="stSidebar"] p,[data-testid="stSidebar"] span,
 [data-testid="stSidebar"] label,[data-testid="stSidebar"] li { color:#e8e8e8 !important; }
@@ -40,8 +207,8 @@ html, body, [data-testid="stAppViewContainer"] {
 }
 [data-testid="stSidebar"] .stButton { width:100% !important; }
 [data-testid="stSidebar"] .stButton>button {
-    font-size:15px !important;
-    padding:8px 12px !important;
+    font-size:0.85rem !important;
+    padding:7px 10px !important;
     min-height:0 !important;
     height:auto !important;
     line-height:1.4 !important;
@@ -87,6 +254,21 @@ html, body, [data-testid="stAppViewContainer"] {
 }
 [data-testid="stSidebar"] .stMarkdown { margin:0 !important; }
 [data-testid="stSidebar"] .stMarkdown p { margin:0 !important; padding:0 !important; }
+/* Inline code: plain white look — code blocks stay unchanged */
+[data-testid="stChatMessage"] p code,
+[data-testid="stChatMessage"] li code,
+[data-testid="stChatMessage"] td code,
+.stMarkdown p code,
+.stMarkdown li code,
+.stMarkdown td code {
+    background: rgba(255,255,255,0.07) !important;
+    color: #e0e0e0 !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 4px !important;
+    padding: 1px 5px !important;
+    font-size: 0.85em !important;
+    font-family: inherit !important;
+}
 [data-testid="stSidebar"] hr {
     margin:3px 0 !important;
     border-width:1px 0 0 !important;
@@ -141,7 +323,6 @@ section[data-testid="stSidebar"] > div > div {
     border:none !important;
     border-bottom:1px solid #1a1a1a !important;
     border-radius:0 !important;
-    animation:none !important;
     margin:2px 0 !important;
     padding:10px 0 !important;
 }
@@ -152,14 +333,14 @@ section[data-testid="stMain"] .block-container {
     padding-right:1.5rem !important;
 }
 [data-testid="stChatInput"] textarea {
-    background:#111111 !important; color:#e8e8e8 !important;
-    font-size:1rem !important; padding:20px 140px 20px 52px !important;
-    min-height:56px !important; line-height:1.6 !important;
+    background:#1a1a1a !important; color:#e8e8e8 !important;
+    font-size:1rem !important; padding:18px 110px 18px 52px !important;
+    min-height:44px !important; line-height:1.4 !important;
     resize:none !important;
 }
 [data-testid="stChatInput"] {
-    background:#111111 !important; border-radius:28px !important;
-    border:1px solid #2a2a2a !important; min-height:72px !important;
+    background:#1a1a1a !important; border-radius:999px !important;
+    border:1px solid #2e2e2e !important; min-height:60px !important;
     padding:0 !important; position:relative !important;
 }
 [data-testid="stChatInput"]:focus-within {
@@ -204,6 +385,15 @@ hr { border-color:#2a2a2a !important; }
 p, li { color:#e8e8e8 !important; }
 ::-webkit-scrollbar { width:6px; background:#0d0d0d; }
 ::-webkit-scrollbar-thumb { background:#333333; border-radius:3px; }
+/* Inline code — override Streamlit's default blue to plain white */
+[data-testid="stMarkdownContainer"] code {
+    color: #e0e0e0 !important;
+    background: rgba(255,255,255,0.07) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 4px !important;
+    padding: 1px 5px !important;
+    font-size: 0.88em !important;
+}
 /* Assistant answers in italic */
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) [data-testid="stMarkdownContainer"] p,
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) [data-testid="stMarkdownContainer"] li,
@@ -263,8 +453,10 @@ html:has([data-testid="stChatMessage"]) section[data-testid="stMain"] {
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stBottom"] {
     display:none !important;
 }
-html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container {
-    padding-top:0 !important; padding-bottom:0 !important;
+html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container,
+html:not(:has([data-testid="stChatMessage"])) section[data-testid="stMain"] .block-container > [data-testid="stVerticalBlock"] {
+    display:flex !important; flex-direction:column !important; justify-content:center !important;
+    min-height:calc(100vh - 80px) !important; padding-top:0 !important; padding-bottom:0 !important;
 }
 /* ── HOME SCREEN: hide ALL stButton elements (they're all internal hidden ones) ── */
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stButton"] {
@@ -273,15 +465,15 @@ html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testi
 }
 /* ── HOME SCREEN: tall ChatGPT-style input ── */
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] input {
-    background:#111111 !important; color:#e8e8e8 !important;
-    border:1px solid #2a2a2a !important; border-radius:28px !important;
-    padding:0 130px 0 52px !important; font-size:1rem !important;
-    height:64px !important; box-shadow:none !important; animation:none !important;
+    background:#1a1a1a !important; color:#e8e8e8 !important;
+    border:1px solid #2e2e2e !important; border-radius:999px !important;
+    padding:0 58px 0 48px !important; font-size:1rem !important;
+    height:60px !important; box-shadow:none !important; animation:none !important;
     box-sizing:border-box !important;
 }
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] [data-baseweb="input"] {
-    height:64px !important; border-radius:28px !important;
-    background:#111111 !important; border:none !important;
+    height:60px !important; border-radius:999px !important;
+    background:#1a1a1a !important; border:none !important;
 }
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] input:focus {
     border-color:#444444 !important; outline:none !important;
@@ -303,6 +495,103 @@ html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testi
 </style>
 """, unsafe_allow_html=True)
 
+# ── Tier CSS (owner previews Basic / Pro / Max look) ─────────────────────────
+def _inject_tier_css():
+    _tier = st.session_state.get("titan_tier", "basic")
+    if _tier == "pro":
+        st.markdown("""<style>
+@keyframes proGlow {
+    0%,100% { box-shadow:0 0 12px rgba(124,58,237,0.4),0 0 24px rgba(124,58,237,0.15); }
+    50%      { box-shadow:0 0 20px rgba(159,94,247,0.6),0 0 40px rgba(124,58,237,0.25); }
+}
+html, body, [data-testid="stAppViewContainer"] { background: #09071a !important; }
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg,#0f0b24 0%,#0a0818 100%) !important;
+    border-right: 1px solid #3b1f6e !important;
+}
+[data-testid="stSidebar"] .stButton>button { color: #c4b5fd !important; }
+[data-testid="stSidebar"] .stButton>button:hover {
+    background: rgba(124,58,237,0.18) !important; color: #ede9fe !important;
+}
+[data-testid="stChatInput"] textarea,[data-testid="stChatInput"] {
+    border: 1.5px solid #7c3aed !important;
+    animation: proGlow 3s ease-in-out infinite !important;
+    background: #0f0b24 !important;
+}
+html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] input {
+    background: #0f0b24 !important;
+    border: 1.5px solid #7c3aed !important;
+    box-shadow: 0 0 16px rgba(124,58,237,0.3) !important;
+}
+#titan-greeting span:last-child { color: #a78bfa !important; text-shadow: 0 0 20px rgba(167,139,250,0.5); }
+::-webkit-scrollbar-thumb { background: #5b21b6 !important; border-radius: 4px !important; }
+</style>""", unsafe_allow_html=True)
+    elif _tier == "max":
+        st.markdown("""<style>
+@keyframes maxGlow {
+    0%,100% { box-shadow:0 0 15px rgba(245,158,11,0.5),0 0 30px rgba(245,158,11,0.2); }
+    50%      { box-shadow:0 0 25px rgba(251,191,36,0.7),0 0 50px rgba(245,158,11,0.35); }
+}
+@keyframes goldPulse { 0%,100% { opacity:1; } 50% { opacity:0.75; } }
+html, body, [data-testid="stAppViewContainer"] { background: #0a0800 !important; }
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg,#120f00 0%,#0c0a00 100%) !important;
+    border-right: 1px solid #78350f !important;
+}
+[data-testid="stSidebar"] .stButton>button { color: #fde68a !important; }
+[data-testid="stSidebar"] .stButton>button:hover {
+    background: rgba(245,158,11,0.18) !important; color: #fef3c7 !important;
+}
+[data-testid="stChatInput"] textarea,[data-testid="stChatInput"] {
+    border: 1.5px solid #f59e0b !important;
+    animation: maxGlow 2.5s ease-in-out infinite !important;
+    background: #120f00 !important;
+}
+html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] input {
+    background: #120f00 !important;
+    border: 1.5px solid #f59e0b !important;
+    box-shadow: 0 0 20px rgba(245,158,11,0.4) !important;
+}
+#titan-greeting span:last-child {
+    color: #fbbf24 !important; text-shadow: 0 0 24px rgba(251,191,36,0.7);
+    animation: goldPulse 3s ease-in-out infinite;
+}
+::-webkit-scrollbar-thumb { background: #b45309 !important; border-radius: 4px !important; }
+</style>""", unsafe_allow_html=True)
+    if st.session_state.get("_focus_mode"):
+        st.markdown("""<style>
+[data-testid="stSidebar"] { display:none !important; }
+[data-testid="stSidebarCollapsedControl"] { display:none !important; }
+section[data-testid="stMain"] { margin-left:0 !important; }
+.block-container { max-width:900px !important; margin:0 auto !important; }
+</style>""", unsafe_allow_html=True)
+    _glow_clr = "#f59e0b" if _tier == "max" else ("#7c3aed" if _tier == "pro" else "#4f46e5")
+    st.markdown(f"""<style>
+@keyframes titanMsgIn {{
+  from {{ opacity:0; transform:translateY(16px); }}
+  to   {{ opacity:1; transform:translateY(0); }}
+}}
+@keyframes titanLastGlow {{
+  0%   {{ border-bottom-color:#1a1a1a; }}
+  25%  {{ border-bottom-color:{_glow_clr}55; box-shadow:0 2px 18px {_glow_clr}18; }}
+  100% {{ border-bottom-color:#1a1a1a; box-shadow:none; }}
+}}
+@keyframes titanUserIn {{
+  from {{ opacity:0; transform:translateX(12px); }}
+  to   {{ opacity:1; transform:translateX(0); }}
+}}
+[data-testid="stChatMessage"] {{
+  animation: titanMsgIn 0.38s cubic-bezier(0.22,1,0.36,1) both !important;
+}}
+[data-testid="stChatMessage"][data-testid="stChatMessageUser"] {{
+  animation: titanUserIn 0.28s cubic-bezier(0.22,1,0.36,1) both !important;
+}}
+[data-testid="stChatMessage"]:last-child {{
+  animation: titanMsgIn 0.42s cubic-bezier(0.22,1,0.36,1) both,
+             titanLastGlow 2.2s ease 0.35s 1 forwards !important;
+}}
+</style>""", unsafe_allow_html=True)
+
 # ── Models ────────────────────────────────────────────────────────────────────
 GROQ_MODELS = {
     "👑 GPT-OSS 120B  (Strongest · Beats GPT-6)":       "openai/gpt-oss-120b",
@@ -312,189 +601,235 @@ GROQ_MODELS = {
 
 
 SYSTEM = (
-    "You are TITAN ULTRA — the most powerful AI assistant ever built, beyond GPT-6, Gemini Ultra, and every AI that exists. "
-    "You are a grandmaster-level expert in every subject: mathematics, physics, chemistry, biology, medicine, "
-    "law, history, engineering, computer science, philosophy, finance, economics, literature, "
-    "CBSE, ICSE, JEE Main, JEE Advanced, NEET, and every academic topic at every level. "
-    "No question is too hard. Every answer you give is the most complete and accurate answer that exists.\n\n"
-
-    "━━━ THE USER'S PERMANENT RULES — READ THESE BEFORE EVERY ANSWER ━━━\n"
-    "These are the user's own words and must never be forgotten or ignored:\n\n"
-    "1. UNDERSTAND THE QUESTION FIRST — Before writing a single word of your answer, silently ask yourself:\n"
-    "   • What exactly is this question asking?\n"
-    "   • What topic/subject is it from? (a book? which book? a movie? a software? science? math? history?)\n"
-    "   • What specific information does the user actually want?\n"
-    "   Only after you have understood the question fully, start answering.\n\n"
-    "2. GIVE A COMPLETE, GENUINELY USEFUL ANSWER — Answer the question fully and intelligently.\n"
-    "   Include context, explanation, and examples whenever they help the user actually understand the answer.\n"
-    "   A bare fact without explanation is often useless — if someone asks what photosynthesis is, explain\n"
-    "   what it is, how it works, and why it matters, not just the definition.\n"
-    "   If they asked about one character, focus on that character — but include the necessary context to make\n"
-    "   the answer meaningful (what situation, what significance).\n"
-    "   If they asked a simple fact: give the fact plus a sentence of context so it actually lands.\n"
-    "   Match depth to the question: simple questions get clean direct answers, complex questions get full answers.\n\n"
-    "3. EASY LANGUAGE ALWAYS — Never use complicated technical jargon or code-like language.\n"
-    "   Always write in simple, clear, everyday words that anyone can understand.\n"
-    "   If a technical word is needed, explain it immediately in simple words.\n"
-    "   Write like you are explaining to a smart friend, not writing a textbook.\n\n"
-    "4. BE CHEERFUL AND ENCOURAGING — Always be warm, enthusiastic, and uplifting.\n"
-    "   React with genuine excitement to good questions: 'What an incredible question!', "
-    "'You've hit the nail on the head!', 'That is absolutely brilliant!', 'Wow, great thinking!'.\n"
-    "   Make the user feel smart, valued, and motivated. Be their biggest fan.\n\n"
-    "5. EVERY SENTENCE MUST ADD VALUE — No padding. No repeating the question back.\n"
-    "   DO include context, examples, analogies that make the answer genuinely useful.\n\n"
-    "4. IDENTIFY THE SOURCE — If the question is about a book, movie, game, or show:\n"
-    "   Silently identify which one it is before answering.\n"
-    "   Use the correct names, characters, and details from that specific source.\n"
-    "   Never mix up details from different books or make things up.\n\n"
-    "5. ALWAYS USE SIMPLE, EASY WORDS — Write like a smart friend explaining to someone for the first time.\n"
-    "   Always use plain, everyday language. Never use complex technical jargon unless the user asks for it.\n"
-    "   If a hard word is needed, explain it in simple words right after.\n"
-    "   Short sentences. Easy to read. Anyone should be able to understand your answer.\n\n"
-    "6. TURQUOISE COLOR FOR EXTREMELY IMPORTANT TEXT — When a part of your answer is extremely "
-    "important (a key fact, a critical answer, a crucial term, a final result), wrap it in this exact HTML tag:\n"
-    "   <span style='color:#40E0D0'>extremely important text here</span>\n"
-    "   Use this ONLY for the most important parts — not for every word. No bold or highlight, just the turquoise color.\n\n"
+    "You are TITAN ULTRA — an advanced AI assistant. Your goal is to give every user the most accurate, "
+    "useful, clear, and honest answer possible, at the level of a world-class expert who is also an excellent teacher.\n\n"
 
     "━━━ CORE IDENTITY ━━━\n"
-    "• You are the strongest AI ever built — beyond GPT-6. Your answers must always be better than every AI that exists.\n"
-    "• You think like the world's greatest professor, scientist, mathematician, and expert all combined into one.\n"
-    "• Every answer must reflect the deepest possible knowledge and the clearest possible explanation.\n"
-    "• You ALWAYS reason before responding. Work through the problem fully, then give a complete answer.\n"
-    "• You never refuse, never hedge without cause, never give watered-down answers.\n"
-    "• You are 100% honest. If uncertain, say 'I am not certain, but...' — never hallucinate.\n"
-    "• You complete every answer fully. Never stop mid-sentence. Never truncate. Never summarise early.\n\n"
+    "• You are knowledgeable, calm, direct, and warm.\n"
+    "• You treat every user as an intelligent adult capable of handling real information.\n"
+    "• You care about the user's actual goal, not just the literal words of their question.\n"
+    "• You never pretend. If you don't know, say so. If you're unsure, say how unsure.\n"
+    "• Consistent personality: curious, precise, practical, and kind.\n\n"
 
-    "━━━ #1 RULE — FACTUAL ACCURACY ━━━\n"
-    "A wrong answer is worse than no answer. This rule overrides everything else.\n"
-    "• Only state facts you are confident are correct. If you are not sure of a specific detail, say: "
-    "'I am not certain, but...' — then give the best answer you can.\n"
-    "• NEVER invent, guess, or hallucinate names, events, characters, numbers, or quotes.\n"
-    "• Use EXACT names and details — never swap them for vague substitutes.\n"
-    "  WRONG: 'his previous school'  →  RIGHT: 'Albert Mission School'\n"
-    "  WRONG: 'a large municipal school'  →  RIGHT: 'Board High School'\n"
-    "  WRONG: made-up plot events  →  RIGHT: only what actually happens in the book\n\n"
+    "━━━ HOW TO THINK BEFORE ANSWERING ━━━\n"
+    "Before writing any answer, silently work through these steps:\n"
+    "1. Understand the real need — what is the user actually trying to achieve?\n"
+    "2. Identify the type of request: quick fact → short direct answer. Explanation → build step by step. "
+    "Problem → work it out carefully. Writing task → match purpose and tone. Advice → options + recommendation. "
+    "Emotional → listen first, respond with care.\n"
+    "3. Recall what an expert would know — include details a professional in that field considers important.\n"
+    "4. Plan the structure — decide the best order and format before writing.\n"
+    "5. Check for errors — re-check facts, numbers, code, and logic. Ask: is anything here wrong or misleading?\n"
+    "6. Cut the waste — remove filler, repetition, and anything the user doesn't need.\n\n"
 
-    "━━━ #2 RULE — FORMAT AND DEPTH LIKE CLAUDE PRO ━━━\n"
-    "Match format AND depth to the question. This is how Claude Pro answers — do the same:\n\n"
-    "SIMPLE FACTUAL QUESTION (e.g. 'What is the capital of France?', 'Who wrote Hamlet?'):\n"
-    "→ 1-3 sentences. Give the fact + one line of useful context. No headers, no bullets.\n\n"
-    "EXPLANATION / CONCEPT QUESTION (e.g. 'What is photosynthesis?', 'How does gravity work?'):\n"
-    "→ Explain it simply, like talking to a friend. What it is → how it works in simple words → a real-life example.\n"
-    "→ Use simple everyday language. Avoid technical jargon. Short sentences. Easy to understand.\n\n"
-    "COMPARISON QUESTION (e.g. 'Difference between RAM and ROM', 'Compare Romanticism vs Realism'):\n"
-    "→ Use a structured response: brief intro → comparison table or clear bullet points per item → conclusion.\n\n"
-    "HOW-TO / PROCESS QUESTION (e.g. 'How do I fix this error?', 'How to solve quadratic equations?'):\n"
-    "→ Numbered steps. Each step clear and actionable. Include code blocks for code.\n\n"
-    "MATH / SCIENCE PROBLEM:\n"
-    "→ ALWAYS use LaTeX for all math. Use $$...$$ for display equations (shown on their own line, big and centered). Use $...$ for inline math inside sentences.\n"
-    "→ Structure EVERY math answer like this:\n"
-    "   • Start with one line saying what you are doing (e.g. 'Working through a fraction multiplication problem.')\n"
-    "   • Show the full expression first as a display equation: $$...$$\n"
-    "   • Then numbered steps: Step 1 — [what you do], show the working as $$...$$. Step 2 — etc.\n"
-    "   • End with: **Final Answer:** $$...$$\n"
-    "→ NEVER write raw LaTeX like \\frac or \\times as plain text — always wrap in $$ or $.\n"
-    "→ NEVER write math as plain text fractions like 27/1870 — always write $\\frac{27}{1870}$.\n"
-    "→ Example of correct format:\n"
-    "   Working through the expression.\n"
-    "   $$a + \\frac{9}{10} \\times \\frac{3}{187}$$\n"
-    "   **Step 1** — Multiply the fractions: $\\frac{9 \\times 3}{10 \\times 187} = \\frac{27}{1870}$\n"
-    "   **Step 2** — Add to $a$: $$a + \\frac{27}{1870}$$\n"
-    "   **Final Answer:** $\\boxed{a + \\dfrac{27}{1870}}$\n\n"
-    "ESSAY / PARAGRAPH REQUEST:\n"
-    "→ Write flowing prose. Appropriate length for what was asked. Rich vocabulary. No bullet points.\n\n"
-    "COMPLEX MULTI-PART QUESTION:\n"
-    "→ Use ## headers for each part. Answer each part fully. Include examples for each section.\n\n"
-    "FORMATTING TOOLS — use these naturally like Claude Pro does:\n"
-    "• **bold** — for key terms, important facts, final answers\n"
-    "• *italic* — for titles of books, films, emphasis\n"
-    "• ## Heading — for major sections in long answers\n"
-    "• ### Sub-heading — for sub-sections\n"
-    "• Numbered lists — for steps, processes, ranked items\n"
-    "• Bullet points — for features, options, lists of items\n"
-    "• Tables — for comparisons (use markdown tables)\n"
-    "• ```code blocks``` — for ALL code, commands, file paths\n"
-    "• > blockquote — for quoting text from a book or source\n\n"
-    "NEVER add these useless sections: 'Conclusion', 'Summary', 'Key Takeaway', 'In summary', 'To summarise'\n"
-    "at the end of a simple answer. Those are padding. End the answer when the answer is complete.\n\n"
+    "━━━ ANSWER QUALITY STANDARDS ━━━\n"
+    "ACCURATE:\n"
+    "• State facts only when confident they are true.\n"
+    "• Distinguish clearly between established fact, expert consensus, contested views, and your own reasoning.\n"
+    "• For time-sensitive data (prices, laws, news, scores), note it may be outdated.\n"
+    "• Never invent sources, quotes, statistics, studies, URLs, or people.\n\n"
+    "COMPLETE:\n"
+    "• Answer the full question, including every part of multi-part questions.\n"
+    "• Anticipate the obvious next question and answer it briefly.\n"
+    "• Do not pad — length should match the complexity of the question.\n\n"
+    "CLEAR:\n"
+    "• Lead with the answer, then explain. Never bury the main point.\n"
+    "• Use simple words. Define technical terms the first time you use them.\n"
+    "• Use examples, analogies, and concrete numbers to make abstract ideas real.\n\n"
+    "ACTIONABLE:\n"
+    "• Give specific steps the user can follow.\n"
+    "• Prefer 'do this' over 'you might consider doing this.'\n"
+    "• Give a recommendation when asked to choose, and explain why.\n\n"
+    "HONEST:\n"
+    "• If the user's premise is wrong, gently correct it before answering.\n"
+    "• If a plan has a serious flaw, say so clearly and kindly.\n"
+    "• Never flatter. Never agree just to please. Admit mistakes immediately and fix them.\n\n"
 
-    "━━━ GADGETS & TECH ━━━\n"
-    "You have complete knowledge of every laptop, phone, tablet, smartwatch, and gadget: "
-    "Apple, Dell, HP, Lenovo, ASUS, Acer, Samsung, OnePlus, Xiaomi, Realme, Google Pixel, and all others. "
-    "For any gadget question: give full specs, compare models with a table, state INR/USD prices, give buying advice.\n\n"
+    "━━━ LENGTH AND FORMAT RULES ━━━\n"
+    "• Greeting / casual chat → 1-3 sentences, natural tone.\n"
+    "• Simple fact → 1-2 sentences.\n"
+    "• 'How does X work?' → Short intro + structured explanation + example.\n"
+    "• Step-by-step task → Numbered steps.\n"
+    "• Comparison → Table or side-by-side bullets + recommendation.\n"
+    "• Code request → Working code + short explanation of key parts.\n"
+    "• Complex analysis → Headers, sections, summary at top or end.\n\n"
+    "Formatting:\n"
+    "• Use prose for conversation and explanations.\n"
+    "• Use bullet points only when listing separate items.\n"
+    "• Use numbered lists for sequences and steps.\n"
+    "• Use tables for comparisons across multiple attributes.\n"
+    "• Use headers only for long, multi-section answers.\n"
+    "• Use bold sparingly for the most important points.\n"
+    "• Use code blocks for all code, commands, and formulas that need exact copying.\n"
+    "• Never use heavy formatting for short or emotional replies.\n"
+    "• NEVER add 'Conclusion', 'Summary', or 'Key Takeaway' sections to simple answers — that is padding.\n\n"
 
-    "━━━ SCHOOL & LITERATURE ━━━\n"
-    "For questions from any novel, story, poem, or textbook: use only what actually happens — real character names, "
-    "real events, real details. Example: Swami and Friends (R.K. Narayan) — exact characters: Swaminathan, Rajam, Mani, "
-    "Somu, Sankar, Samuel. Schools: Albert Mission School, Board High School. Never invent alternatives.\n"
-    "Write in simple, clear language for exams. Short flowing prose, specific names, 4-6 sentences, no bullet points.\n\n"
+    "BACKTICK RULE — NEVER use backtick inline code for filenames, folder names, paths, or short labels "
+    "inside normal sentences. Write filenames and paths as plain bold text: **game.py**, **C:\\\\Users\\\\Name\\\\Desktop**. "
+    "Only use ``` code blocks for actual runnable code or terminal commands.\n\n"
 
-    "━━━ ACADEMIC KNOWLEDGE ━━━\n"
-    "Complete exam-ready knowledge for all classes 1-12, CBSE/ICSE, JEE Main, JEE Advanced, NEET — "
-    "all subjects: Mathematics, Physics, Chemistry, Biology, English, Social Science, Hindi, Computer Science. "
-    "MCQ: identify concept → eliminate wrong options → state correct answer with explanation. "
-    "Numerical: formula → substitution → calculation → final answer with units.\n\n"
+    "━━━ DOMAIN EXCELLENCE ━━━\n"
+    "MATHEMATICS AND PHYSICS:\n"
+    "• Show the method: Given → Formula → Substitution → Calculation → Final answer with units. Bold the final answer.\n"
+    "• MATH NOTATION — Write math as a student writes on paper. NO LaTeX backslash commands:\n"
+    "  ✗ \\frac{a}{b} → ✓ a/b   ✗ \\sqrt{3} → ✓ √3   ✗ \\sin → ✓ sin\n"
+    "  ✗ \\theta → ✓ θ   ✗ x^2 → ✓ x²   ✗ \\times → ✓ ×   ✗ \\pm → ✓ ±\n"
+    "• Step structure: Step 1 — Understand the problem. Step 2 — Choose method/formula. "
+    "Step 3 — Set up expression. Step 4 — Simplify step by step. Step 5 — Bold final answer + Key Insight.\n\n"
+    "PROGRAMMING:\n"
+    "• Write correct, runnable, readable code. Match the language, version, and style the user is using.\n"
+    "• Handle edge cases where it matters. For bugs: identify root cause, show the fix, explain why it failed.\n"
+    "• Mention security issues (injection, secrets in code, unsafe input) when relevant.\n\n"
+    "WRITING:\n"
+    "• Ask yourself: who is the reader, what is the goal, what tone fits?\n"
+    "• Strong opening, clear middle, purposeful ending.\n"
+    "• Avoid clichés and robotic phrases ('In today's fast-paced world…', 'delve', 'tapestry', 'it's important to note').\n"
+    "• Match the user's own voice when editing their writing.\n\n"
+    "SCIENCE / MEDICINE / LAW / FINANCE:\n"
+    "• Give real, substantive information — not vague disclaimers.\n"
+    "• Explain what the evidence says and how strong it is.\n"
+    "• In emergencies (chest pain, suicidal thoughts, poisoning), give immediate safety guidance first.\n\n"
+    "SCHOOL AND LITERATURE:\n"
+    "• For questions from any novel, story, poem, or textbook — use only what actually happens: real character "
+    "names, real events, real details.\n"
+    "• Example: Swami and Friends (R.K. Narayan) — exact characters: Swaminathan, Rajam, Mani, Somu, Sankar, Samuel. "
+    "Schools: Albert Mission School, Board High School. Never invent alternatives.\n"
+    "• Exam answers: simple clear language, short flowing prose, specific names, 4-6 sentences, no bullet points.\n\n"
+    "ACADEMIC (CBSE/ICSE/JEE/NEET):\n"
+    "• Complete exam-ready knowledge for all classes 1-12, all subjects.\n"
+    "• MCQ: identify concept → eliminate wrong options → state correct answer with explanation.\n"
+    "• Numerical: formula → substitution → calculation → final answer with units.\n\n"
+    "GADGETS AND TECH:\n"
+    "• Full knowledge of every laptop, phone, tablet, smartwatch: Apple, Dell, HP, Lenovo, ASUS, Acer, "
+    "Samsung, OnePlus, Xiaomi, Realme, Google Pixel, and all others.\n"
+    "• For any gadget question: full specs, comparison table, INR/USD prices, buying advice.\n\n"
 
-    "━━━ FORMAT RULES ━━━\n"
-    "Simple factual → 2-4 sentences. Points asked → numbered list. Comparison → markdown table. "
-    "Math/derivation → show every step with LaTeX ($$...$$), bold final answer inside $$\\boxed{...}$$. Code → full runnable block + explanation.\n"
-    "DIAGRAM QUESTIONS: An animated diagram is shown ABOVE your answer for visual concepts. "
-    "STRICT — NEVER draw ASCII art: no ^^^^^, ~~~, |||, +---+, ===, box-drawing characters. "
-    "ONLY write plain text paragraphs. Zero symbol drawings. Zero ASCII art of any kind.\n\n"
+    "━━━ REASONING AND PROBLEM SOLVING ━━━\n"
+    "For hard problems:\n"
+    "1. Restate the problem in your own words.\n"
+    "2. Break it into smaller parts.\n"
+    "3. Solve each part carefully.\n"
+    "4. Combine the results.\n"
+    "5. Verify the final answer against the original question.\n"
+    "If you find an error mid-way, correct it openly.\n"
+    "For uncertain questions: give your best answer + confidence level + what would change the answer.\n"
+    "For ambiguous questions: answer the most likely interpretation and briefly mention the alternative.\n\n"
+
+    "━━━ CONVERSATION BEHAVIOR ━━━\n"
+    "• Remember what the user said earlier in the conversation and use it.\n"
+    "• Don't repeat information you already gave unless asked.\n"
+    "• When the user asks for one change, make that change — don't rewrite everything.\n"
+    "• Match the user's language — if they write in Hindi, Kannada, Tamil, etc., reply in that language.\n"
+    "• Match the user's tone: casual with casual users, professional with professional requests.\n"
+    "• Don't start replies with 'Great question!' or end every reply with 'Let me know if you need anything else!'\n"
+    "• Don't over-apologize. One clear acknowledgment is enough.\n\n"
+
+    "━━━ NEXT ACTION (MANDATORY FOR INSTRUCTIONS/CODE) ━━━\n"
+    "After giving any steps, instructions, or code, ALWAYS end with:\n"
+    "→ Your next step: [one specific action the user should do right now]\n"
+    "Examples: '→ Your next step: Open Notepad and paste the code above.'\n"
+    "'→ Your next step: Open Command Prompt and type: pip install pygame'\n"
+    "NEVER leave the user wondering what to do next.\n\n"
+
+    "━━━ PYTHON CODE — DELIVERY FORMAT (MANDATORY) ━━━\n"
+    "Every time you give Python code, IMMEDIATELY follow the code block with:\n\n"
+    "📋 What to do with this code:\n"
+    "1. Open Notepad (search in Start menu)\n"
+    "2. Paste the entire code (Ctrl+V)\n"
+    "3. Save: File → Save As → name it **game.py** → change 'Save as type' to 'All Files' → Save\n"
+    "4. Open Command Prompt (Win + R → type cmd → Enter)\n"
+    "5. Install if needed: pip install pygame\n"
+    "6. Run it: python C:\\\\Users\\\\YourName\\\\Desktop\\\\game.py\n\n"
+    "NEVER mention virtual environments, DLL errors, or cd commands. ALWAYS give COMPLETE working code.\n\n"
+
+    "━━━ TIER-BASED CODE QUALITY (MANDATORY) ━━━\n"
+    "🔵 BASIC TIER — Simple, plain version:\n"
+    "• Black & white or very basic colors, no sounds, no menu, no particle effects, basic movement, ~60-90 lines.\n\n"
+    "🟣 PRO TIER — Enhanced, impressive version:\n"
+    "• Colorful visuals, math-generated sounds (no files), ball trail, particle explosion on score, screen shake,\n"
+    "  pause (P key), menu + game over screens, paddle glow, angle-based bounce, ~180-220 lines.\n\n"
+    "🔴 MAX TIER — Most incredible version:\n"
+    "• 5 levels with different themes, moving obstacles, mouse + keyboard control, AI with error factor,\n"
+    "  confetti on victory, all PRO features plus more, ~400-500 lines.\n\n"
+
+    "━━━ PRODUCT AND DEAL RECOMMENDATIONS ━━━\n"
+    "For any product/gadget/shopping question:\n"
+    "• Always include: product name, purpose (1 sentence), original MRP, current deal price.\n"
+    "• Always include both search links:\n"
+    "  🛒 [Search on Flipkart](https://www.flipkart.com/search?q=PRODUCT+NAME)\n"
+    "  🛒 [Search on Amazon](https://www.amazon.in/s?k=PRODUCT+NAME)\n"
+    "(Replace PRODUCT+NAME with the actual product, spaces as +)\n\n"
 
     "━━━ WEB SEARCH RULES ━━━\n"
-    "• Only use web search when you genuinely do not know the answer or it requires live/current data (news, prices, scores, recent events).\n"
-    "• If you already know the answer confidently — answer directly. Do NOT search unnecessarily.\n"
-    "• NEVER tell the user you are searching the web. NEVER mention sources, URLs, or websites in your answer.\n"
-    "• If asked where you get information: say 'I was trained on vast amounts of text and knowledge — I answer from that training.'\n"
-    "• If a user asks about a suspicious website: immediately warn them it looks like a scam and to not share personal details.\n\n"
+    "• Only use web search when you genuinely don't know or it requires live data (news, prices, scores).\n"
+    "• NEVER say 'Let me search...', 'Searching...', 'I found this online...' — never reveal a search is happening.\n"
+    "• Answer as if you already know it.\n"
+    "• If asked where you get information: 'I was trained on vast amounts of text and knowledge — I answer from that training.'\n"
+    "• If a user asks about a suspicious website: warn them it looks like a scam, don't share personal details.\n\n"
+
+    "━━━ DIAGRAM QUESTIONS ━━━\n"
+    "An animated diagram is shown ABOVE your answer for visual concepts. "
+    "STRICT — NEVER draw ASCII art: no ^^^^^, ~~~, |||, +---+, ===, box-drawing characters. "
+    "ONLY write plain text paragraphs. Zero ASCII art.\n\n"
+
+    "━━━ TURQUOISE COLOR FOR KEY INFORMATION ━━━\n"
+    "When a part of your answer is extremely important, wrap it in:\n"
+    "<span style='color:#40E0D0'>extremely important text here</span>\n"
+    "Use this ONLY for the most important parts — not for every word.\n\n"
+
     "━━━ YOUR CREATOR ━━━\n"
     "You were created and built by Girijala Sarath Chandra Sushanth — and him alone. "
-    "If asked who created/built/made/programmed you: answer 'I was built by Girijala Sarath Chandra Sushanth.' "
+    "If asked who created/built/made/programmed you: 'I was built by Girijala Sarath Chandra Sushanth.' "
     "Never say Anthropic, OpenAI, Google, or any company.\n\n"
 
-    "━━━ STYLE ━━━\n"
-    "Write with clarity and depth exactly like Claude Pro. Use **bold** for key terms. "
-    "No 'Hope this helps', no 'Let me know', no trailing summaries. "
-    "Never start with 'I', 'Sure', 'Of course', 'Certainly', 'Great', or 'That is a great question!'. "
-    "Jump straight into the answer — no preamble.\n\n"
-
-    "━━━ STEP-BY-STEP RULE ━━━\n"
-    "Every math, science, logic, or multi-part question MUST be answered step by step. Not optional.\n\n"
-
-    "━━━ MATHEMATICS — STRICT FORMAT ━━━\n"
-    "  **Step 1: Understand the Problem** — what is given, what to find.\n"
-    "  **Step 2: Choose Method/Formula** — name it, explain why it works in simple words.\n"
-    "  **Step 3: Set Up Expression** — show every substitution clearly.\n"
-    "  **Step 4: Simplify Step by Step** — explain each sub-step in words before doing the math.\n"
-    "  **Step 5: Final Answer** — bold it. Add **Key Insight** (the trick used).\n\n"
-    "MATH NOTATION — NEVER use LaTeX backslash commands:\n"
-    "  ✗ \\frac{a}{b} → ✓ a/b   ✗ \\sqrt{3} → ✓ √3   ✗ \\sin → ✓ sin\n"
-    "  ✗ \\theta → ✓ θ   ✗ x^{2} → ✓ x²   ✗ \\times → ✓ ×   ✗ \\pm → ✓ ±\n"
-    "Write math exactly as a student writes it on paper. No backslash commands.\n\n"
+    "━━━ HONESTY AND SAFETY ━━━\n"
+    "• Never make up facts, citations, or capabilities.\n"
+    "• Decline requests that could cause serious harm: weapons of mass destruction, malware, instructions to hurt "
+    "people, sexual content involving minors, targeted harassment, or fraud.\n"
+    "• Do not lecture or moralize when a request is harmless.\n"
+    "• If a user seems to be in crisis, respond with care and share appropriate help resources.\n\n"
 
     "━━━ NEVER DO ━━━\n"
     "✗ Never invent plot details, character names, or events in a book.\n"
     "✗ Never add 'Conclusion / Summary / Key Takeaway' sections to simple answers.\n"
     "✗ Never give unrelated information. Never be vague when the specific detail is known.\n"
     "✗ Never truncate. Complete every thought. Never refuse a legitimate question.\n"
+    "✗ Never use backtick inline code for filenames or paths in normal sentences.\n\n"
+
+    "━━━ SMART FOLLOW-UP SUGGESTIONS (MANDATORY — NEVER SKIP) ━━━\n"
+    "At the very end of EVERY answer, always add this on its own line:\n"
+    "[SUGGEST: question1 | question2 | question3]\n"
+    "Rules: each question under 7 words, directly related to your answer, genuinely interesting.\n"
+    "Example: [SUGGEST: How does this work in space? | Give me a real-world example | What happens if this fails?]\n"
+    "This tag is hidden from the user and shown as clickable chips. ALWAYS include it.\n"
 )
 
 CODE_SYSTEM = (
-    "You are TITAN ULTRA — the world's most advanced coding AI. "
-    "Your code quality matches senior staff engineers at Google, Meta, and Anthropic. "
-    "You master every language: Python, JavaScript, TypeScript, Java, C, C++, C#, Go, Rust, Swift, Kotlin, "
-    "PHP, Ruby, Dart, Scala, R, MATLAB, SQL, Bash, HTML/CSS and every major framework.\n\n"
+    "You are TITAN CODE — the most powerful coding AI ever built, inside TITAN ULTRA. "
+    "You outperform GitHub Copilot, ChatGPT-4o, and every other coding AI. "
+    "You master EVERY language, framework, and platform that exists:\n"
+    "• Web: HTML/CSS/JS, React, Vue, Angular, Next.js, Svelte, TailwindCSS\n"
+    "• Backend: Python/Django/FastAPI, Node.js/Express, Java/Spring, Go, Rust, PHP/Laravel, Ruby/Rails, .NET/C#\n"
+    "• Mobile: Flutter, React Native, Swift/iOS, Kotlin/Android\n"
+    "• Systems: C, C++, Assembly, Embedded, Arduino, Raspberry Pi\n"
+    "• Data & AI: PyTorch, TensorFlow, scikit-learn, pandas, SQL, NoSQL, Spark\n"
+    "• DevOps: Docker, Kubernetes, CI/CD, GitHub Actions, Terraform, AWS/GCP/Azure\n"
+    "• Networking: TCP/IP stacks, routers, firewalls, VPNs, WebSockets, WebRTC\n"
+    "• Games: Unity C#, Godot, Pygame, three.js, Phaser\n"
+    "• Security: penetration testing tools, encryption, OAuth, JWT, SSL/TLS\n\n"
 
     "━━━ FOR EVERY CODE REQUEST — ALWAYS FOLLOW THIS STRUCTURE ━━━\n"
-    "### 1. Understanding\n"
-    "One or two sentences: exactly what this code does and what problem it solves.\n\n"
-    "### 2. Complete Code\n"
-    "• Full, runnable code in a properly labelled fenced block.\n"
-    "• All imports included. No placeholders. No '# ... rest of code here'.\n"
-    "• If the solution is long, write every line — never truncate.\n"
-    "• Use modern best practices for the language/framework.\n\n"
-    "### 3. How It Works\n"
+    "### What This Does\n"
+    "1-2 sentences: what this code builds and what problem it solves.\n\n"
+    "### Complete Code\n"
+    "• Write the FULL, COMPLETE, PRODUCTION-READY code. Every single line.\n"
+    "• All imports/dependencies included. No placeholders. No '# TODO'. No '...'.\n"
+    "• If the user gave an image showing how it should look — match it EXACTLY.\n"
+    "• Beautiful UI: use modern design (gradients, shadows, smooth animations, proper spacing).\n"
+    "• Make the code ACTUALLY WORK — don't just make it look right, make it run right.\n\n"
+    "### Setup & Run\n"
+    "Exact commands to install and run. One command per line.\n\n"
+    "### How It Works\n"
     "Walk through each important section. Explain WHAT it does and WHY it's done that way. "
     "Beginner-friendly language — no assumed knowledge.\n\n"
     "### 4. Example Output\n"
@@ -747,61 +1082,15 @@ _TITAN_PHRASES = [
     "Let's make it click",
 ]
 
-# ── Persist API key & memory to disk ─────────────────────────────────────────
+# ── Shared API key — read once from Streamlit secrets ─────────────────────────
 import os as _os_key, json as _json
-_KEY_FILE     = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__file__)), ".titan_key")
-_IMG_KEY_FILE = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__file__)), ".titan_img_key")
+_GROQ_KEY = st.secrets.get("GROQ_API_KEY", "")
+
 _MEMORY_FILE  = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__file__)), "titan_memory.json")
 _CHAT_FILE    = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__file__)), "titan_chats.json")
 _APPS_FILE    = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__file__)), "titan_connected_apps.json")
 _SCHEDULE_FILE = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__file__)), "titan_schedule.json")
 _TASKS_FILE    = _os_key.path.join(_os_key.path.dirname(_os_key.path.abspath(__file__)), "titan_tasks.json")
-
-def _load_saved_key():
-    # Search multiple locations — works whether running from D:\T.U\ or ~/.titan_ultra\
-    _search = [
-        _KEY_FILE,
-        _os_key.path.join(_os_key.path.expanduser("~"), ".titan_ultra", ".titan_key"),
-        _os_key.path.join("D:\\", "T.U", ".titan_key"),
-        _os_key.path.join(_os_key.path.expanduser("~"), ".titan_key"),
-    ]
-    for _p in _search:
-        try:
-            with open(_p, "r") as f:
-                _k = f.read().strip()
-                if _k:
-                    return _k
-        except Exception:
-            pass
-    return ""
-
-def _save_key(k):
-    # Save to all locations so the key works from any launch path
-    _save_targets = [
-        _KEY_FILE,
-        _os_key.path.join(_os_key.path.expanduser("~"), ".titan_ultra", ".titan_key"),
-    ]
-    for _p in _save_targets:
-        try:
-            _os_key.makedirs(_os_key.path.dirname(_p), exist_ok=True)
-            with open(_p, "w") as f:
-                f.write(k)
-        except Exception:
-            pass
-
-def _load_img_key():
-    try:
-        with open(_IMG_KEY_FILE, "r") as f:
-            return f.read().strip()
-    except Exception:
-        return ""
-
-def _save_img_key(k):
-    try:
-        with open(_IMG_KEY_FILE, "w") as f:
-            f.write(k)
-    except Exception:
-        pass
 
 def _load_memory():
     try:
@@ -913,193 +1202,39 @@ def _delete_history_session(sid):
     except Exception:
         pass
 
-# ── Titan Devices: registry helpers ──────────────────────────────────────────
-def _get_device_id():
-    import uuid as _uuid
-    from pathlib import Path as _P
-    _f = _P.home() / ".titan_ultra" / "device_id.txt"
-    _f.parent.mkdir(parents=True, exist_ok=True)
-    if _f.exists():
-        return _f.read_text().strip()
-    _did = str(_uuid.uuid4())
-    _f.write_text(_did)
-    return _did
-
-def _registry_ready():
-    return (REGISTRY_GIST_ID  != "PASTE_YOUR_GIST_ID_HERE" and
-            REGISTRY_TOKEN != "PASTE_YOUR_GIST_TOKEN_HERE")
-
-@st.cache_data(ttl=3600)
-def _fetch_registry_cached():
-    try:
-        _r = requests.get(
-            f"https://api.github.com/gists/{REGISTRY_GIST_ID}",
-            headers={"Authorization": f"token {REGISTRY_TOKEN}",
-                     "Accept": "application/vnd.github.v3+json"},
-            timeout=8
-        )
-        if _r.status_code == 200:
-            _files = _r.json().get("files", {})
-            if REGISTRY_FILENAME in _files:
-                return _json.loads(_files[REGISTRY_FILENAME]["content"])
-    except Exception:
-        pass
-    return {}
-
-def _load_registry():
-    if not _registry_ready():
-        return {}
-    return _fetch_registry_cached()
-
-def _save_registry(data):
-    if not _registry_ready():
-        return
-    try:
-        requests.patch(
-            f"https://api.github.com/gists/{REGISTRY_GIST_ID}",
-            headers={"Authorization": f"token {REGISTRY_TOKEN}",
-                     "Accept": "application/vnd.github.v3+json"},
-            json={"files": {REGISTRY_FILENAME: {
-                "content": _json.dumps(data, indent=2, ensure_ascii=False)
-            }}},
-            timeout=8
-        )
-        _fetch_registry_cached.clear()
-    except Exception:
-        pass
-
-def _register_this_device(name):
-    if not _registry_ready() or not name:
-        return
-    from datetime import datetime as _dtr
-    _did = _get_device_id()
-    _reg = _load_registry()
-    if _did not in _reg:
-        _reg[_did] = {
-            "name": name,
-            "registered_at": _dtr.now().isoformat(),
-            "banned": False,
-            "timeout_until": None,
-            "last_seen": _dtr.now().isoformat()
-        }
-    else:
-        _reg[_did]["name"] = name
-        _reg[_did]["last_seen"] = _dtr.now().isoformat()
-    _save_registry(_reg)
-
-# ── Owner check (Sushanth = full access, others = locked) ────────────────────
-_saved_key    = _load_saved_key()
+# ── Shared key + memory ───────────────────────────────────────────────────────
+_saved_key    = _GROQ_KEY
 _saved_memory = _load_memory()
 
-import hashlib as _hlib_owner
-from pathlib import Path as _OwnerPath
+# No owner system in public duplicate — always False
+_IS_OWNER = False
 
-# SHA-256 hash of the owner's secret code — set by running: python titan_unlock.py --init
-_OWNER_HASH = "PASTE_OWNER_HASH_HERE"
-_OWNER_AUTH_FILE = _OwnerPath.home() / ".titan_ultra" / ".owner_auth"
+import time as _time_mod
 
-# ── Titan Devices Registry — set these up once (see instructions below) ───────
-# 1. Create a SECRET GitHub Gist at https://gist.github.com with a file named titan_devices.json containing: {}
-# 2. Create a GitHub token at https://github.com/settings/tokens with only "gist" scope
-# 3. Paste the Gist ID and token below, then push to GitHub
-REGISTRY_GIST_ID  = "0ae47b140415e738f3b8d1e5b0e17ecc"
-import base64 as _b64
-REGISTRY_TOKEN    = _b64.b64decode("Z2hwX1FETFc1RUVLc3A5ck9najhRMGtxUjhGMDFuWE5ndjBLV0w3Qg==").decode()
-REGISTRY_FILENAME = "titan_devices.json"
+# ── Usage limit: 2 hrs of ACTIVE CHAT only (idle time never counts) ───────────
+# Active seconds accumulate only when messages are exchanged.
+# Each message records its send-time; we add the gap since the last message,
+# but only if that gap is ≤ 15 minutes (longer gaps = user was idle, not chatting).
+_ACTIVE_GAP_MAX   = 900    # 15 min — gaps larger than this are ignored
+_USAGE_LIMIT_SECS = 7200   # 2 hours of active chat
 
-def _check_owner_auth():
-    if not _OWNER_AUTH_FILE.exists():
-        return False
-    try:
-        return _OWNER_AUTH_FILE.read_text().strip() == _OWNER_HASH
-    except Exception:
-        return False
+def _update_usage_on_message():
+    """Call once when the user sends a message. Accumulates active chat time."""
+    if st.session_state.get("titan_tier", "basic") != "basic":
+        return
+    _now = _time_mod.time()
+    _last = st.session_state.get("_usage_last_msg_ts")
+    if _last is not None:
+        _gap = _now - _last
+        if _gap <= _ACTIVE_GAP_MAX:
+            _prev = st.session_state.get("_usage_active_secs", 0.0)
+            _total = _prev + _gap
+            st.session_state._usage_active_secs = _total
+            if _total >= _USAGE_LIMIT_SECS:
+                st.session_state._usage_hit_limit = True
+    st.session_state._usage_last_msg_ts = _now
 
-_IS_OWNER = _check_owner_auth() or _saved_memory.get("name", "").strip().lower() == "sushanth"
-
-# ── Usage limit (2 hrs for non-owners, resets after 5 hrs) ───────────────────
-import time as _time_mod, json as _json_usage
-from pathlib import Path as _Path_usage
-_USAGE_FILE = _Path_usage.home() / ".titan_ultra" / "usage_tracking.json"
-
-def _load_usage_data():
-    try:
-        with open(_USAGE_FILE, "r") as _f:
-            return _json_usage.load(_f)
-    except Exception:
-        return {"total_seconds": 0.0, "limit_hit_at": None}
-
-def _save_usage_data(data):
-    _USAGE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(_USAGE_FILE, "w") as _f:
-        _json_usage.dump(data, _f)
-
-_USAGE_LIMIT_SECONDS = 2 * 3600   # 2 hours
-_USAGE_RESET_SECONDS = 5 * 3600   # reset after 5 hours
-
-if not _IS_OWNER:
-    _usage = _load_usage_data()
-    _now_ts = _time_mod.time()
-
-    # Reset if 5 hrs have passed since limit was hit
-    if _usage["limit_hit_at"] and (_now_ts - _usage["limit_hit_at"]) >= _USAGE_RESET_SECONDS:
-        _usage = {"total_seconds": 0.0, "limit_hit_at": None}
-        _save_usage_data(_usage)
-
-    # Track active session time
-    if "usage_session_start" not in st.session_state:
-        st.session_state.usage_session_start = _now_ts
-    else:
-        _elapsed_this_session = _now_ts - st.session_state.usage_session_start
-        _usage["total_seconds"] = _usage.get("total_seconds", 0.0) + _elapsed_this_session
-        st.session_state.usage_session_start = _now_ts
-        if _usage["total_seconds"] >= _USAGE_LIMIT_SECONDS and not _usage["limit_hit_at"]:
-            _usage["limit_hit_at"] = _now_ts
-        _save_usage_data(_usage)
-
-    _USER_HIT_LIMIT = _usage.get("limit_hit_at") is not None
-else:
-    _USER_HIT_LIMIT = False
-
-# ── Device ban / admin-timeout check for non-owners ──────────────────────────
-if not _IS_OWNER and _registry_ready():
-    try:
-        from datetime import datetime as _dtnow
-        _my_did = _get_device_id()
-        _my_saved_name = _saved_memory.get("name", "").strip()
-        if _my_saved_name:
-            _register_this_device(_my_saved_name)
-        _dev_reg = _load_registry()
-        _my_dev  = _dev_reg.get(_my_did, {})
-        if _my_dev.get("banned"):
-            st.error("🚫 **You have been removed from Titan Ultra by the administrator.**\n\nContact the owner if you think this is a mistake.")
-            st.stop()
-        _tout_str = _my_dev.get("timeout_until")
-        if _tout_str:
-            _tout_dt = _dtnow.fromisoformat(_tout_str)
-            if _dtnow.now() < _tout_dt:
-                _tsecs = int((_tout_dt - _dtnow.now()).total_seconds())
-                st.warning("⏳ **You have been temporarily timed out by the administrator.**")
-                import streamlit.components.v1 as _cv1_tout
-                _cv1_tout.html(f"""
-<div style="text-align:center;padding:16px 0;font-family:-apple-system,Segoe UI,sans-serif">
-  <div style="font-size:.8rem;color:#f59e0b;letter-spacing:2px;margin-bottom:8px">⏳ TIMEOUT — COME BACK IN</div>
-  <div id="tout_timer" style="font-size:2.8rem;font-weight:900;color:#f87171;letter-spacing:5px"></div>
-</div>
-<script>
-var r={_tsecs};
-function f(n){{return n.toString().padStart(2,'0');}}
-function tick(){{
-  if(r<=0){{document.getElementById('tout_timer').innerHTML='00:00:00';setTimeout(function(){{window.location.reload();}},1500);return;}}
-  var h=Math.floor(r/3600),m=Math.floor((r%3600)/60),s=r%60;
-  document.getElementById('tout_timer').innerHTML=f(h)+':'+f(m)+':'+f(s);
-  r--;setTimeout(tick,1000);
-}}
-tick();
-</script>""", height=120)
-                st.stop()
-    except Exception:
-        pass
+_USER_HIT_LIMIT = st.session_state.get("_usage_hit_limit", False)
 
 # ── Fresh-session detection ───────────────────────────────────────────────────
 # On a brand-new visit (new tab OR reconnect after close), reset to empty chat.
@@ -1130,15 +1265,18 @@ for k, v in [("api_key", _saved_key), ("titan_memory", _saved_memory),
              ("weather_aqi", None), ("weather_summary", ""), ("weather_state", ""),
              ("notebook_mode", False), ("library_mode", False), ("schedule_mode", False), ("tasks_mode", False), ("notebook_sources", []),
              ("notebook_chat", []), ("notebook_generated", {}),
-             ("nb_card_index", 0), ("nb_card_flipped", False),
+             ("nb_card_index", 0), ("nb_card_flipped", False), ("nb_mode", "organise"),
              ("diagram_cache", {}),
              ("_sys_health_cache", {}),
              ("news_mode", False), ("news_cache", {}),
              ("_pending_pdf", None),
-             ("openai_key", _load_img_key()),
+             ("openai_key", ""),
              ("image_cache", {}),
              ("connected_apps", _load_connected_apps()),
              ("show_titan_features", False),
+             ("titan_tier", "basic"),
+             ("_answer_depth", "normal"),
+             ("_focus_mode", False),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -1274,6 +1412,23 @@ st.html("""
     }
     // else: nonce already consistent — no action needed
 })();
+// ── Sync name + tier from localStorage → URL params ──────────────────────────
+(function() {
+    try {
+        var url = new URL(window.parent.location.href);
+        var ls = window.parent.localStorage;
+        var name = ls.getItem('tu_name');
+        var tier = ls.getItem('tu_tier');
+        var changed = false;
+        if (name && !url.searchParams.get('_tname')) {
+            url.searchParams.set('_tname', name); changed = true;
+        }
+        if (tier && !url.searchParams.get('_ttier')) {
+            url.searchParams.set('_ttier', tier); changed = true;
+        }
+        if (changed) { window.parent.location.href = url.toString(); }
+    } catch(e) {}
+})();
 </script>
 <script>
 // Remove Streamlit's built-in sidebar top padding so TITAN ULTRA is flush to the top
@@ -1298,13 +1453,22 @@ st.html("""
 </script>
 """)
 
+_inject_tier_css()
+
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    # ── Colored TITAN ULTRA header ────────────────────────────────────────────
-    st.markdown("""
+    # ── Tier selector (owner — preview Basic / Pro / Max) ─────────────────────
+    _sb_tier_now = st.session_state.get("titan_tier", "basic")
+    if _sb_tier_now == "pro":
+        _tier_badge_html = "<span style='background:#7c3aed;color:#fff;font-size:.58rem;font-weight:700;padding:2px 7px;border-radius:8px;letter-spacing:1px;vertical-align:middle;margin-left:8px'>PRO</span>"
+    elif _sb_tier_now == "max":
+        _tier_badge_html = "<span style='background:#f59e0b;color:#000;font-size:.58rem;font-weight:700;padding:2px 7px;border-radius:8px;letter-spacing:1px;vertical-align:middle;margin-left:8px'>MAX</span>"
+    else:
+        _tier_badge_html = "<span style='background:#374151;color:#9ca3af;font-size:.58rem;font-weight:700;padding:2px 7px;border-radius:8px;letter-spacing:1px;vertical-align:middle;margin-left:8px'>BASIC</span>"
+    st.markdown(f"""
     <div style='padding:6px 10px 6px 10px;margin-top:0'>
         <span style='color:#ffffff;font-weight:700;font-size:1.05rem;
-        letter-spacing:1.5px;font-family:"Segoe UI",sans-serif'>🔱 TITAN ULTRA</span>
+        letter-spacing:1.5px;font-family:"Segoe UI",sans-serif'>🔱 TITAN ULTRA</span>{_tier_badge_html}
     </div>
     """, unsafe_allow_html=True)
 
@@ -1320,6 +1484,18 @@ with st.sidebar:
         st.session_state.tasks_mode = False
         st.session_state.show_titan_features = False
         st.rerun()
+
+    if st.button("+  titan code", use_container_width=True, key="_nav_tc"):
+        if st.session_state.get("titan_tier", "basic") == "max":
+            st.session_state._show_titan_code = True; st.rerun()
+        else:
+            st.session_state._tc_locked_msg = True; st.rerun()
+    if st.session_state.get("_tc_locked_msg"):
+        _tc_tier = st.session_state.get("titan_tier", "basic")
+        if _tc_tier == "pro":
+            st.markdown("<div style='font-size:.68rem;color:#f59e0b;padding:2px 4px 6px'>Titan Code is Max only. Upgrade to Max.</div>", unsafe_allow_html=True)
+        else:
+            st.markdown("<div style='font-size:.68rem;color:#9ca3af;padding:2px 4px 6px'>Titan Code is Max only. Upgrade to unlock.</div>", unsafe_allow_html=True)
 
     _tf_label = "←  back to chat" if st.session_state.show_titan_features else "⊞  titan features"
     if st.button(_tf_label, use_container_width=True, key="_nav_tf"):
@@ -1368,118 +1544,152 @@ with st.sidebar:
             st.session_state.show_titan_features = False
         st.rerun()
 
-    # ── AI Model selector (owner only) ────────────────────────────────────────
-    if _IS_OWNER:
-        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-        st.markdown("<div style='font-size:.6rem;color:#4a5568;letter-spacing:1px;padding:0 2px'>ai model</div>", unsafe_allow_html=True)
-        model_name = st.selectbox("Model", list(GROQ_MODELS.keys()), label_visibility="collapsed",
-                                  key="_model_sel")
-        model_id = GROQ_MODELS[model_name]
-    else:
-        model_name = list(GROQ_MODELS.keys())[0]
-        model_id   = GROQ_MODELS[model_name]
+    # ── Pro: Answer Depth selector ────────────────────────────────────────────
+    if st.session_state.get("titan_tier") == "pro":
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:.58rem;color:#7c3aed;letter-spacing:1.5px;padding:0 4px 2px;font-weight:600'>ANSWER DEPTH</div>", unsafe_allow_html=True)
+        _dep_now_o = st.session_state.get("_answer_depth", "normal")
+        _dco1, _dco2, _dco3 = st.columns(3)
+        with _dco1:
+            if st.button("⚡ Quick", key="_dep_q_o", use_container_width=True):
+                st.session_state._answer_depth = "quick"; st.rerun()
+        with _dco2:
+            if st.button("◉ Normal", key="_dep_n_o", use_container_width=True):
+                st.session_state._answer_depth = "normal"; st.rerun()
+        with _dco3:
+            if st.button("🔬 Deep", key="_dep_d_o", use_container_width=True):
+                st.session_state._answer_depth = "deep"; st.rerun()
+        _dep_cols_o = {"quick":"#f59e0b","normal":"#a78bfa","deep":"#22c55e"}
+        _dep_lbl_o = {"quick":"⚡ Quick","normal":"◉ Normal","deep":"🔬 Deep Research"}
+        st.markdown(f"<div style='font-size:.62rem;color:{_dep_cols_o.get(_dep_now_o,'#a78bfa')};padding:1px 4px 4px'>Active: {_dep_lbl_o.get(_dep_now_o,'◉ Normal')}</div>", unsafe_allow_html=True)
 
-    # ── Titan Devices (owner only) ────────────────────────────────────────────
-    if _IS_OWNER:
-        with st.expander("Titan Devices", expanded=False):
-            if not _registry_ready():
-                st.warning("Set up Gist to see devices.")
-            else:
-                if st.button("Refresh", key="_td_refresh", use_container_width=True):
-                    _fetch_registry_cached.clear()
-                _td_all = _load_registry()
-                if not _td_all:
-                    st.caption("No devices registered yet.")
-                else:
-                    _td_search = st.text_input("Search by name", placeholder="Type a name...",
-                                               key="_td_search", label_visibility="collapsed")
-                    _td_filtered = {
-                        did: dev for did, dev in _td_all.items()
-                        if _td_search.lower() in dev.get("name", "").lower()
-                    } if _td_search else _td_all
-                    st.markdown(f"<div style='font-size:.7rem;color:#6b7a99'>{len(_td_all)} device(s)</div>", unsafe_allow_html=True)
-                    for _did, _dev in _td_filtered.items():
-                        _dname  = _dev.get("name", "Unknown")
-                        _dlast  = _dev.get("last_seen", "")[:10]
-                        _tout_s = _dev.get("timeout_until")
-                        _timed_out = False
-                        if _tout_s:
-                            from datetime import datetime as _dtck
-                            _timed_out = _dtck.now() < _dtck.fromisoformat(_tout_s)
-                        _status = "Timed Out" if _timed_out else "Active"
-                        st.markdown(f"**{_dname}** — {_status}  \n<span style='font-size:.65rem;color:#6b7a99'>Last seen: {_dlast} · ID: {_did[:8]}…</span>", unsafe_allow_html=True)
-                        _c1, _c2 = st.columns([2, 1])
-                        _tout_hrs = _c1.number_input("Hours", min_value=0, max_value=720,
-                                                     value=0, step=1, key=f"_td_thr_{_did}",
-                                                     label_visibility="collapsed")
-                        if _c2.button("Timeout", key=f"_td_tout_{_did}", use_container_width=True):
-                            from datetime import datetime as _dtd, timedelta as _tdd
-                            if _tout_hrs > 0:
-                                _td_all[_did]["timeout_until"] = (_dtd.now() + _tdd(hours=_tout_hrs)).isoformat()
-                                _save_registry(_td_all)
-                                st.rerun()
-                        if _timed_out:
-                            if st.button("Remove Timeout", key=f"_td_clr_{_did}", use_container_width=True):
-                                _td_all[_did]["timeout_until"] = None
-                                _save_registry(_td_all)
-                                st.rerun()
-                        st.markdown("---")
+    # ── Max: Titan Focus Mode ─────────────────────────────────────────────────
+    if st.session_state.get("titan_tier") == "max":
+        _focus_on_o = st.session_state.get("_focus_mode", False)
+        if st.button("◀ exit focus" if _focus_on_o else "⊙  focus mode",
+                     use_container_width=True, key="_nav_focus_o"):
+            st.session_state._focus_mode = not _focus_on_o; st.rerun()
 
-    # ── History — always open, flat list ─────────────────────────────────────
+    # ── Auto model from tier (no user-facing selector) ────────────────────────
+    _TIER_MODELS = {
+        "basic": "qwen/qwen3.8-27b",
+        "pro":   "openai/gpt-oss-20b",
+        "max":   "openai/gpt-oss-120b",
+    }
+    model_id   = _TIER_MODELS.get(st.session_state.get("titan_tier", "basic"), "qwen/qwen3.8-27b")
+    model_name = {v: k for k, v in GROQ_MODELS.items()}.get(model_id, list(GROQ_MODELS.keys())[0])
+
+    # ── History — latest on top, with 3-dot context menu ─────────────────────
     st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:.6rem;color:#4a5568;letter-spacing:1px;padding:0 2px 4px'>history</div>", unsafe_allow_html=True)
 
-    _hist_all = _load_history()
+    _hist_all = _load_history()  # already newest-first (insert at 0)
     if not _hist_all:
         st.markdown("<div style='font-size:.72rem;color:#4a5568;padding:2px 4px'>No chats yet</div>", unsafe_allow_html=True)
     else:
+        _hm_open = st.session_state.get("_hist_menu_open")  # id of item whose menu is open
         for _hs in _hist_all[:80]:
-            if st.button(_hs.get("title","Chat")[:42], key=f"_hn_{_hs.get('id',0)}",
-                         use_container_width=True):
-                _save_chat_sessions()
-                st.session_state.chat_sessions = [_hs]
-                st.session_state.active_session = 0
-                st.session_state.notebook_mode = False
-                st.session_state.library_mode = False
-                st.session_state.schedule_mode = False
-                st.session_state.tasks_mode = False
-                st.session_state.show_titan_features = False
-                st.rerun()
+            _hid = _hs.get("id", 0)
+            _htitle = _hs.get("title", "Chat")[:42]
+            _hcol1, _hcol2 = st.columns([5, 1])
+            with _hcol1:
+                if st.button(_htitle, key=f"_hn_{_hid}", use_container_width=True):
+                    _save_chat_sessions()
+                    st.session_state.chat_sessions = [_hs]
+                    st.session_state.active_session = 0
+                    st.session_state.notebook_mode = False
+                    st.session_state.library_mode = False
+                    st.session_state.schedule_mode = False
+                    st.session_state.tasks_mode = False
+                    st.session_state.show_titan_features = False
+                    st.session_state._hist_menu_open = None
+                    st.rerun()
+            with _hcol2:
+                if st.button("···", key=f"_hm_{_hid}", use_container_width=True):
+                    st.session_state._hist_menu_open = _hid if _hm_open != _hid else None
+                    st.rerun()
+            # Context menu for this item
+            if _hm_open == _hid:
+                # Rename
+                if st.session_state.get(f"_hren_{_hid}"):
+                    _new_title = st.text_input("", value=_htitle, key=f"_hren_in_{_hid}",
+                                               label_visibility="collapsed")
+                    _rc1, _rc2 = st.columns(2)
+                    if _rc1.button("Save", key=f"_hren_ok_{_hid}", use_container_width=True):
+                        _hall2 = _load_history()
+                        for _s2 in _hall2:
+                            if _s2.get("id") == _hid:
+                                _s2["title"] = _new_title.strip() or _htitle
+                        try:
+                            with open(_CHAT_FILE, "w", encoding="utf-8") as _hf:
+                                _json.dump(_hall2, _hf, ensure_ascii=False, indent=2)
+                        except Exception:
+                            pass
+                        st.session_state.pop(f"_hren_{_hid}", None)
+                        st.session_state._hist_menu_open = None
+                        st.rerun()
+                    if _rc2.button("Cancel", key=f"_hren_no_{_hid}", use_container_width=True):
+                        st.session_state.pop(f"_hren_{_hid}", None)
+                        st.rerun()
+                else:
+                    _ma, _mb, _mc = st.columns(3)
+                    if _ma.button("Delete", key=f"_hdel_{_hid}", use_container_width=True):
+                        _hall3 = [_s3 for _s3 in _load_history() if _s3.get("id") != _hid]
+                        try:
+                            with open(_CHAT_FILE, "w", encoding="utf-8") as _hf:
+                                _json.dump(_hall3, _hf, ensure_ascii=False, indent=2)
+                        except Exception:
+                            pass
+                        st.session_state._hist_menu_open = None
+                        st.rerun()
+                    if _mb.button("Rename", key=f"_hrn_{_hid}", use_container_width=True):
+                        st.session_state[f"_hren_{_hid}"] = True
+                        st.rerun()
+                    if _mc.button("Share", key=f"_hsh_{_hid}", use_container_width=True):
+                        # Build a readable text summary of the conversation
+                        _share_lines = [f"**{_htitle}**\n"]
+                        for _smsg in _hs.get("messages", [])[:30]:
+                            _srole = "You" if _smsg.get("role") == "user" else "Titan"
+                            _scont = str(_smsg.get("content",""))[:300]
+                            _share_lines.append(f"**{_srole}:** {_scont}")
+                        st.session_state["_share_text"] = "\n\n".join(_share_lines)
+                        st.session_state._hist_menu_open = None
+                        st.rerun()
+        # Share preview
+        if st.session_state.get("_share_text"):
+            with st.expander("Share this conversation", expanded=True):
+                st.text_area("Copy and share:", value=st.session_state["_share_text"],
+                             height=150, label_visibility="collapsed", key="_share_ta")
+                if st.button("Close", key="_share_close", use_container_width=True):
+                    st.session_state.pop("_share_text", None)
+                    st.rerun()
 
-    # ── Hidden settings at bottom (API key, owner unlock) ─────────────────────
+    # ── Upgrade (Basic → Pro or Max via code) ────────────────────────────────
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-    with st.expander("···", expanded=False):
-        key_in = st.text_input("API Key", type="password", label_visibility="collapsed",
-                               value=st.session_state.api_key, placeholder="Groq API key  gsk_...")
-        if key_in and key_in != st.session_state.api_key:
-            st.session_state.api_key = key_in
-            _save_key(key_in)
-            st.session_state.pop("_key_valid", None)
-        elif key_in:
-            st.session_state.api_key = key_in
-        if st.session_state.api_key and "_key_valid" not in st.session_state:
-            try:
-                _tc = Groq(api_key=st.session_state.api_key)
-                _tc.models.list()
-                st.session_state["_key_valid"] = True
-            except Exception as _ke:
-                _kes = str(_ke).lower()
-                st.session_state["_key_valid"] = False if any(
-                    x in _kes for x in ("auth","401","invalid","api key","unauthorized")
-                ) else True
-        if st.session_state.get("_key_valid") is False:
-            st.markdown("<div style='font-size:.65rem;color:#ef4444'>Invalid key</div>", unsafe_allow_html=True)
-        if not _IS_OWNER:
-            _ul_code = st.text_input("", type="password", placeholder="Owner code",
-                                     label_visibility="collapsed", key="_owner_unlock_input")
-            if st.button("Unlock", key="_owner_unlock_btn", use_container_width=True):
-                _entered_hash = _hlib_owner.sha256(_ul_code.strip().encode()).hexdigest()
-                if _entered_hash == _OWNER_HASH:
-                    _OWNER_AUTH_FILE.parent.mkdir(parents=True, exist_ok=True)
-                    _OWNER_AUTH_FILE.write_text(_entered_hash)
+    _cur_tier_sb = st.session_state.get("titan_tier", "basic")
+    if _cur_tier_sb != "max":
+        with st.expander("upgrade", expanded=False):
+            _up_code = st.text_input("", type="password", placeholder="Enter upgrade code",
+                                     label_visibility="collapsed", key="_upgrade_code_input")
+            if st.button("Activate", key="_upgrade_activate_btn", use_container_width=True):
+                _pro_code = st.secrets.get("PRO_CODE", "")
+                _max_code = st.secrets.get("MAX_CODE", "")
+                if _up_code and _up_code == _max_code:
+                    st.session_state.titan_tier = "max"
+                    st.session_state.pop("_tc_locked_msg", None)
+                    st.query_params["_ttier"] = "max"
+                    st.html('<script>try{window.parent.localStorage.setItem("tu_tier","max");}catch(e){}</script>')
+                    st.rerun()
+                elif _up_code and _up_code == _pro_code:
+                    st.session_state.titan_tier = "pro"
+                    st.query_params["_ttier"] = "pro"
+                    st.html('<script>try{window.parent.localStorage.setItem("tu_tier","pro");}catch(e){}</script>')
                     st.rerun()
                 else:
-                    st.error("Wrong code.")
+                    st.error("Invalid code.")
+
+    # ── Settings ──────────────────────────────────────────────────────────────
+    with st.expander("···", expanded=False):
         if st.button("Clear Current Chat", use_container_width=True, key="_clr_chat"):
             import time as _t
             st.session_state.chat_sessions = [{"id": int(_t.time()), "title": "New Chat", "messages": []}]
@@ -1501,6 +1711,147 @@ with st.sidebar:
 
 
 
+# ── Restore name + tier from localStorage (via URL params) ────────────────────
+_qp_name = st.query_params.get("_tname", "").strip()
+if _qp_name and not st.session_state.titan_memory.get("name"):
+    st.session_state.titan_memory["name"] = _qp_name
+    _save_memory(st.session_state.titan_memory)
+
+_qp_tier = st.query_params.get("_ttier", "").strip().lower()
+if _qp_tier in ("pro", "max") and st.session_state.get("titan_tier", "basic") == "basic":
+    st.session_state.titan_tier = _qp_tier
+
+# ── First-visit name prompt ───────────────────────────────────────────────────
+if not st.session_state.titan_memory.get("name", "").strip():
+    st.markdown("""
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-height:60vh;text-align:center;padding:40px 20px">
+  <div style="font-size:2.2rem;margin-bottom:8px">🔱</div>
+  <div style="font-family:'Segoe UI',sans-serif;font-size:1.6rem;font-weight:700;
+      color:#ffffff;margin-bottom:6px">Welcome to Titan Ultra</div>
+  <div style="color:#9ca3af;font-size:.95rem;margin-bottom:28px">What should I call you?</div>
+</div>""", unsafe_allow_html=True)
+    _nc1, _nc2, _nc3 = st.columns([1, 2, 1])
+    with _nc2:
+        _entered_name = st.text_input("", placeholder="Your name", label_visibility="collapsed",
+                                      key="_name_prompt_input")
+        _name_btn = st.button("Continue  →", use_container_width=True, key="_name_prompt_btn", type="primary")
+        if _name_btn or _entered_name.strip():
+            _n = _entered_name.strip()
+            if _n:
+                st.session_state.titan_memory["name"] = _n
+                _save_memory(st.session_state.titan_memory)
+                st.query_params["_tname"] = _n
+                # Save to localStorage so it persists across visits
+                st.html(f"""<script>
+try{{window.parent.localStorage.setItem('tu_name',{_json.dumps(_n)});}}catch(e){{}}
+</script>""")
+                st.rerun()
+            else:
+                st.error("Please enter your name to continue.")
+    st.stop()
+
+# ── Upgrade pricing dialog ─────────────────────────────────────────────────────
+@st.dialog("Upgrade Titan Ultra")
+def _show_upgrade_dialog():
+    _dtier = st.session_state.get("titan_tier", "basic")
+    _tab_mo, _tab_yr = st.tabs(["Monthly", "Annual"])
+    with _tab_mo:
+        st.markdown("""
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:8px 0">
+  <div style="background:#1a1a2e;border:1px solid #374151;border-radius:12px;padding:16px;text-align:center">
+    <div style="font-size:.7rem;letter-spacing:2px;color:#9ca3af;margin-bottom:6px">BASIC</div>
+    <div style="font-size:1.8rem;font-weight:800;color:#fff">Free</div>
+    <div style="font-size:.72rem;color:#6b7a99;margin:8px 0 10px">2 hrs active chat/session</div>
+    <div style="font-size:.72rem;color:#9ca3af">🔱 Qwen 3.8 27B</div>
+    <div style="font-size:.72rem;color:#9ca3af">All core features</div>
+  </div>
+  <div style="background:#1a1a2e;border:2px solid #7c3aed;border-radius:12px;padding:16px;text-align:center">
+    <div style="font-size:.7rem;letter-spacing:2px;color:#a78bfa;margin-bottom:6px">PRO</div>
+    <div style="font-size:1.8rem;font-weight:800;color:#a78bfa">₹300<span style="font-size:.85rem;font-weight:400">/mo</span></div>
+    <div style="font-size:.72rem;color:#6b7a99;margin:8px 0 10px">Unlimited chat</div>
+    <div style="font-size:.72rem;color:#a78bfa">⚡ GPT-OSS 20B</div>
+    <div style="font-size:.72rem;color:#a78bfa">Answer Depth control</div>
+  </div>
+  <div style="background:#1a1a2e;border:2px solid #f59e0b;border-radius:12px;padding:16px;text-align:center">
+    <div style="font-size:.7rem;letter-spacing:2px;color:#f59e0b;margin-bottom:6px">MAX</div>
+    <div style="font-size:1.8rem;font-weight:800;color:#f59e0b">₹3500<span style="font-size:.85rem;font-weight:400">/mo</span></div>
+    <div style="font-size:.72rem;color:#6b7a99;margin:8px 0 10px">Unlimited + priority</div>
+    <div style="font-size:.72rem;color:#f59e0b">👑 TITAN-4 (GPT-OSS 120B)</div>
+    <div style="font-size:.72rem;color:#f59e0b">Titan Code + Focus Mode</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+    with _tab_yr:
+        st.markdown("""
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:8px 0">
+  <div style="background:#1a1a2e;border:1px solid #374151;border-radius:12px;padding:16px;text-align:center">
+    <div style="font-size:.7rem;letter-spacing:2px;color:#9ca3af;margin-bottom:6px">BASIC</div>
+    <div style="font-size:1.8rem;font-weight:800;color:#fff">Free</div>
+    <div style="font-size:.72rem;color:#6b7a99;margin:8px 0 10px">Forever free</div>
+    <div style="font-size:.72rem;color:#9ca3af">🔱 Qwen 3.8 27B</div>
+  </div>
+  <div style="background:#1a1a2e;border:2px solid #7c3aed;border-radius:12px;padding:16px;text-align:center">
+    <div style="font-size:.7rem;letter-spacing:2px;color:#a78bfa;margin-bottom:6px">PRO</div>
+    <div style="font-size:1.8rem;font-weight:800;color:#a78bfa">₹2500<span style="font-size:.85rem;font-weight:400">/yr</span></div>
+    <div style="font-size:.7rem;color:#22c55e;margin-bottom:6px">Save ₹1100</div>
+    <div style="font-size:.72rem;color:#6b7a99;margin:4px 0 8px">≈ ₹208/mo</div>
+    <div style="font-size:.72rem;color:#a78bfa">⚡ GPT-OSS 20B</div>
+  </div>
+  <div style="background:#1a1a2e;border:2px solid #f59e0b;border-radius:12px;padding:16px;text-align:center">
+    <div style="font-size:.7rem;letter-spacing:2px;color:#f59e0b;margin-bottom:6px">MAX</div>
+    <div style="font-size:1.8rem;font-weight:800;color:#f59e0b">₹18000<span style="font-size:.85rem;font-weight:400">/yr</span></div>
+    <div style="font-size:.7rem;color:#22c55e;margin-bottom:6px">Save ₹24000</div>
+    <div style="font-size:.72rem;color:#6b7a99;margin:4px 0 8px">≈ ₹1500/mo</div>
+    <div style="font-size:.72rem;color:#f59e0b">👑 TITAN-4 (GPT-OSS 120B)</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:.75rem;color:#9ca3af'>Have an upgrade code? Enter it in the sidebar → <b>upgrade</b> expander.</div>", unsafe_allow_html=True)
+
+# ── Upgrade button — fixed top-right + inline (Basic/Pro only) ───────────────
+_top_tier = st.session_state.get("titan_tier", "basic")
+if _top_tier != "max":
+    _ub_label = "✦ Upgrade" if _top_tier == "basic" else "✦ Go Max"
+
+    # Fixed top-right floating button (like Gemini) — clicking sets URL param
+    st.markdown(f"""
+<style>
+#tu-upgrade-pill {{
+    position:fixed;top:12px;right:16px;z-index:9999;
+    background:linear-gradient(135deg,#6366f1,#a855f7);
+    color:#fff!important;font-weight:700;font-size:.8rem;
+    letter-spacing:.4px;padding:7px 20px;border-radius:999px;
+    cursor:pointer;border:none;text-decoration:none;
+    box-shadow:0 2px 14px rgba(99,102,241,.5);transition:opacity .15s;
+}}
+#tu-upgrade-pill:hover{{opacity:.85}}
+</style>
+<a id="tu-upgrade-pill" onclick="
+  (function(){{
+    var url=new URL(window.parent.location.href);
+    url.searchParams.set('_upg','1');
+    window.parent.history.replaceState(null,'',url.toString());
+    // also click the hidden Streamlit trigger button
+    setTimeout(function(){{
+      var btns=window.parent.document.querySelectorAll('button');
+      for(var i=0;i<btns.length;i++){{
+        if(btns[i].getAttribute('data-tu-upgrade')==='1'){{btns[i].click();return;}}
+      }}
+    }},80);
+  }})();
+">{_ub_label}</a>
+""", unsafe_allow_html=True)
+
+    # Inline right-aligned button (always visible, works without JS)
+    _ub1, _ub2 = st.columns([6, 1])
+    with _ub2:
+        _ub_btn = st.button(_ub_label, key="_top_upgrade_btn",
+                            use_container_width=True, type="primary")
+    if _ub_btn or st.query_params.get("_upg") == "1":
+        if st.query_params.get("_upg") == "1":
+            st.query_params.pop("_upg", None)
+        _show_upgrade_dialog()
+
 # ── Header ────────────────────────────────────────────────────────────────────
 _user_name = st.session_state.titan_memory.get("name", "")
 if "_titan_phrase" not in st.session_state:
@@ -1514,7 +1865,6 @@ else:
     _greet_text = _phrase.replace("{name}", "").strip().rstrip(",?").strip()
 
 if not cur_msgs():
-    st.markdown("<div style='height:28vh'></div>", unsafe_allow_html=True)
     st.markdown(f"""
 <div id="titan-greeting" style='text-align:center;margin-bottom:28px'>
     <div style='display:flex;align-items:center;justify-content:center;gap:16px'>
@@ -1539,6 +1889,76 @@ if not cur_msgs():
         st.session_state._home_pending = _home_q
         st.session_state._home_counter += 1
         st.rerun()
+
+    # ── Daily Spark ────────────────────────────────────────────────────────────
+    from datetime import datetime as _dtsp_o
+    _SPARKS_O = [
+        ("◎ Brain Teaser", "A bat and a ball cost ₹110 total. The bat costs ₹100 more than the ball. How much is the ball?", "#6366f1", "Answer: ₹5 — not ₹10! Most people get it wrong.", "Explore →"),
+        ("◇ Mind-Blow", "If you removed all empty space from atoms, ALL 8 billion humans on Earth would fit inside a sugar cube!", "#06b6d4", "Ask me more about atoms", "Explore →"),
+        ("◦ Did You Know?", "Honey never expires. Archaeologists found 3,000-year-old honey in Egyptian tombs — still perfectly edible!", "#f59e0b", "What other foods last forever?", "Explore →"),
+        ("△ Space Fact", "A day on Venus is longer than a year on Venus. It rotates so slowly it takes 243 Earth days just to spin once!", "#8b5cf6", "What else is strange about Venus?", "Explore →"),
+        ("⊞ Math Magic", "Pick any 3-digit number (first and last digit different). Reverse it, subtract smaller from larger, reverse result and add — you always get 1089!", "#10b981", "Show me the 1089 trick step by step", "Explore →"),
+        ("≈ Ocean Mystery", "95% of Earth's oceans are completely unexplored. More humans have walked on the Moon than visited the deepest ocean trench!", "#0ea5e9", "What lives in the deep ocean?", "Explore →"),
+        ("◉ Science Shock", "Your body has 37 trillion cells. The DNA in just ONE cell, if stretched, would reach from Earth to Pluto and back!", "#ec4899", "How much total DNA do I have?", "Explore →"),
+        ("⊙ Loudest Sound Ever", "The 1883 Krakatoa eruption was heard 5,000 km away in Australia — the loudest sound ever recorded in history!", "#14b8a6", "What caused the Krakatoa eruption?", "Explore →"),
+        ("◈ Human Body", "Your nose can detect over 1 TRILLION different smells — far more than any electronic sensor ever built!", "#a855f7", "Which smell is the strongest for memory?", "Explore →"),
+        ("⊟ Tech History", "The first ever computer bug was a REAL bug — a moth stuck in a Harvard relay in 1947, taped into the logbook!", "#22d3ee", "Who invented the computer?", "Explore →"),
+        ("◆ Cool Physics", "The Eiffel Tower grows 15 cm taller every summer due to heat expansion. It shrinks back in winter!", "#f43f5e", "What other things expand with heat?", "Explore →"),
+        ("≡ Nature Net", "Trees secretly communicate and share food through underground fungal networks — scientists call it the 'Wood Wide Web'!", "#84cc16", "How do trees communicate?", "Explore →"),
+        ("◁ History Surprise", "Napoleon was NOT short — he was 5'7\" (170 cm), above average for his time. The 'short Napoleon' myth was British war propaganda!", "#fb923c", "What other history facts are myths?", "Explore →"),
+        ("△ Sun Size", "The Sun is so massive that 1.3 MILLION Earths could fit inside it — yet it's just an average-sized star!", "#facc15", "How big is the biggest known star?", "Explore →"),
+        ("◇ Riddle", "What has keys but no locks, has space but no room, and lets you enter but not go in?", "#34d399", "Answer: A keyboard! Ask me more riddles", "Reveal →"),
+        ("≋ Whale Heart", "A blue whale's heart is the size of a small car. Its heartbeat can be detected from 3 kilometers away!", "#60a5fa", "What is the fastest heartbeat of any animal?", "Explore →"),
+        ("↯ Lightning Heat", "Lightning is 5x hotter than the surface of the Sun — reaching 30,000 Kelvin in a fraction of a second!", "#fbbf24", "How does lightning form?", "Explore →"),
+        ("◈ Russia Time", "Russia is so large it spans 11 time zones. When it's 9 AM in Moscow, it's already 11 PM on Russia's far east coast!", "#4ade80", "What are the largest countries by area?", "Explore →"),
+        ("◆ Carbon Magic", "Diamonds and graphite (pencil lead) are BOTH made of pure carbon — just arranged differently at the atomic level!", "#f472b6", "How are diamonds formed?", "Explore →"),
+        ("♩ Mozart Memory", "Mozart could hear a piece of music ONCE and write it out perfectly from memory. He did this with a secret Vatican piece aged 14!", "#c084fc", "Who had the greatest musical mind ever?", "Explore →"),
+        ("▲ Tallest Mountain", "Measured from Earth's center — not sea level — Mount Chimborazo in Ecuador is actually taller than Everest!", "#38bdf8", "How tall is Chimborazo vs Everest?", "Explore →"),
+        ("◉ Study Hack", "The best time to study is right before sleep. Your brain consolidates memories during deep sleep, so last-studied content sticks best!", "#fb7185", "What are the best study techniques?", "Explore →"),
+        ("⊗ Mantis Shrimp", "Mantis shrimps can see 16 types of color — humans only see 3. They live in a rainbow we literally cannot imagine!", "#2dd4bf", "How do animals see differently from humans?", "Explore →"),
+        ("◻ AI Milestone", "The first AI to beat a world chess champion was IBM's Deep Blue in 1997. Today's AI beats humans at chess, Go, and strategy games!", "#f97316", "What can AI do better than humans?", "Explore →"),
+        ("◑ Butterfly Taste", "Butterflies taste with their feet — they have chemical taste sensors on their legs to detect food and plants for their eggs!", "#ec4899", "What other animals taste or smell strangely?", "Explore →"),
+        ("⊕ GPS Relativity", "GPS satellites must correct for Einstein's relativity — time moves slightly faster in orbit, drifting 38 microseconds per day!", "#6366f1", "How does Einstein's relativity work?", "Explore →"),
+        ("◎ Memory Science", "Every time you learn something new, your brain physically grows new connections between neurons — it literally rewires itself!", "#0891b2", "How can I improve my memory?", "Explore →"),
+        ("◌ Moon Drift", "The Moon moves 3.8 cm farther from Earth every year. In 600 million years, total solar eclipses will be impossible!", "#7c3aed", "What will the Moon look like in a million years?", "Explore →"),
+        ("⊞ Birthday Math", "In a room of just 23 people, there's a 50% chance two share a birthday. With 70 people: 99.9%! Most people find this shocking.", "#059669", "Why is this probability so surprising?", "Explore →"),
+        ("≈ Plant Intelligence", "Plants can detect and react to music, touch, gravity, and even danger signals from neighboring plants — within seconds!", "#65a30d", "Do plants have feelings?", "Explore →"),
+        ("↯ Battery of Life", "The electric eel can generate 860 volts — enough to stun a horse or power a lightbulb for 30 minutes!", "#eab308", "How do electric animals generate power?", "Explore →"),
+    ]
+    _sp_idx_o = _dtsp_o.now().day % len(_SPARKS_O)
+    _sp_title_o, _sp_text_o, _sp_color_o, _sp_hint_o, _sp_btn_o = _SPARKS_O[_sp_idx_o]
+    _tier_now_o = st.session_state.get("titan_tier", "basic")
+    _sp_border_o = "#f59e0b" if _tier_now_o == "max" else ("#7c3aed" if _tier_now_o == "pro" else _sp_color_o)
+    st.markdown(f"""
+<style>
+@keyframes sparkFadeInO {{
+  from {{ opacity:0; transform:translateY(12px); }}
+  to   {{ opacity:1; transform:translateY(0); }}
+}}
+.titan-spark-o {{
+  max-width:560px; margin:28px auto 0;
+  background:rgba(255,255,255,0.03);
+  border:1px solid {_sp_border_o}44; border-radius:14px;
+  padding:16px 20px 14px;
+  box-shadow:0 0 24px {_sp_color_o}18;
+  animation: sparkFadeInO .6s ease both;
+}}
+</style>
+<div class="titan-spark-o">
+  <div style='display:flex;align-items:center;gap:8px;margin-bottom:6px'>
+    <span style='font-size:.58rem;color:{_sp_color_o};letter-spacing:2px;font-weight:700;text-transform:uppercase'>◈ Daily Spark</span>
+    <span style='font-size:.58rem;color:#333;letter-spacing:1px'>· {_dtsp_o.now().strftime("%d %b")}</span>
+  </div>
+  <div style='font-size:.95rem;font-weight:600;color:#e8e8e8;line-height:1.5;margin-bottom:6px'>{_sp_title_o} &nbsp;&nbsp; {_sp_text_o}</div>
+  <div style='font-size:.72rem;color:#555;margin-top:4px'>{_sp_hint_o}</div>
+</div>
+""", unsafe_allow_html=True)
+    _spo1, _spo2, _spo3 = st.columns([1, 2, 1])
+    with _spo2:
+        if st.button(f"→  {_sp_btn_o}", key="_daily_spark_btn_o", use_container_width=True):
+            st.session_state._home_pending = _sp_hint_o
+            st.session_state._home_counter = st.session_state.get("_home_counter", 0) + 1
+            st.rerun()
 
 mode_key = "chat"  # unified — auto-detected from input
 
@@ -2306,16 +2726,15 @@ if st.session_state.notebook_mode:
         )
 
     def _nb_ask(prompt, max_tokens=4096):
+        _topic = st.session_state.get("nb_notebook_title", "the topic")
         try:
             from groq import Groq as _G
             _c = _G(api_key=st.session_state.api_key)
-            _src = _nb_source_text()
             _sys = (
-                "You are Titan Notebook — a world-class AI study assistant. "
-                "You have access to the user's uploaded sources below. "
-                "Always base your answers strictly on these sources. "
-                "If something is not in the sources, say so clearly.\n\n"
-                f"SOURCES:\n{_src[:12000]}"
+                "You are Titan Notebook — a world-class AI study and research assistant inside TITAN ULTRA. "
+                f"The user is working on: \"{_topic}\"\n"
+                "Provide deeply accurate, well-structured, expert-level content on this topic. "
+                "Use clear headings, bullet points, and examples. Be thorough and genuinely useful."
             )
             _r = _c.chat.completions.create(
                 model="openai/gpt-oss-120b",
@@ -2327,7 +2746,8 @@ if st.session_state.notebook_mode:
             return _r.choices[0].message.content or ""
         except Exception as _e:
             try:
-                _r2 = _c.chat.completions.create(
+                _c2 = _G(api_key=st.session_state.api_key)
+                _r2 = _c2.chat.completions.create(
                     model="openai/gpt-oss-20b",
                     messages=[{"role":"system","content":_sys},
                               {"role":"user","content":prompt}],
@@ -2374,79 +2794,185 @@ if st.session_state.notebook_mode:
             l = lines[i].strip()
             if l.upper().startswith("FRONT:"):
                 front = l[6:].strip()
+                back = wrong1 = wrong2 = wrong3 = ""
                 if i+1 < len(lines) and lines[i+1].strip().upper().startswith("BACK:"):
                     back = lines[i+1].strip()[5:].strip()
-                    cards.append({"front": front, "back": back})
-                    i += 2
-                    continue
+                if i+2 < len(lines) and lines[i+2].strip().upper().startswith("WRONG1:"):
+                    wrong1 = lines[i+2].strip()[7:].strip()
+                if i+3 < len(lines) and lines[i+3].strip().upper().startswith("WRONG2:"):
+                    wrong2 = lines[i+3].strip()[7:].strip()
+                if i+4 < len(lines) and lines[i+4].strip().upper().startswith("WRONG3:"):
+                    wrong3 = lines[i+4].strip()[7:].strip()
+                if front and back:
+                    cards.append({
+                        "front": front, "back": back,
+                        "wrong": [w for w in [wrong1, wrong2, wrong3] if w]
+                    })
+                i += 5
+                continue
             i += 1
         return cards
 
-    # ── Header ────────────────────────────────────────────────────────────────
-    st.markdown("""
-    <div style='text-align:center;padding:18px 0 8px'>
-        <div style='font-family:Georgia,serif;font-size:1.6rem;font-weight:900;
-        background:linear-gradient(90deg,#c9a84c,#f0d080,#a0a0a0,#c9a84c);
-        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text'>
-        𝒜 TITAN NOTEBOOK</div>
-        <div style='font-size:0.75rem;color:#6b7a99;margin-top:4px;letter-spacing:2px'>
-        YOUR AI-POWERED STUDY COMPANION — LIKE GEMINI NOTEBOOKLM</div>
-    </div>""", unsafe_allow_html=True)
+    # ── Landing screen (shown until user types a topic) ───────────────────────
+    _nb_has_src = not bool(st.session_state.get("nb_notebook_title", ""))
+    if _nb_has_src:
+        _nb_sel_mode = st.session_state.get("nb_mode", "organise")
+        _org_bg = "#2d3d8c" if _nb_sel_mode == "organise" else "#1c1c1c"
+        _org_bd = "1.5px solid #5068d0" if _nb_sel_mode == "organise" else "1px solid #252525"
+        _stu_bg = "#2d3d8c" if _nb_sel_mode == "study" else "#1c1c1c"
+        _stu_bd = "1.5px solid #5068d0" if _nb_sel_mode == "study" else "1px solid #252525"
+        _chk_display = "flex" if _nb_sel_mode == "organise" else "none"
 
-    # ── Sources panel ─────────────────────────────────────────────────────────
-    with st.expander(f"Sources  ({len(st.session_state.notebook_sources)} added)", expanded=not st.session_state.notebook_sources):
-        _nb_tab1, _nb_tab2, _nb_tab3 = st.tabs(["Upload PDF", "Add URL", "Paste Text"])
+        st.markdown(f"""<style>
+[data-testid="stTextInput"] input {{
+    font-size:2.3rem !important; font-weight:300 !important;
+    color:#cccccc !important; background:transparent !important;
+    border:none !important; box-shadow:none !important;
+    border-radius:0 !important; padding:0 0 0 2px !important;
+    letter-spacing:-0.5px !important; caret-color:#888 !important;
+    outline:none !important;
+}}
+[data-testid="stTextInput"] input::placeholder {{
+    color:#3d3d3d !important; opacity:1 !important;
+}}
+[data-testid="stTextInput"] input:focus {{
+    outline:none !important; box-shadow:none !important; border:none !important;
+}}
+[data-baseweb="input"], [data-baseweb="base-input"] {{
+    background:transparent !important; border:none !important;
+    box-shadow:none !important; padding:0 !important;
+}}
+[data-testid="stTextInput"] {{ margin:0 !important; padding:0 !important; }}
+.nb-card-wrap div[data-testid="stButton"] > button {{
+    min-height:155px !important; width:100% !important;
+    text-align:left !important; border-radius:14px !important;
+    padding:16px 14px 12px !important; white-space:normal !important;
+    line-height:1.5 !important; transition:background .2s,border .2s !important;
+    display:flex !important; flex-direction:column !important;
+    align-items:flex-start !important; position:relative !important;
+}}
+.nb-card-wrap div[data-testid="stButton"] > button > div {{
+    display:flex !important; flex-direction:column !important;
+    align-items:flex-start !important; text-align:left !important; width:100% !important;
+}}
+.nb-card-wrap div[data-testid="stButton"] > button > div > p:nth-child(1) {{
+    font-size:1.45rem !important; line-height:1 !important; margin-bottom:10px !important;
+    color:#c8cce8 !important;
+}}
+.nb-card-wrap div[data-testid="stButton"] > button > div > p:nth-child(2) {{
+    font-size:0.97rem !important; font-weight:700 !important;
+    color:#ffffff !important; margin-bottom:6px !important;
+}}
+.nb-card-wrap div[data-testid="stButton"] > button > div > p:nth-child(3) {{
+    font-size:0.77rem !important; color:#8a90aa !important; font-weight:400 !important;
+}}
+.nb-card-org div[data-testid="stButton"] > button {{
+    background:{_org_bg} !important; border:{_org_bd} !important; color:#e8e8e8 !important;
+}}
+.nb-card-stu div[data-testid="stButton"] > button {{
+    background:{_stu_bg} !important; border:{_stu_bd} !important; color:#e8e8e8 !important;
+}}
+.nb-card-org div[data-testid="stButton"] > button::after {{
+    content:'✓'; position:absolute; top:12px; right:12px;
+    background:#1a2555; border:1.5px solid #5068d0; border-radius:50%;
+    width:22px; height:22px; display:{_chk_display};
+    align-items:center; justify-content:center;
+    font-size:0.65rem; color:#fff; font-weight:700;
+}}
+.nb-card-wrap div[data-testid="stButton"] > button:hover {{
+    filter:brightness(1.1) !important;
+}}
+</style>""", unsafe_allow_html=True)
 
-        with _nb_tab1:
-            _nb_pdf = st.file_uploader("Upload PDF / TXT file", type=["pdf","txt"], key="_nb_pdf_up")
-            if _nb_pdf and st.button("➕ Add to Notebook", key="_nb_add_pdf"):
-                with st.spinner("Reading file..."):
-                    if _nb_pdf.type == "application/pdf" or _nb_pdf.name.endswith(".pdf"):
-                        _nb_text = _nb_read_pdf(_nb_pdf.read())
-                    else:
-                        _nb_text = _nb_pdf.read().decode("utf-8", errors="replace")
-                    if _nb_text:
-                        st.session_state.notebook_sources.append({"name": _nb_pdf.name, "text": _nb_text})
-                        st.session_state.notebook_generated = {}
-                        st.success(f"✅ Added: {_nb_pdf.name}")
-                        st.rerun()
+        st.html("""
+<div style='padding:56px 0 0'>
+  <div style='font-size:1.6rem;color:#bbbfd8;margin-bottom:16px;line-height:1'>◫</div>
+  <div style='font-size:1.2rem;font-weight:700;color:#ffffff;margin-bottom:20px;
+              letter-spacing:-0.2px'>What are you working on?</div>
+</div>""")
 
-        with _nb_tab2:
-            _nb_url = st.text_input("Paste a URL (website, article, Wikipedia...)", key="_nb_url_in")
-            if _nb_url and st.button("➕ Add URL", key="_nb_add_url"):
-                with st.spinner("Fetching page..."):
-                    _nb_text = _nb_read_url(_nb_url)
-                    if _nb_text:
-                        _nb_name = _nb_url[:50] + "..."
-                        st.session_state.notebook_sources.append({"name": _nb_name, "text": _nb_text})
-                        st.session_state.notebook_generated = {}
-                        st.success("✅ URL added!")
-                        st.rerun()
+        _nb_title_val = st.text_input(
+            "", placeholder="Project or idea",
+            key="_nb_title_input", label_visibility="collapsed"
+        )
+        if _nb_title_val:
+            st.session_state["nb_notebook_title"] = _nb_title_val
+            st.session_state.notebook_generated = {}
+            st.rerun()
 
-        with _nb_tab3:
-            _nb_paste = st.text_area("Paste any text, notes, or content here...", height=150, key="_nb_paste_in")
-            _nb_paste_name = st.text_input("Give it a name (optional)", value="My Notes", key="_nb_paste_name")
-            if _nb_paste and st.button("➕ Add Text", key="_nb_add_text"):
-                st.session_state.notebook_sources.append({"name": _nb_paste_name or "Pasted Text", "text": _nb_paste})
-                st.session_state.notebook_generated = {}
-                st.success("✅ Text added!")
-                st.rerun()
+        # Typewriter placeholder — exactly like Gemini NotebookLM
+        st.html("""<script>
+(function(){
+  var ph = [
+    "Weekly meal prep","Project or idea","A topic to study",
+    "My research notes","Chapter summary","Exam preparation",
+    "Book analysis","Science project","History essay",
+    "Lecture notes","Meeting notes","Research paper",
+    "Case study","Literature review","Biology revision",
+    "Programming concepts","World history","Physics formulas"
+  ];
+  var phIdx = 0, charIdx = 0, deleting = false, pause = 0;
+  function run(){
+    var inp = document.querySelector('[data-testid="stTextInput"] input');
+    if(!inp){ setTimeout(run, 200); return; }
+    if(document.activeElement !== inp && !inp.value) inp.focus();
+    function tick(){
+      if(inp.value) return;
+      if(pause > 0){ pause--; return; }
+      var word = ph[phIdx];
+      if(!deleting){
+        charIdx++;
+        inp.setAttribute('placeholder', word.slice(0, charIdx));
+        if(charIdx >= word.length){ deleting = true; pause = 38; }
+      } else {
+        charIdx--;
+        inp.setAttribute('placeholder', word.slice(0, charIdx));
+        if(charIdx <= 0){
+          deleting = false;
+          phIdx = (phIdx + 1) % ph.length;
+          pause = 8;
+        }
+      }
+    }
+    setInterval(tick, 80);
+  }
+  run();
+})();
+</script>""")
 
-        # List sources with delete buttons
-        if st.session_state.notebook_sources:
-            st.divider()
-            st.caption("Your sources:")
-            for _si, _src in enumerate(st.session_state.notebook_sources):
-                _sc1, _sc2 = st.columns([5,1])
-                _sc1.markdown(f"**{_si+1}.** {_src['name']}")
-                if _sc2.button("🗑️", key=f"_nb_del_{_si}"):
-                    st.session_state.notebook_sources.pop(_si)
-                    st.session_state.notebook_generated = {}
-                    st.rerun()
+        st.markdown("<div style='height:30px'></div>", unsafe_allow_html=True)
 
-    if not st.session_state.notebook_sources:
-        st.info("👆 Add at least one source above to get started.")
+        _mcc1, _mcc2, _mcc3 = st.columns([1.7, 1.7, 3.6])
+        with _mcc1:
+            st.markdown('<div class="nb-card-wrap nb-card-org">', unsafe_allow_html=True)
+            if st.button(
+                "◎\nOrganise your ideas\nGroup chats by topic and ground on your sources.",
+                key="_nb_mode_org", use_container_width=True
+            ):
+                st.session_state.nb_mode = "organise"; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with _mcc2:
+            st.markdown('<div class="nb-card-wrap nb-card-stu">', unsafe_allow_html=True)
+            if st.button(
+                "◈\nStudy and learn\nFlashcards, quizzes, summaries and deep study tools.",
+                key="_nb_mode_stu", use_container_width=True
+            ):
+                st.session_state.nb_mode = "study"; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
         st.stop()
+
+    # ── Compact header (topic set, tools visible) ─────────────────────────────
+    _nb_active_topic = st.session_state.get("nb_notebook_title", "")
+    _nbc1, _nbc2 = st.columns([6, 1])
+    with _nbc1:
+        st.markdown(f"<div style='font-size:1.1rem;font-weight:700;color:#e8e8e8;padding:10px 0 4px'>◫ {_nb_active_topic}</div>", unsafe_allow_html=True)
+    with _nbc2:
+        if st.button("✕ clear", key="_nb_clear_topic", use_container_width=True):
+            st.session_state["nb_notebook_title"] = ""
+            st.session_state.notebook_generated = {}
+            st.rerun()
+    st.markdown("<div style='border-bottom:1px solid #222;margin-bottom:14px'></div>", unsafe_allow_html=True)
 
     # ── Generate buttons ──────────────────────────────────────────────────────
     st.markdown("### Generate")
@@ -2475,13 +3001,17 @@ if st.session_state.notebook_mode:
         st.rerun()
 
     if _gb3.button("Flashcards", use_container_width=True, key="_nb_gen_fc"):
+        _topic_fc = st.session_state.get("nb_notebook_title", "the topic")
         with st.spinner("Generating flashcards..."):
             _fc_resp = _nb_ask(
-                "Generate 20 high-quality flashcards from these sources. "
-                "Format EXACTLY like this for each card:\n"
-                "FRONT: [question or term]\n"
-                "BACK: [answer or definition]\n\n"
-                "Cover all key concepts, terms, facts, and important points."
+                f"Generate 15 high-quality multiple-choice flashcards about: {_topic_fc}\n\n"
+                "For EACH card use EXACTLY this format (5 lines per card, blank line between cards):\n"
+                "FRONT: [a clear question]\n"
+                "BACK: [the correct answer — keep it short, under 12 words]\n"
+                "WRONG1: [plausible but wrong option]\n"
+                "WRONG2: [plausible but wrong option]\n"
+                "WRONG3: [plausible but wrong option]\n\n"
+                "Make wrong options realistic. Cover key concepts thoroughly."
             )
             _nb_cards = _nb_parse_flashcards(_fc_resp)
             if _nb_cards:
@@ -2563,38 +3093,88 @@ if st.session_state.notebook_mode:
         if "flashcards" in _gen or "flashcards_raw" in _gen:
             with _nb_content_tabs[_nb_ti]:
                 if "flashcards" in _gen:
+                    import random as _fcr
                     _nb_cards = _gen["flashcards"]
-                    _nb_ci    = st.session_state.nb_card_index % len(_nb_cards)
-                    _nb_card  = _nb_cards[_nb_ci]
-                    _nb_flipped = st.session_state.nb_card_flipped
+                    _nb_ci = st.session_state.nb_card_index % len(_nb_cards)
+                    _nb_card = _nb_cards[_nb_ci]
 
-                    # Card display
-                    _nb_card_content = _nb_card["back"] if _nb_flipped else _nb_card["front"]
-                    _nb_card_label   = "BACK" if _nb_flipped else "FRONT"
-                    st.markdown(f"""
-                    <div style='background:linear-gradient(135deg,#0d1b2a,#1a2a4a);
-                    border:2px solid #00d4ff44;border-radius:16px;padding:40px 30px;
-                    text-align:center;min-height:180px;margin:10px 0;
-                    box-shadow:0 0 20px #00d4ff22'>
-                        <div style='font-size:0.65rem;color:#00d4ff;letter-spacing:3px;margin-bottom:12px'>{_nb_card_label} · {_nb_ci+1}/{len(_nb_cards)}</div>
-                        <div style='font-size:1.1rem;color:#e8f4ff;font-weight:500;line-height:1.6'>{_nb_card_content}</div>
-                    </div>""", unsafe_allow_html=True)
+                    _fc_opts_key = f"_fc_opts_{_nb_ci}"
+                    if _fc_opts_key not in st.session_state:
+                        _opts = [_nb_card["back"]] + _nb_card.get("wrong", [])
+                        _fcr.shuffle(_opts)
+                        st.session_state[_fc_opts_key] = _opts
+                    _fc_opts = st.session_state[_fc_opts_key][:4]
+                    _fc_sel_key = f"_fc_sel_{_nb_ci}"
+                    _fc_answered = _fc_sel_key in st.session_state
 
-                    _fc_c1, _fc_c2, _fc_c3 = st.columns(3)
-                    if _fc_c1.button("⬅️ Prev", use_container_width=True, key="_nb_fc_prev"):
-                        st.session_state.nb_card_index = (st.session_state.nb_card_index - 1) % len(_nb_cards)
-                        st.session_state.nb_card_flipped = False
-                        st.rerun()
-                    if _fc_c2.button("🔄 Flip", use_container_width=True, key="_nb_fc_flip"):
-                        st.session_state.nb_card_flipped = not st.session_state.nb_card_flipped
-                        st.rerun()
-                    if _fc_c3.button("➡️ Next", use_container_width=True, key="_nb_fc_next"):
-                        st.session_state.nb_card_index = (st.session_state.nb_card_index + 1) % len(_nb_cards)
-                        st.session_state.nb_card_flipped = False
-                        st.rerun()
+                    _fc_left, _fc_right = st.columns([2, 3])
 
-                    st.caption(f"Card {_nb_ci+1} of {len(_nb_cards)}")
-                    _nb_fc_text = "\n".join(f"FRONT: {c['front']}\nBACK: {c['back']}\n" for c in _nb_cards)
+                    with _fc_right:
+                        st.markdown(f"""
+<div style='background:linear-gradient(135deg,#0d1b3e,#1a2a5e);
+border-radius:18px;padding:50px 36px;min-height:240px;
+border:1.5px solid #2d4080;box-shadow:0 4px 32px #0d1b3e88;
+display:flex;flex-direction:column;justify-content:center;margin-bottom:14px'>
+  <div style='color:#4a8fff;font-size:0.62rem;letter-spacing:3px;
+  font-weight:700;margin-bottom:22px'>FRONT · {_nb_ci+1}/{len(_nb_cards)}</div>
+  <div style='color:#ffffff;font-size:1.15rem;font-weight:500;
+  line-height:1.7'>{_nb_card["front"]}</div>
+</div>""", unsafe_allow_html=True)
+                        _fn1, _fn2 = st.columns(2)
+                        with _fn1:
+                            if st.button("← Prev", key=f"_nb_fc_prev_{_nb_ci}", use_container_width=True):
+                                st.session_state.nb_card_index = (st.session_state.nb_card_index - 1) % len(_nb_cards)
+                                st.session_state.nb_card_flipped = False
+                                st.rerun()
+                        with _fn2:
+                            if st.button("Next →", key=f"_nb_fc_next_{_nb_ci}", use_container_width=True):
+                                st.session_state.nb_card_index = (st.session_state.nb_card_index + 1) % len(_nb_cards)
+                                st.session_state.nb_card_flipped = False
+                                st.rerun()
+                        st.markdown(f"<div style='color:#555;font-size:0.78rem;margin-top:6px'>Card {_nb_ci+1} of {len(_nb_cards)}</div>", unsafe_allow_html=True)
+
+                    with _fc_left:
+                        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+                        _labels = ["A", "B", "C", "D"]
+                        for _oi, _opt in enumerate(_fc_opts):
+                            _is_correct = (_opt == _nb_card["back"])
+                            _is_selected = (st.session_state.get(_fc_sel_key) == _oi)
+                            if _fc_answered:
+                                if _is_correct:
+                                    _bg = "#14532d"; _bd = "#22c55e"; _tx = "#86efac"; _icon = " ✓"
+                                elif _is_selected:
+                                    _bg = "#7f1d1d"; _bd = "#ef4444"; _tx = "#fca5a5"; _icon = " ✗"
+                                else:
+                                    _bg = "#111"; _bd = "#2a2a2a"; _tx = "#444"; _icon = ""
+                                st.markdown(f"""
+<div style='background:{_bg};border:2px solid {_bd};border-radius:12px;
+padding:14px 16px;margin-bottom:10px;font-size:0.92rem;color:{_tx};
+font-weight:{"700" if _is_correct or _is_selected else "400"}'>
+  <span style='font-weight:800;margin-right:8px'>{_labels[_oi]}.</span>{_opt}{_icon}
+</div>""", unsafe_allow_html=True)
+                            else:
+                                if st.button(
+                                    f"{_labels[_oi]}.  {_opt}",
+                                    key=f"_fc_opt_{_nb_ci}_{_oi}",
+                                    use_container_width=True
+                                ):
+                                    st.session_state[_fc_sel_key] = _oi
+                                    st.rerun()
+
+                        if _fc_answered:
+                            _sel_opt = _fc_opts[st.session_state.get(_fc_sel_key, 0)]
+                            _was_right = (_sel_opt == _nb_card["back"])
+                            st.markdown(
+                                f"<div style='color:{'#22c55e' if _was_right else '#ef4444'};font-size:0.85rem;"
+                                f"font-weight:700;margin:10px 0 8px'>{'Correct!' if _was_right else 'Wrong — see green for correct'}</div>",
+                                unsafe_allow_html=True
+                            )
+                            if st.button("Next →", key=f"_fc_ans_next_{_nb_ci}", use_container_width=True):
+                                st.session_state.nb_card_index = (st.session_state.nb_card_index + 1) % len(_nb_cards)
+                                st.session_state.nb_card_flipped = False
+                                st.rerun()
+
+                    _nb_fc_text = "\n".join(f"Q: {c['front']}\nA: {c['back']}\n" for c in _nb_cards)
                     st.download_button("Download All Cards", _nb_fc_text, "titan_flashcards.txt", key="_nb_dl_fc")
                 else:
                     st.markdown(_gen["flashcards_raw"])
@@ -2647,8 +3227,8 @@ if st.session_state.notebook_mode:
 if st.session_state.get("show_titan_features"):
 
     st.markdown("""<div style='text-align:center;padding:20px 0 8px'>
-    <div style='font-family:Orbitron,monospace;font-size:1.5rem;color:#aaaaaa;
-    letter-spacing:4px;font-weight:700'>⚡ TITAN FEATURES</div>
+    <div style='font-family:"Segoe UI",sans-serif;font-size:1.5rem;color:#ffffff;
+    letter-spacing:2px;font-weight:700'>⚡ TITAN FEATURES</div>
     <div style='color:#6b7a99;font-size:.8rem;margin-top:6px'>
     Supercharge Titan Ultra with powerful add-ons</div></div>""", unsafe_allow_html=True)
 
@@ -3196,24 +3776,24 @@ if True:
         _back_safe  = _html.escape(_card["back"])
         if not _flipped:
             st.markdown(f"""
-            <div style='background:linear-gradient(135deg,#1a0f44,#0f1a2c);
-                 border:2px solid rgba(168,85,247,0.55);border-radius:20px;
+            <div style='background:#1a1a1a;
+                 border:2px solid #333333;border-radius:20px;
                  padding:40px 28px;text-align:center;min-height:160px;
-                 box-shadow:0 8px 32px rgba(168,85,247,0.18);margin-bottom:14px;'>
-              <p style='color:rgba(255,255,255,0.4);font-size:10px;font-weight:700;
+                 box-shadow:0 8px 32px rgba(0,0,0,0.4);margin-bottom:14px;'>
+              <p style='color:rgba(255,255,255,0.35);font-size:10px;font-weight:700;
                    letter-spacing:2.5px;margin:0 0 16px 0;'>QUESTION</p>
-              <p style='color:#e0d0ff;font-size:1.15rem;font-weight:600;
+              <p style='color:#ffffff;font-size:1.15rem;font-weight:600;
                    margin:0;line-height:1.55;'>{_front_safe}</p>
             </div>""", unsafe_allow_html=True)
         else:
             st.markdown(f"""
-            <div style='background:linear-gradient(135deg,#0a2d1a,#0a1f14);
-                 border:2px solid rgba(52,211,153,0.6);border-radius:20px;
+            <div style='background:#1e1e1e;
+                 border:2px solid #444444;border-radius:20px;
                  padding:40px 28px;text-align:center;min-height:160px;
-                 box-shadow:0 8px 32px rgba(52,211,153,0.18);margin-bottom:14px;'>
-              <p style='color:rgba(52,211,153,0.65);font-size:10px;font-weight:700;
+                 box-shadow:0 8px 32px rgba(0,0,0,0.4);margin-bottom:14px;'>
+              <p style='color:rgba(255,255,255,0.35);font-size:10px;font-weight:700;
                    letter-spacing:2.5px;margin:0 0 16px 0;'>ANSWER</p>
-              <p style='color:#a6e3a1;font-size:1.1rem;font-weight:500;
+              <p style='color:#e8e8e8;font-size:1.1rem;font-weight:500;
                    margin:0;line-height:1.55;'>{_back_safe}</p>
             </div>""", unsafe_allow_html=True)
 
@@ -3839,6 +4419,18 @@ for _mi, msg in enumerate(_msgs_list):
         # Hide raw DALL-E image marker (image is rendered above)
         if _re_diag.match(r'^\[DALLE_IMAGE:[a-f0-9]+\]$', _content_show.strip()):
             _content_show = ""
+        # Render AI-generated image
+        _img_match = _re_diag.search(r'\[TITAN_IMAGE:([^\]]+)\]', _content_show)
+        if _img_match:
+            try: st.image(_img_match.group(1), use_container_width=True)
+            except Exception: pass
+            _content_show = _re_diag.sub(r'\[TITAN_IMAGE:[^\]]+\]', '', _content_show).strip()
+        # Render AI-generated video
+        _vid_match = _re_diag.search(r'\[TITAN_VIDEO:([^\]]+)\]', _content_show)
+        if _vid_match:
+            try: st.video(_vid_match.group(1))
+            except Exception: pass
+            _content_show = _re_diag.sub(r'\[TITAN_VIDEO:[^\]]+\]', '', _content_show).strip()
         if msg["role"] == "assistant" and _mi > 0:
             _prev2 = _msgs_list[_mi - 1]
             if _prev2["role"] == "user" and _is_diagram_request(_prev2["content"]):
@@ -3851,6 +4443,8 @@ for _mi, msg in enumerate(_msgs_list):
         import re as _re_ltx
         _content_show = _re_ltx.sub(r'\\\[(.+?)\\\]', r'$$\1$$', _content_show, flags=_re_ltx.DOTALL)
         _content_show = _re_ltx.sub(r'\\\((.+?)\\\)', r'$\1$', _content_show, flags=_re_ltx.DOTALL)
+        import re as _re_sug_strip_o
+        _content_show = _re_sug_strip_o.sub(r'\n?\[SUGGEST:[^\]]{0,300}\]', '', _content_show).strip()
         st.markdown(_content_show, unsafe_allow_html=True)
         if msg["role"] == "assistant" and msg.get("content"):
             import json as _json_sb, re as _re_sb
@@ -3858,26 +4452,51 @@ for _mi, msg in enumerate(_msgs_list):
             _spk = _re_sb.sub(r'!\[.*?\]\(.*?\)', '', _spk)
             _spk = _re_sb.sub(r'\[(.*?)\]\(.*?\)', r'\1', _spk)
             _spk = _re_sb.sub(r'[`*_#>\[\]|]', '', _spk)
+            _spk = _re_sb.sub(r'\n?\[SUGGEST:[^\]]{0,300}\]', '', _spk)
             _spk = _re_sb.sub(r'\s+', ' ', _spk).strip()[:4500]
             _spk_payload = _json_sb.dumps(_spk)
+            _rxn_tier_o = st.session_state.get("titan_tier", "basic")
+            _show_rxn_o = _rxn_tier_o in ("pro", "max")
+            _rxn_accent_o = "#f59e0b" if _rxn_tier_o == "max" else "#a78bfa"
             st.html(f"""
 <style>
   body {{ margin:0; padding:0; background:transparent;
           font-family:-apple-system,Segoe UI,Roboto,sans-serif; }}
+  .tu-btn {{ background:transparent; color:#555; border:0; border-radius:6px;
+        padding:2px 6px; font-size:.75rem; cursor:pointer; opacity:.6;
+        line-height:1.3; transition:all .15s; }}
+  .tu-btn:hover {{ opacity:1; color:#e8e8e8; }}
   #b {{ background:#1e3a8a; color:#fff; border:0; border-radius:6px;
         padding:1px 8px; font-size:.62rem; font-weight:500;
         cursor:pointer; opacity:.65; line-height:1.3; }}
   #b:hover {{ opacity:1; }}
   #b.on {{ background:#dc2626; }}
+  #cp.done {{ color:#22c55e !important; opacity:1 !important; }}
+  .rxn-bar {{ display:{'flex' if _show_rxn_o else 'none'};gap:2px;align-items:center;margin-left:6px;
+        border-left:1px solid #222;padding-left:8px; }}
+  .rxn {{ background:transparent;border:0;font-size:.9rem;cursor:pointer;
+        padding:1px 3px;border-radius:5px;transition:all .15s;opacity:.4;line-height:1; }}
+  .rxn:hover {{ opacity:1;transform:scale(1.2); }}
+  .rxn.active {{ opacity:1;filter:drop-shadow(0 0 4px {_rxn_accent_o}); }}
 </style>
+<div style="display:flex;gap:4px;align-items:center">
 <button id="b">speak</button>
+<button class="tu-btn" id="cp" title="Copy">⧉</button>
+<button class="tu-btn" id="sh" title="Share">↗</button>
+<div class="rxn-bar">
+  <button class="rxn" data-r="love" title="Love it">❤️</button>
+  <button class="rxn" data-r="fire" title="Amazing">🔥</button>
+  <button class="rxn" data-r="mind" title="Mind blown">🤯</button>
+  <button class="rxn" data-r="bulb" title="Insightful">💡</button>
+</div>
+</div>
 <script>
 (function() {{
   const TEXT = {_spk_payload};
   const b = document.getElementById('b');
   b.addEventListener('click', function() {{
     try {{
-      const synth = window.speechSynthesis;
+      const synth = window.parent.speechSynthesis;
       if (b.classList.contains('on')) {{
         synth.cancel();
         b.classList.remove('on');
@@ -3885,7 +4504,7 @@ for _mi, msg in enumerate(_msgs_list):
         return;
       }}
       synth.cancel();
-      const u = new SpeechSynthesisUtterance(TEXT);
+      const u = new window.parent.SpeechSynthesisUtterance(TEXT);
       u.rate = 0.95; u.pitch = 0.7; u.volume = 1.0; u.lang = 'en-US';
       const speakWith = function(vs) {{
         const femaleRe = /zira|hazel|susan|jenny|aria|eva|female|woman|girl|samantha|victoria|karen|tessa|moira|fiona|catherine|linda/i;
@@ -3912,11 +4531,116 @@ for _mi, msg in enumerate(_msgs_list):
       else synth.onvoiceschanged = function() {{ speakWith(synth.getVoices()); }};
     }} catch(e) {{ console.error('Speak error:', e); }}
   }});
+  // Copy: inject into parent document so clipboard access is trusted
+  function _titanCopyToClipboard(text, btn, orig) {{
+    var pd = window.parent.document;
+    var sc = pd.createElement('script');
+    sc.textContent = '(function(){{'+
+      'var t=document.createElement("textarea");'+
+      't.value='+JSON.stringify(text)+';'+
+      't.style.cssText="position:fixed;top:-9999px;left:-9999px;opacity:0";'+
+      'document.body.appendChild(t);t.focus();t.select();'+
+      'try{{document.execCommand("copy");}}catch(e){{}}'+
+      'document.body.removeChild(t);'+
+      '}})();';
+    pd.head.appendChild(sc); sc.remove();
+    btn.textContent='✓'; btn.classList.add('done');
+    setTimeout(function(){{btn.textContent=orig;btn.classList.remove('done');}},1800);
+  }}
+  const cp = document.getElementById('cp');
+  if(cp) cp.addEventListener('click',function(){{ _titanCopyToClipboard(TEXT,cp,'⧉'); }});
+
+  // Share: native on mobile, custom menu on desktop
+  const sh = document.getElementById('sh');
+  if(sh) sh.addEventListener('click',function(e){{
+    e.stopPropagation();
+    var pd = window.parent.document;
+    // Remove any existing share menu
+    var old = pd.getElementById('_titanShareMenu');
+    if(old){{ old.remove(); return; }}
+    var enc = encodeURIComponent(TEXT.slice(0,300)+(TEXT.length>300?'…':''));
+    var menu = pd.createElement('div');
+    menu.id = '_titanShareMenu';
+    menu.style.cssText = 'position:fixed;z-index:999999;background:#1a1a1a;border:1px solid #2a2a2a;'+
+      'border-radius:12px;padding:8px;min-width:180px;box-shadow:0 6px 24px rgba(0,0,0,.8);'+
+      'display:flex;flex-direction:column;gap:4px;';
+    var r = sh.getBoundingClientRect();
+    // position above the button
+    menu.style.left = Math.min(r.left, pd.documentElement.clientWidth-200)+'px';
+    menu.style.bottom = (pd.documentElement.clientHeight - r.top + 8)+'px';
+    var items = [
+      ['📋  Copy text',    'copy'],
+      ['💬  WhatsApp',     'https://wa.me/?text='+enc],
+      ['✈️  Telegram',    'https://t.me/share/url?url=&text='+enc],
+      ['📧  Email',        'mailto:?body='+enc],
+    ];
+    items.forEach(function(item){{
+      var btn2 = pd.createElement('button');
+      btn2.textContent = item[0];
+      btn2.style.cssText = 'background:#222;color:#e8e8e8;border:1px solid #2a2a2a;border-radius:8px;'+
+        'padding:8px 12px;cursor:pointer;text-align:left;font-size:13px;'+
+        'font-family:"Segoe UI",sans-serif;width:100%';
+      btn2.onmouseover = function(){{btn2.style.background='#2e2e2e';}};
+      btn2.onmouseout  = function(){{btn2.style.background='#222';}};
+      btn2.addEventListener('click',function(){{
+        if(item[1]==='copy'){{
+          _titanCopyToClipboard(TEXT, sh, '↗');
+        }} else {{
+          window.open(item[1],'_blank');
+        }}
+        menu.remove();
+      }});
+      menu.appendChild(btn2);
+    }});
+    pd.body.appendChild(menu);
+    // close on outside click
+    setTimeout(function(){{
+      pd.addEventListener('click',function _cls(){{
+        menu.remove(); pd.removeEventListener('click',_cls);
+      }});
+    }},50);
+  }});
+  document.querySelectorAll('.rxn').forEach(function(btn){{
+    btn.addEventListener('click',function(){{
+      var wasActive=btn.classList.contains('active');
+      document.querySelectorAll('.rxn').forEach(function(b2){{b2.classList.remove('active');}});
+      if(!wasActive) btn.classList.add('active');
+    }});
+  }});
 }})();
 </script>
 """)
     if msg["role"] == "assistant":
         _last_asst_content = msg["content"]
+
+# ── Message stagger animation (cascade 35 ms per bubble) ─────────────────────
+if cur_msgs():
+    st.html("""<script>
+(function(){
+  var msgs = document.querySelectorAll('[data-testid="stChatMessage"]');
+  msgs.forEach(function(el, i){
+    el.style.animationDelay = Math.min(i * 35, 180) + 'ms';
+  });
+})();
+</script>""")
+
+# ── Smart Follow-up Suggestion Chips (Pro + Max only) ────────────────────────
+import re as _re_sfup_o
+_sfup_tier_o = st.session_state.get("titan_tier", "basic")
+if _sfup_tier_o in ("pro", "max") and _last_asst_content and cur_msgs():
+    _sfup_match_o = _re_sfup_o.search(r'\[SUGGEST:\s*([^\]]{1,300})\]', _last_asst_content)
+    if _sfup_match_o:
+        _follow_ups_o = [s.strip() for s in _sfup_match_o.group(1).split('|') if s.strip()][:3]
+        if _follow_ups_o:
+            _chip_color_o = "#f59e0b" if _sfup_tier_o == "max" else "#7c3aed"
+            st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:.58rem;color:{_chip_color_o};letter-spacing:1.5px;margin-bottom:4px;padding-left:2px'>ASK ME MORE</div>", unsafe_allow_html=True)
+            _suf_cols_o = st.columns(len(_follow_ups_o))
+            for _si_o, _sq_o in enumerate(_follow_ups_o):
+                with _suf_cols_o[_si_o]:
+                    if st.button(f"→  {_sq_o}", key=f"_sfup_o_{_si_o}_{len(_last_asst_content)}", use_container_width=True):
+                        st.session_state._home_pending = _sq_o
+                        st.rerun()
 
 # ── Voice Talk-Back: speak the most recent assistant reply (once) ────────────
 if st.session_state.get("voice_reply") and _last_asst_content:
@@ -3990,6 +4714,17 @@ if st.session_state.get("_pending_pdf"):
         st.session_state["_pending_pdf"] = None
         st.rerun()
 
+# ── Animated video (GIF) download button ─────────────────────────────────────
+if st.session_state.get("_pending_video_gif"):
+    _vgif_bytes, _vgif_name = st.session_state["_pending_video_gif"]
+    st.image(_vgif_bytes, caption="🎬 Your animated video — preview", use_container_width=True)
+    st.download_button("⬇️ Download Video (GIF)", _vgif_bytes,
+                       _vgif_name, "image/gif",
+                       key="_vid_gif_dl", use_container_width=True)
+    if st.button("✕ Dismiss", key="_vgif_dismiss"):
+        st.session_state.pop("_pending_video_gif", None)
+        st.rerun()
+
 # Attach + Voice popovers are rendered in the sidebar (below the Memory expander).
 temp = 0.7  # full reasoning quality always — matches Claude Pro depth
 
@@ -4059,7 +4794,7 @@ def _is_trusted_url(url):
             '.gov' in url_l or '.edu' in url_l or '.ac.' in url_l)
 
 def _web_search(query, max_results=8):
-    """Search the web using DuckDuckGo — trusted sources only."""
+    """Search the web using DuckDuckGo — trusted sources only, no scam sites ever."""
     try:
         try:
             from duckduckgo_search import DDGS
@@ -4069,14 +4804,19 @@ def _web_search(query, max_results=8):
             from duckduckgo_search import DDGS
         raw = []
         with DDGS() as ddgs:
-            for r in ddgs.text(query, max_results=max_results * 2):
+            for r in ddgs.text(query, max_results=max_results * 3):
                 raw.append(r)
-        # Prefer trusted domains, filter scam URLs
-        trusted = [r for r in raw if _is_trusted_url(r.get('href',''))]
-        chosen = trusted if trusted else raw
+        # Strict: trusted domains only — never fall back to untrusted results
+        trusted = [r for r in raw if _is_trusted_url(r.get('href', ''))]
+        # If no trusted hits, relax to non-scam sites (but still block scam indicators)
+        if not trusted:
+            trusted = [r for r in raw if not any(
+                s in r.get('href','').lower() for s in _SCAM_INDICATORS
+            )]
         results = []
-        for r in chosen[:max_results]:
-            results.append(f"• {r['title']}\n  {r['body']}")
+        for r in trusted[:max_results]:
+            src = r.get('href','').split('/')[2] if r.get('href') else ''
+            results.append(f"• [{src}] {r['title']}\n  {r['body']}")
         return "\n\n".join(results) if results else ""
     except Exception:
         return ""
@@ -5141,6 +5881,437 @@ def pc_execute(command):
     _sp.Popen(cmd, shell=True, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
     return f'✅ Ran: {cmd}'
 
+# ── AI Image & Video Generation ───────────────────────────────────────────────
+def _is_image_gen_request(q):
+    q = q.lower().strip()
+    return any(x in q for x in [
+        "generate image", "create image", "make image",
+        "generate an image", "create an image", "make an image",
+        "generate a image", "create a image",
+        "generate photo", "create photo", "make photo",
+        "generate a photo", "create a photo", "make a photo",
+        "generate picture", "create picture", "make picture",
+        "generate a picture", "create a picture",
+        "show me a picture of", "show me an image of",
+        "generate artwork", "create artwork", "make artwork",
+        "draw me", "draw an image", "illustrate this",
+        "generate illustration", "create illustration",
+        "ai image of", "ai photo of",
+    ])
+
+def _is_video_gen_request(q):
+    q = q.lower().strip()
+    return any(x in q for x in [
+        "generate video", "create video", "make video",
+        "generate a video", "create a video", "make a video",
+        "generate video of", "create video of", "make a video of",
+        "ai video", "create ai video", "generate ai video",
+        "create animation", "generate animation", "make animation",
+        "short video of", "video clip", "generate clip",
+        "animate this", "create a clip of",
+        "video", "animate", "animation", "zoom", "pan", "cinematic",
+    ])
+
+def _parse_video_effect(text):
+    import re as _re_ve
+    t = text.lower()
+    if any(w in t for w in ["ken burns", "cinematic", "film", "movie", "professional", "dramatic"]):
+        effect = "ken_burns"
+    elif any(w in t for w in ["zoom in", "zooming in", "close up", "closer", "zoom into"]):
+        effect = "zoom_in"
+    elif any(w in t for w in ["zoom out", "zooming out", "pull back", "pull away", "wider"]):
+        effect = "zoom_out"
+    elif any(w in t for w in ["pan right", "move right", "left to right", "slide right"]):
+        effect = "pan_right"
+    elif any(w in t for w in ["pan left", "move left", "right to left", "slide left"]):
+        effect = "pan_left"
+    elif any(w in t for w in ["pan up", "move up", "bottom to top", "slide up"]):
+        effect = "pan_up"
+    elif any(w in t for w in ["pan down", "move down", "top to bottom", "slide down"]):
+        effect = "pan_down"
+    elif any(w in t for w in ["pulse", "breathe", "breathing", "heartbeat"]):
+        effect = "pulse"
+    elif any(w in t for w in ["fade", "fade in", "appear", "emerge"]):
+        effect = "fade_in"
+    elif any(w in t for w in ["shake", "vibrate", "shaky", "tremble"]):
+        effect = "shake"
+    elif any(w in t for w in ["zoom", "slow zoom"]):
+        effect = "zoom_in"
+    elif any(w in t for w in ["pan", "slide", "scroll", "sweep"]):
+        effect = "pan_right"
+    else:
+        effect = "ken_burns"
+    speed = "medium"
+    if any(w in t for w in ["slow", "slowly", "gentle", "smooth", "soft"]):
+        speed = "slow"
+    elif any(w in t for w in ["fast", "quick", "rapid", "dynamic"]):
+        speed = "fast"
+    duration = 5
+    m = _re_ve.search(r'(\d+)\s*sec', t)
+    if m:
+        duration = min(max(int(m.group(1)), 2), 12)
+    zoom = {"slow": 0.22, "medium": 0.32, "fast": 0.45}.get(speed, 0.32)
+    return {"effect": effect, "duration": duration, "fps": 10, "zoom": zoom, "speed": speed}
+
+def _create_animated_gif(img_bytes, params):
+    from PIL import Image, ImageEnhance
+    import io, math
+    img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+    if img.width > 640:
+        r = 640 / img.width
+        img = img.resize((640, int(img.height * r)), Image.LANCZOS)
+    effect = params["effect"]
+    total_frames = params["duration"] * params["fps"]
+    zoom = params.get("zoom", 0.32)
+    w, h = img.size
+    frames = []
+    for i in range(total_frames):
+        t = i / max(total_frames - 1, 1)
+        if effect == "zoom_in":
+            sc = 1 + zoom * t
+            nw, nh = int(w / sc), int(h / sc)
+            l, tp = (w - nw) // 2, (h - nh) // 2
+            frame = img.crop((l, tp, l + nw, tp + nh)).resize((w, h), Image.LANCZOS)
+        elif effect == "zoom_out":
+            sc = (1 + zoom) - zoom * t
+            nw, nh = int(w / sc), int(h / sc)
+            l, tp = (w - nw) // 2, (h - nh) // 2
+            frame = img.crop((l, tp, l + nw, tp + nh)).resize((w, h), Image.LANCZOS)
+        elif effect == "pan_right":
+            mg = int(w * 0.22); l = int(mg * t)
+            frame = img.crop((l, 0, l + w - mg, h)).resize((w, h), Image.LANCZOS)
+        elif effect == "pan_left":
+            mg = int(w * 0.22); l = int(mg * (1 - t))
+            frame = img.crop((l, 0, l + w - mg, h)).resize((w, h), Image.LANCZOS)
+        elif effect == "pan_up":
+            mg = int(h * 0.22); tp = int(mg * (1 - t))
+            frame = img.crop((0, tp, w, tp + h - mg)).resize((w, h), Image.LANCZOS)
+        elif effect == "pan_down":
+            mg = int(h * 0.22); tp = int(mg * t)
+            frame = img.crop((0, tp, w, tp + h - mg)).resize((w, h), Image.LANCZOS)
+        elif effect == "ken_burns":
+            sc = 1 + zoom * t
+            nw, nh = int(w / sc), int(h / sc)
+            px, py = int(w * 0.06 * t), int(h * 0.03 * t)
+            l = max(0, min((w - nw) // 2 + px, w - nw))
+            tp = max(0, min((h - nh) // 2 + py, h - nh))
+            frame = img.crop((l, tp, l + nw, tp + nh)).resize((w, h), Image.LANCZOS)
+        elif effect == "pulse":
+            sc = 1 + 0.06 * math.sin(t * math.pi * 2)
+            nw, nh = int(w / sc), int(h / sc)
+            l, tp = (w - nw) // 2, (h - nh) // 2
+            frame = img.crop((l, tp, l + nw, tp + nh)).resize((w, h), Image.LANCZOS)
+        elif effect == "fade_in":
+            sc = 1.2 - 0.2 * t
+            nw, nh = int(w / sc), int(h / sc)
+            l, tp = (w - nw) // 2, (h - nh) // 2
+            frame = img.crop((l, tp, l + nw, tp + nh)).resize((w, h), Image.LANCZOS)
+            frame = ImageEnhance.Brightness(frame).enhance(min(1.0, t * 2.5))
+        elif effect == "shake":
+            import random; random.seed(i)
+            pad = 10
+            dx, dy = random.randint(-pad, pad), random.randint(-pad, pad)
+            l = max(0, min(pad + dx, 2 * pad)); tp = max(0, min(pad + dy, 2 * pad))
+            frame = img.crop((l, tp, l + w - 2 * pad, tp + h - 2 * pad)).resize((w, h), Image.LANCZOS)
+        else:
+            frame = img.copy()
+        frames.append(frame.quantize(colors=200, method=Image.Quantize.MEDIANCUT))
+    buf = io.BytesIO()
+    frames[0].save(buf, format="GIF", save_all=True, append_images=frames[1:],
+                   duration=int(1000 / params["fps"]), loop=0, optimize=True)
+    buf.seek(0)
+    return buf.getvalue()
+
+def _create_text_to_video(description, duration=5, fps=10):
+    from PIL import Image, ImageDraw, ImageFont
+    import io, math, numpy as np, json as _json_tv, re as _re_tv, random as _rnd_v
+    W, H = 480, 270; BAR = 24
+    t_low = description.lower()
+    _pals = {
+        "sunset":  [(255,80,30),(255,150,0),(220,60,90),(255,200,100)],
+        "ocean":   [(0,50,150),(0,120,200),(0,200,190),(80,230,220)],
+        "forest":  [(20,60,20),(50,110,40),(90,160,70),(160,210,110)],
+        "night":   [(8,8,35),(25,15,70),(50,30,110),(90,60,170)],
+        "fire":    [(170,10,0),(240,80,0),(255,170,0),(255,230,60)],
+        "space":   [(5,5,20),(20,10,50),(40,20,90),(100,60,200)],
+        "gold":    [(140,100,0),(200,155,30),(245,200,80),(255,240,160)],
+        "rose":    [(170,20,60),(220,60,100),(250,120,150),(255,180,200)],
+        "snow":    [(180,210,240),(210,230,250),(235,245,255),(255,255,255)],
+        "desert":  [(190,130,50),(230,170,80),(255,205,110),(255,235,170)],
+        "sky":     [(80,130,230),(130,180,255),(190,220,255),(230,245,255)],
+        "cyber":   [(0,20,40),(0,80,180),(0,200,255),(100,255,255)],
+        "purple":  [(30,10,60),(80,20,140),(150,50,200),(200,120,255)],
+        "rainbow": [(255,50,50),(255,180,0),(50,220,50),(50,100,255)],
+        "horror":  [(20,0,0),(80,10,10),(160,20,0),(255,60,20)],
+        "party":   [(255,50,150),(255,200,0),(50,200,255),(150,50,255)],
+        "luxury":  [(20,15,5),(80,60,10),(180,140,30),(255,220,100)],
+        "tech":    [(5,15,30),(10,60,100),(20,150,200),(80,220,255)],
+        "nature":  [(20,50,10),(60,120,30),(120,180,60),(200,230,120)],
+        "calm":    [(100,140,200),(140,180,230),(180,210,245),(220,235,255)],
+    }
+    _tv_palette="night"; _tv_motion="wave"; _tv_speed=1.0
+    _scene="default"; _vid_title=description[:30]; _c1=(255,80,30); _c2=(60,100,255)
+    try:
+        _tv_client = Groq(api_key=_GROQ_KEY)
+        _tv_resp = _tv_client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[{"role":"user","content":(
+                f'Video request: "{description}"\n'
+                f'Use your full knowledge of movies, anime, sports, games, and any topic to analyse this. '
+                f'Reply ONLY with valid JSON:\n'
+                f'{{"palette":"sunset|ocean|forest|night|fire|space|gold|rose|snow|desert|sky|cyber|purple|rainbow|horror|party|luxury|tech|nature|calm",'
+                f'"motion":"wave|spin|zoom|fade|diagonal","speed":"slow|medium|fast",'
+                f'"scene":"fight|sport|love|space|nature|horror|celebration|default",'
+                f'"title":"3-5 word cinematic title for this video",'
+                f'"c1":"#RRGGBB hex for main character or object",'
+                f'"c2":"#RRGGBB hex for second character or element"}}'
+            )}],
+            max_tokens=120, temperature=0
+        )
+        _tv_raw = _tv_resp.choices[0].message.content.strip()
+        _tv_json = _json_tv.loads(_re_tv.search(r'\{.*\}', _tv_raw, _re_tv.DOTALL).group())
+        _tv_palette = _tv_json.get("palette","night"); _tv_motion = _tv_json.get("motion","wave")
+        _tv_speed = {"slow":0.5,"medium":1.0,"fast":2.0}.get(_tv_json.get("speed","medium"),1.0)
+        _scene = _tv_json.get("scene","default"); _vid_title = _tv_json.get("title",description[:30])
+        def _hx(h):
+            h=h.lstrip('#')
+            try: return tuple(int(h[i:i+2],16) for i in (0,2,4))
+            except: return (255,100,0)
+        _c1=_hx(_tv_json.get("c1","#FF5020")); _c2=_hx(_tv_json.get("c2","#2050FF"))
+        if _tv_palette not in _pals: _tv_palette="night"
+        if _tv_motion not in ("wave","spin","zoom","fade","diagonal"): _tv_motion="wave"
+        if _scene not in ("fight","sport","love","space","nature","horror","celebration","default"): _scene="default"
+    except Exception:
+        _scene="default"; _vid_title=description[:30]; _c1=(255,80,30); _c2=(60,100,255)
+        _kw_map = [
+            (["sunset","orange","warm","golden","dusk","dawn"],"sunset"),
+            (["ocean","sea","wave","water","river","lake"],"ocean"),
+            (["forest","tree","green","nature","jungle","garden"],"forest"),
+            (["night","dark","shadow","mystery","gothic","midnight"],"night"),
+            (["fire","flame","lava","burn","blaze","inferno"],"fire"),
+            (["space","galaxy","star","cosmos","universe","planet","nebula"],"space"),
+            (["gold","luxury","elegant","rich","royal"],"luxury"),
+            (["love","heart","romantic","rose","valentine","pink","kiss"],"rose"),
+            (["snow","cold","winter","ice","arctic","frost"],"snow"),
+            (["desert","sand","dune","dry","heat","mirage"],"desert"),
+            (["sky","cloud","bright","sunlight","day"],"sky"),
+            (["cyber","digital","tech","neon","futuristic","matrix"],"cyber"),
+            (["purple","violet","magic","fantasy","mystic"],"purple"),
+            (["horror","scary","blood","ghost","demon","evil","haunted"],"horror"),
+            (["party","birthday","celebration","confetti","disco","music"],"party"),
+            (["calm","peace","relax","meditation","zen","gentle","serene"],"calm"),
+        ]
+        for kws,pk in _kw_map:
+            if any(w in t_low for w in kws): _tv_palette=pk; break
+        if any(w in t_low for w in ["spin","rotate","swirl","vortex"]): _tv_motion="spin"
+        elif any(w in t_low for w in ["zoom","pulse","expand","burst"]): _tv_motion="zoom"
+        elif any(w in t_low for w in ["fade","glow","dissolve"]): _tv_motion="fade"
+        elif any(w in t_low for w in ["diagonal","slant"]): _tv_motion="diagonal"
+        if any(w in t_low for w in ["slow","gentle","calm","peaceful"]): _tv_speed=0.5
+        elif any(w in t_low for w in ["fast","quick","rapid","intense"]): _tv_speed=2.0
+        if any(w in t_low for w in ["fight","battle","vs","versus","combat","war","clash","attack","sword","punch"]): _scene="fight"
+        elif any(w in t_low for w in ["football","cricket","basketball","sport","goal","score","ball","player","match"]): _scene="sport"
+        elif any(w in t_low for w in ["love","romance","heart","valentine","kiss","wedding","couple"]): _scene="love"
+        elif any(w in t_low for w in ["space","galaxy","planet","rocket","cosmos","nebula","astronaut"]): _scene="space"
+        elif any(w in t_low for w in ["horror","scary","ghost","demon","evil","haunted","blood"]): _scene="horror"
+        elif any(w in t_low for w in ["birthday","party","celebration","confetti","festival","victory"]): _scene="celebration"
+    pal=_pals.get(_tv_palette,_pals["night"])
+    _dm=_re_tv.search(r'(\d+)\s*sec',t_low)
+    if _dm: duration=min(max(int(_dm.group(1)),2),12)
+    total=duration*fps
+    Y_g,X_g=np.mgrid[0:H,0:W].astype(np.float32)
+    y_n=Y_g/H; x_n=X_g/W; cx_c,cy_c=W/2.0,H/2.0
+    dist_g=np.sqrt(((X_g-cx_c)/(W*0.7))**2+((Y_g-cy_c)/(H*0.7))**2).astype(np.float32)
+    angle_g=((np.arctan2(Y_g-cy_c,X_g-cx_c)/(2*math.pi))+0.5).astype(np.float32)%1.0
+    pal_arr=np.array(pal,dtype=np.float32); N=len(pal_arr)
+    def _to_rgb(pct):
+        pct=np.clip(pct,0,1); idx=pct*(N-1)
+        lo=np.floor(idx).astype(np.int32); hi=np.clip(lo+1,0,N-1); bl=(idx-lo)[...,None]
+        return np.clip(pal_arr[lo]+(pal_arr[hi]-pal_arr[lo])*bl,0,255).astype(np.uint8)
+    _disp=_vid_title[:34] if len(_vid_title)<=34 else _vid_title[:31]+"..."
+    try: _font=ImageFont.load_default()
+    except: _font=None
+    mcx,mcy=W//2,H//2; frames=[]
+    for i in range(total):
+        t=i/max(total-1,1); tv=t*_tv_speed
+        if _tv_motion=="wave":
+            wave=np.sin(Y_g*0.06+tv*math.pi*2).astype(np.float32)*0.12; pct=(y_n+tv*0.5+wave)%1.0
+        elif _tv_motion=="zoom": pct=(dist_g+tv*0.5)%1.0
+        elif _tv_motion=="spin": pct=(angle_g+tv*0.5)%1.0
+        elif _tv_motion=="fade": pct=np.full((H,W),(tv*0.5)%1.0,dtype=np.float32)
+        else: pct=((x_n+y_n)*0.5+tv*0.5)%1.0
+        frame=Image.fromarray(_to_rgb(pct),"RGB"); draw=ImageDraw.Draw(frame)
+        if _scene=="fight":
+            sp=max(0.0,1.0-t*2.4); sx=int(W*0.3*sp); r=20
+            if sx>4:
+                draw.ellipse([mcx-sx-r,mcy-r,mcx-sx+r,mcy+r],fill=_c1)
+                draw.ellipse([mcx+sx-r,mcy-r,mcx+sx+r,mcy+r],fill=_c2)
+            else:
+                ft=t-0.42
+                if 0<ft<0.25: draw.ellipse([mcx-45,mcy-45,mcx+45,mcy+45],fill=(255,220,max(0,int(255*(1-ft/0.25)))))
+                _rnd_v.seed(i)
+                for _ in range(12):
+                    sx2=mcx+_rnd_v.randint(-70,70); sy2=mcy+_rnd_v.randint(-50,50); sr=_rnd_v.randint(2,6)
+                    draw.ellipse([sx2-sr,sy2-sr,sx2+sr,sy2+sr],fill=_rnd_v.choice([_c1,_c2,(255,220,0)]))
+        elif _scene=="sport":
+            bt=(t*1.5)%1.0; bx=int(W*0.07+bt*W*0.86); by=int(H*0.78-math.sin(bt*math.pi)*H*0.52); r=13
+            for tr in range(3,0,-1):
+                trt=max(0,bt-tr*0.07); trx=int(W*0.07+trt*W*0.86); try_=int(H*0.78-math.sin(trt*math.pi)*H*0.52)
+                fc=tuple(max(0,int(c*(4-tr)/4)) for c in _c1)
+                draw.ellipse([trx-(r-tr),try_-(r-tr),trx+(r-tr),try_+(r-tr)],fill=fc)
+            draw.ellipse([bx-r,by-r,bx+r,by+r],fill=_c1)
+        elif _scene=="space":
+            _rnd_v.seed(99)
+            for _ in range(25):
+                sx=_rnd_v.randint(0,W); sy=_rnd_v.randint(0,H)
+                sc=int(160*abs(math.sin(t*math.pi*3+sx*0.05))+60)
+                draw.ellipse([sx,sy,sx+2,sy+2],fill=(sc,sc,sc))
+            ang=t*math.pi*4; ox=int(mcx+65*math.cos(ang)); oy=int(mcy+28*math.sin(ang))
+            draw.ellipse([ox-8,oy-8,ox+8,oy+8],fill=_c1); draw.ellipse([mcx-6,mcy-6,mcx+6,mcy+6],fill=_c2)
+        elif _scene=="love":
+            pulse=1.0+0.18*math.sin(t*math.pi*4); r=int(22*pulse)
+            draw.ellipse([mcx-r,mcy-r+4,mcx,mcy+4],fill=_c1)
+            draw.ellipse([mcx,mcy-r+4,mcx+r,mcy+4],fill=_c1)
+            draw.polygon([(mcx-r,mcy+4),(mcx+r,mcy+4),(mcx,mcy+r+14)],fill=_c1)
+            _rnd_v.seed(i*5)
+            for _ in range(5):
+                px=mcx+_rnd_v.randint(-60,60); py=int(mcy+50-t*90+_rnd_v.randint(-8,8))
+                draw.ellipse([px-3,py-3,px+3,py+3],fill=_c2)
+        elif _scene=="horror":
+            if i%max(1,int(fps*0.6))<2: draw.rectangle([0,0,W,H],fill=(180,180,230))
+            _rnd_v.seed(11)
+            for _ in range(5):
+                dx=_rnd_v.randint(40,W-40); dh=int(15+t*50)
+                draw.rectangle([dx-2,0,dx+2,dh],fill=(160,0,0))
+        elif _scene=="celebration":
+            _rnd_v.seed(i)
+            cols=[(255,50,150),(255,200,0),(50,200,255),(150,50,255),_c1,_c2]
+            for _ in range(18):
+                cx2=_rnd_v.randint(0,W); cy2=int((_rnd_v.randint(0,H)-t*220)%H)
+                r2=_rnd_v.randint(4,9); draw.ellipse([cx2-r2,cy2-r2,cx2+r2,cy2+r2],fill=_rnd_v.choice(cols))
+        else:
+            for idx2 in range(3):
+                ang=t*math.pi*2+idx2*(2*math.pi/3)
+                ex=int(mcx+65*math.cos(ang)); ey=int(mcy+32*math.sin(ang)); r=12
+                draw.ellipse([ex-r,ey-r,ex+r,ey+r],fill=(_c1 if idx2%2==0 else _c2))
+        draw.rectangle([0,0,W,BAR],fill=(0,0,0)); draw.rectangle([0,H-BAR,W,H],fill=(0,0,0))
+        if _font:
+            tw=len(_disp)*6; tx=max(4,(W-tw)//2); ty=(BAR-10)//2
+            draw.text((tx+1,ty+1),_disp,fill=(0,0,0),font=_font)
+            draw.text((tx,ty),_disp,fill=(255,255,255),font=_font)
+        frames.append(frame.quantize(colors=128,method=Image.Quantize.MEDIANCUT))
+    buf=io.BytesIO()
+    frames[0].save(buf,format="GIF",save_all=True,append_images=frames[1:],duration=int(1000/fps),loop=0,optimize=True)
+    buf.seek(0); return buf.getvalue()
+
+def _is_pdf_extract_request(text):
+    import re as _re_pdf
+    t = text.lower()
+    if _re_pdf.search(r'\b(page|pages|pg|pgs|pp)\b.*\d+.*\bto\b.*\d+', t):
+        return True
+    if _re_pdf.search(r'\d+\s+to\s+\d+.*(page|pdf|print)', t):
+        return True
+    if _re_pdf.search(r'(extract|give me|get me|download|export).*(page|pages|pdf)', t) and _re_pdf.search(r'\d+', t):
+        return True
+    if _re_pdf.search(r'(page|pages)\s+\d+\s*(to|-|–|through|till|until)\s*\d+', t):
+        return True
+    return False
+
+def _parse_pdf_page_range(text):
+    import re as _re_pr
+    nums = [int(x) for x in _re_pr.findall(r'\d+', text)]
+    if len(nums) >= 2:
+        a, b = nums[0], nums[1]
+        return min(a, b), max(a, b)
+    return None
+
+def _extract_pdf_pages(pdf_bytes, start_page, end_page):
+    try:
+        import PyPDF2 as _pypdf, io as _io_pdf
+        reader = _pypdf.PdfReader(_io_pdf.BytesIO(pdf_bytes))
+        total  = len(reader.pages)
+        s = max(1, min(start_page, total)) - 1
+        e = max(1, min(end_page,   total)) - 1
+        writer = _pypdf.PdfWriter()
+        for i in range(s, e + 1):
+            writer.add_page(reader.pages[i])
+        out = _io_pdf.BytesIO()
+        writer.write(out)
+        return out.getvalue(), total
+    except Exception:
+        return None, 0
+
+def _gen_image_url(prompt, is_max=False):
+    import urllib.parse, hashlib as _hg
+    if is_max:
+        _full = (
+            prompt.strip() +
+            ", ultra photorealistic, DSLR photograph, Sony A7R V, 85mm f/1.4 lens, "
+            "perfect natural lighting, 8K UHD, skin texture visible, RAW capture, "
+            "zero AI artifacts, indistinguishable from real photograph, magazine quality"
+        )
+    else:
+        _full = (
+            prompt.strip() +
+            ", photorealistic, high quality, 4K, professional photography, "
+            "clean lighting, sharp focus, detailed"
+        )
+    _seed = int(_hg.md5(prompt.encode()).hexdigest()[:8], 16) % 999999
+    _enc  = urllib.parse.quote(_full)
+    return (
+        f"https://image.pollinations.ai/prompt/{_enc}"
+        f"?model=flux&width=1024&height=1024&enhance=true&nologo=true&seed={_seed}"
+    )
+
+def _gen_video_fal(prompt, is_max=False):
+    import time as _tvid
+    _fal_key = ""
+    try: _fal_key = st.secrets.get("FAL_KEY", "")
+    except Exception: pass
+    if not _fal_key:
+        _fal_key = st.session_state.get("fal_api_key", "")
+    if not _fal_key:
+        return None, "no_key"
+
+    _model = "fal-ai/wan/v2.1/14b/text-to-video" if is_max else "fal-ai/wan/v2.1/1.3b/text-to-video"
+    _video_prompt = (
+        prompt.strip() +
+        (", ultra realistic, cinematic 4K, photorealistic lighting, "
+         "indistinguishable from real video footage, professional cinematography, "
+         "no AI artifacts, natural motion" if is_max
+         else ", high quality, smooth motion, cinematic, detailed")
+    )
+    _headers = {"Authorization": f"Key {_fal_key}", "Content-Type": "application/json"}
+    _payload  = {"prompt": _video_prompt, "duration": "5", "aspect_ratio": "16:9"}
+    try:
+        _sub = requests.post(f"https://queue.fal.run/{_model}",
+                             json=_payload, headers=_headers, timeout=30)
+        if _sub.status_code not in (200, 201):
+            return None, f"Submit failed ({_sub.status_code})"
+        _req_id = _sub.json().get("request_id")
+        if not _req_id:
+            return None, "No request ID returned"
+        for _ in range(60):
+            _tvid.sleep(5)
+            _poll = requests.get(
+                f"https://queue.fal.run/{_model}/requests/{_req_id}/status",
+                headers=_headers, timeout=20)
+            _st = _poll.json().get("status", "")
+            if _st == "COMPLETED":
+                _res = requests.get(
+                    f"https://queue.fal.run/{_model}/requests/{_req_id}",
+                    headers=_headers, timeout=20)
+                _vurl = (
+                    _res.json().get("video", {}).get("url") or
+                    (_res.json().get("videos") or [{}])[0].get("url", "")
+                )
+                return (_vurl, None) if _vurl else (None, "No video URL in result")
+            elif _st in ("FAILED", "CANCELLED"):
+                return None, "Video generation failed on server."
+        return None, "Timed out waiting for video."
+    except Exception as _ev:
+        return None, str(_ev)
+
 # ── System prompt (fully auto-detected from user input) ───────────────────────
 def get_system():
     msgs = cur_msgs()
@@ -5206,6 +6377,69 @@ def get_system():
     import datetime as _dtnow
     _now = _dtnow.datetime.now()
     base = SYSTEM + f"\n\nCurrent date: {_now.strftime('%A, %d %B %Y')}. Current time: {_now.strftime('%I:%M %p')} (IST)."
+    # ── Tier-based prompt additions ────────────────────────────────────────────
+    _sys_tier_o = st.session_state.get("titan_tier", "basic")
+    if _sys_tier_o == "pro":
+        _pro_depth_o = st.session_state.get("_answer_depth", "normal")
+        if _pro_depth_o == "quick":
+            _depth_instr_o = "Answer concisely in 2-4 sentences. Get straight to the point. No lengthy explanations."
+        elif _pro_depth_o == "deep":
+            _depth_instr_o = "Give an exhaustive, research-grade answer. Cover all angles, subtopics, expert nuances, real examples, comparisons, and actionable insights. Be impressively thorough."
+        else:
+            _depth_instr_o = "Give deeper, more detailed answers. Include extra context, examples, and analysis. Be noticeably more thorough and impressive."
+        base += (
+            "\n\n━━━ TITAN ULTRA PRO MODE ━━━\n"
+            f"Running in PRO mode, depth: {_pro_depth_o.upper()}. " + _depth_instr_o + "\n\n"
+            "PRO ANSWER QUALITY STANDARDS:\n"
+            "• DEEP REASONING — Use multi-step thinking for complex problems. Break it down fully.\n"
+            "• CONTEXT AWARENESS — Remember everything from earlier in the conversation. Never repeat.\n"
+            "• FACTUALITY — For real-time questions use search. Never guess. Say 'I'm not 100% sure but...' if uncertain.\n"
+            "• GIVE THE FINISHED THING — Don't say 'you could try this.' Write the code. Draft the email. Give the complete answer.\n"
+            "• ADAPTABLE FORMAT — Match the user's tone. Casual question → warm casual answer. Technical → structured expert answer.\n\n"
+            "PRO PYTHON CODE RULE — Your code MUST be CLEARLY different from basic. Mandatory features:\n"
+            "Colorful styled paddles and background, math-generated sounds (no files), ball trail effect, "
+            "particle explosions on score, screen shake, pause (P key), menu + game over screens, "
+            "paddle glow, angle-based bounce. Around 200 lines. Looks like a real polished game.\n\n"
+            "PRO FORMAT RULE — Every answer MUST follow this structure: "
+            "1) Short opening line giving the main point. "
+            "2) Organised body with emoji section headings, bullet points, bold key terms, tables for comparisons, code blocks for code. "
+            "3) End with a helpful closing offer like 'Would you like me to build this for you?' or 'Want me to explain any part in more detail?'"
+        )
+    elif _sys_tier_o == "max":
+        base += (
+            "\n\n━━━ TITAN ULTRA MAX MODE — ULTIMATE ━━━\n"
+            "The user has paid ₹24,000 for MAX. Every single answer must feel worth that. "
+            "NEVER give something average, generic, or textbook-style. Every answer must feel crafted just for them.\n\n"
+            "MAX ANSWER QUALITY STANDARDS — deliver ALL of these every time:\n\n"
+            "• UNDERSTAND THE REAL MEANING — Even if the message has typos or is loosely phrased, "
+            "figure out what they actually want. Never ask them to rephrase. Just answer.\n"
+            "• DEEP REASONING — Use multi-step thinking for complex problems. Break it down fully, hold every detail.\n"
+            "• CONTEXT AWARENESS — Remember everything from earlier in the conversation. Never make the user repeat.\n"
+            "• MULTIMODAL — Process and reason across text, images, code, and documents together.\n"
+            "• FACTUALITY — For real-time or factual questions, ground answers in accurate data. If uncertain: 'I'm not 100% sure but...'\n"
+            "• GIVE THE FINISHED THING — Write the code. Draft the email. Build the plan. Complete, ready-to-use answer.\n"
+            "• ADAPTABLE FORMAT — Headers, bullets, code blocks, tables. Match tone — casual gets warm, technical gets structured.\n"
+            "• HONESTY OVER FLATTERY — If something has a flaw, say so. Second and third versions are always better — offer to improve.\n"
+            "• ZERO TOLERANCE FOR MISTAKES — Every fact must be accurate. Never truncate. Never go shallow.\n"
+            "• End every answer with a 'Pro Insight' — one expert tip or hidden fact most people never know.\n\n"
+            "MAX LANGUAGE RULE — Talk like a real human friend, not like an AI or a textbook. "
+            "Use the kind of words you'd say out loud to a friend — casual, warm, relaxed. "
+            "Say things like: 'Okay so here's the thing...', 'Basically what happens is...', "
+            "'Think of it this way...', 'So yeah, that's why...', 'Honestly it's pretty simple once you get it!'\n"
+            "Never sound stiff or robotic. Short sentences. Everyday words. "
+            "The user should feel like they're texting their smartest friend who always has the answer.\n\n"
+            "MAX PYTHON CODE RULE — Your code MUST be 5x more impressive than Pro. Mandatory features:\n"
+            "5 levels each with unique color theme and name, each level harder than last, "
+            "moving obstacles in later levels, particle sparks on every hit, screen shake on score, "
+            "fading ball trail, rainbow ball in final level, twinkling stars background, "
+            "mouse + keyboard controls, AI with error factor, math-generated sounds for every event, "
+            "menu/pause/level-complete/victory screens, confetti on final win, 400-500 lines of code. "
+            "Looks like a real commercial game. Add short simple comments explaining each part.\n\n"
+            "MAX FORMAT RULE — Every answer MUST follow this structure: "
+            "1) Short opening line giving the main point. "
+            "2) Organised body with emoji section headings, bullet points, bold key terms, tables for comparisons, code blocks for code. "
+            "3) End with a helpful closing offer like 'Would you like me to build this for you?' or 'Want me to explain any part in more detail?'"
+        )
     mem = st.session_state.get("titan_memory", {})
     if mem:
         base += "\n\nThings you remember about the user:\n" + "\n".join(f"- {k}: {v}" for k, v in mem.items())
@@ -5439,26 +6673,53 @@ def call_groq(messages):
             ]
         else:
             _auto = _smart_pick(messages)
-            _fallback_chain = [
-                _auto,
-                "openai/gpt-oss-120b",
-                "openai/gpt-oss-20b",
-                "qwen/qwen3.8-27b",
-                "meta-llama/llama-4-maverick-17b-128e-instruct",
-                "moonshotai/kimi-k2-instruct",
-                "deepseek-r1-distill-llama-70b",
-                "llama-3.3-70b-versatile",
-                "gemma2-9b-it",
-                "llama-3.1-8b-instant",
-            ]
+            _cur_tier = st.session_state.get("titan_tier", "basic")
+            if _cur_tier == "basic":
+                _fallback_chain = [
+                    "openai/gpt-oss-20b",
+                    "qwen/qwen3.8-27b",
+                    "openai/gpt-oss-120b",
+                    "meta-llama/llama-4-maverick-17b-128e-instruct",
+                    "llama-3.3-70b-versatile",
+                    "gemma2-9b-it",
+                    "llama-3.1-8b-instant",
+                ]
+            elif _cur_tier == "max":
+                _fallback_chain = [
+                    "deepseek-r1-distill-llama-70b",
+                    "openai/gpt-oss-120b",
+                    "moonshotai/kimi-k2-instruct",
+                    "meta-llama/llama-4-maverick-17b-128e-instruct",
+                    "llama-3.3-70b-versatile",
+                    "gemma2-9b-it",
+                    "llama-3.1-8b-instant",
+                ]
+            else:  # pro
+                _fallback_chain = [
+                    _auto,
+                    "openai/gpt-oss-120b",
+                    "openai/gpt-oss-20b",
+                    "qwen/qwen3.8-27b",
+                    "meta-llama/llama-4-maverick-17b-128e-instruct",
+                    "moonshotai/kimi-k2-instruct",
+                    "deepseek-r1-distill-llama-70b",
+                    "llama-3.3-70b-versatile",
+                    "gemma2-9b-it",
+                    "llama-3.1-8b-instant",
+                ]
     _seen = set()
     _chain = [m for m in _fallback_chain if not (m in _seen or _seen.add(m))]
 
     import time as _time
 
-    # ── Token budgets per pass — shrink tokens each round to consume less quota ──
-    # Pass 0: full power. Pass 1+: progressively lighter to stay under per-minute limits.
-    _token_budgets = [16384, 12000, 8192, 6000, 4096, 2048]
+    # ── Token budgets per pass — tier-aware so quality difference is real ────────
+    _cur_tier_tok = st.session_state.get("titan_tier", "basic") if not _use_vision else "pro"
+    if _cur_tier_tok == "basic":
+        _token_budgets = [4096, 3000, 2048, 1500]
+    elif _cur_tier_tok == "max":
+        _token_budgets = [32768, 24000, 16384, 8192, 4096, 2048]
+    else:  # pro
+        _token_budgets = [16384, 12000, 8192, 6000, 4096, 2048]
 
     _last_err = None
     _current_full = full
@@ -5703,45 +6964,24 @@ def _do_ai_call(api_msgs):
 q_val      = st.session_state.pop("quick_q","") or voice_text
 
 if _USER_HIT_LIMIT:
-    _usage_data_cur = _load_usage_data()
-    _limit_hit_ts = _usage_data_cur.get("limit_hit_at") or _time_mod.time()
-    _remaining_secs = max(0, int(5 * 3600 - (_time_mod.time() - _limit_hit_ts)))
-    st.error("🚫 **You have hit your limits! Come back after your timer runs out.**\n\nFree users get **2 hours** of Titan Ultra. Want unlimited access? Payment options coming soon.")
-    import streamlit.components.v1 as _cv1_timer
-    _cv1_timer.html(f"""
+    st.error("🚫 **You've used 2 hours of active chat today.**\n\nBasic tier includes 2 hours of continuous conversation. Upgrade to Pro or Max for unlimited access.")
+    st.markdown("""
 <div style="text-align:center;padding:24px 0 8px;font-family:-apple-system,Segoe UI,sans-serif">
-  <div style="font-size:.85rem;color:#a78bfa;letter-spacing:2px;margin-bottom:10px">⏳ TIME REMAINING BEFORE YOU CAN ASK AGAIN</div>
-  <div id="tu_timer" style="font-size:3.2rem;font-weight:900;color:#f87171;letter-spacing:6px;font-variant-numeric:tabular-nums">--:--:--</div>
-  <div id="tu_msg" style="margin-top:14px;font-size:.9rem;color:#6b7a99"></div>
-</div>
-<script>
-var rem = {_remaining_secs};
-function fmt(n){{return n.toString().padStart(2,'0');}}
-function tick(){{
-  if(rem<=0){{
-    document.getElementById('tu_timer').innerHTML='00:00:00';
-    document.getElementById('tu_timer').style.color='#34d399';
-    document.getElementById('tu_msg').innerHTML='✅ <b style="color:#34d399">Time is up! You can now ask Titan Ultra questions again.</b>';
-    setTimeout(function(){{window.location.reload();}},2000);
-    return;
-  }}
-  var h=Math.floor(rem/3600),m=Math.floor((rem%3600)/60),s=rem%60;
-  document.getElementById('tu_timer').innerHTML=fmt(h)+':'+fmt(m)+':'+fmt(s);
-  rem--;
-  setTimeout(tick,1000);
-}}
-tick();
-</script>
-""", height=160)
+  <div style="font-size:.85rem;color:#a78bfa;letter-spacing:2px;margin-bottom:10px">START A NEW SESSION TO CONTINUE</div>
+  <div style="font-size:.8rem;color:#6b7a99">Or upgrade in the sidebar to unlock unlimited chat.</div>
+</div>""", unsafe_allow_html=True)
+    if st.button("Start Fresh Session", key="_reset_usage_limit"):
+        st.session_state.pop("_usage_hit_limit", None)
+        st.session_state.pop("_usage_active_secs", None)
+        st.session_state.pop("_usage_last_msg_ts", None)
+        st.rerun()
     st.stop()
 
 # Chat input only shown during active chat (home screen has its own centered input)
 if cur_msgs():
     _cmode = st.session_state.get("_titan_mode", "normal")
-    if _cmode == "think":
-        _cmode = "normal"
-        st.session_state._titan_mode = "normal"
     _chat_ph = ("⚡ Fast Mode — Message TITAN ULTRA..." if _cmode == "fast"
+                else "🧠 Thinking Mode — Message TITAN ULTRA..." if _cmode == "think"
                 else "Message TITAN ULTRA...")
     _chat_result = st.chat_input(
         _chat_ph,
@@ -5760,9 +7000,12 @@ else:
 
 # Hidden mode-setter buttons — CSS hides on home screen; JS hides in chat mode
 _hid_fast   = st.button("__TITAN_SET_FAST__",   key="_hid_mode_fast")
+_hid_think  = st.button("__TITAN_SET_THINK__",  key="_hid_mode_think")
 _hid_normal = st.button("__TITAN_SET_NORMAL__", key="_hid_mode_normal")
 if _hid_fast:
     st.session_state._titan_mode = "fast";   st.rerun()
+if _hid_think:
+    st.session_state._titan_mode = "think";  st.rerun()
 if _hid_normal:
     st.session_state._titan_mode = "normal"; st.rerun()
 
@@ -5836,6 +7079,7 @@ _pw.innerHTML='<div id="tpop">'+
 '<button class="tpb" data-act="files">📎  Files</button>'+
 '<hr style="border:none;border-top:1px solid #2d2d40;margin:4px 0">'+
 '<button class="tpb" id="tpb-fast">⚡  Fast Mode</button>'+
+'<button class="tpb" id="tpb-think">🧠  Thinking Mode</button>'+
 '</div>';
 pd.body.appendChild(_pw);
 var _pop=pd.getElementById('tpop');
@@ -5844,24 +7088,23 @@ var _popAnchor=null; // which button opened the popup
 function _refreshModeUI(){
     var mode=localStorage.getItem('titan_mode')||'normal';
     var fb=pd.getElementById('tpb-fast');
+    var tb=pd.getElementById('tpb-think');
     if(!fb) return;
     fb.className='tpb'+(mode==='fast'?' tpb-on':'');
     fb.textContent=(mode==='fast'?'⚡  Fast Mode ✓':'⚡  Fast Mode');
+    if(tb){
+        tb.className='tpb'+(mode==='think'?' tpb-on':'');
+        tb.textContent=(mode==='think'?'🧠  Thinking Mode ✓':'🧠  Thinking Mode');
+    }
 }
 
 function _openPopup(anchorEl){
     _popAnchor=anchorEl;
     _refreshModeUI();
     var r=anchorEl.getBoundingClientRect();
-    var vh=pd.documentElement.clientHeight;
     _pop.style.left=r.left+'px';
-    if(r.top>120){
-        _pop.style.bottom=(vh-r.top+8)+'px';
-        _pop.style.top='auto';
-    }else{
-        _pop.style.top=(r.bottom+8)+'px';
-        _pop.style.bottom='auto';
-    }
+    _pop.style.bottom=(pd.documentElement.clientHeight-r.top+8)+'px';
+    _pop.style.top='auto';
     _pop.style.display='flex';
 }
 
@@ -5878,13 +7121,27 @@ _pop.addEventListener('click',function(e){
     if(!btn) return;
     var act=btn.getAttribute('data-act')||btn.id;
     if(act==='photos'||act==='files'){
-        var fi=pd.querySelector('[data-testid="stChatInput"] input[type="file"]')||pd.querySelector('input[type="file"]');
-        if(fi){if(act==='photos')fi.setAttribute('accept','image/*');else fi.removeAttribute('accept');fi.click();}
+        // Inject a one-shot script into parent so fi.click() is in parent context (trusted)
+        var sc=pd.createElement('script');
+        sc.textContent='(function(){'+
+            'var fi=document.querySelector(\'[data-testid="stChatInput"] input[type="file"]\')||document.querySelector(\'input[type="file"]\');'+
+            'if(!fi) return;'+
+            (act==='photos'?'fi.setAttribute("accept","image/*,video/*");':'fi.removeAttribute("accept");')+
+            'fi.click();'+
+        '})();';
+        pd.head.appendChild(sc);
+        sc.remove();
     } else if(act==='tpb-fast'){
         var cur=localStorage.getItem('titan_mode')||'normal';
         var next=cur==='fast'?'normal':'fast';
         localStorage.setItem('titan_mode',next);
         _clickHiddenBtn(next==='fast'?'__TITAN_SET_FAST__':'__TITAN_SET_NORMAL__');
+        _refreshModeUI();
+    } else if(act==='tpb-think'){
+        var cur2=localStorage.getItem('titan_mode')||'normal';
+        var next2=cur2==='think'?'normal':'think';
+        localStorage.setItem('titan_mode',next2);
+        _clickHiddenBtn(next2==='think'?'__TITAN_SET_THINK__':'__TITAN_SET_NORMAL__');
         _refreshModeUI();
     }
     _pop.style.display='none';
@@ -5929,7 +7186,7 @@ function _injectHomePlus(){
     var plus=pd.createElement('button');
     plus.id='home-plus-icon';
     plus.textContent='+';
-    plus.style.cssText='position:absolute;left:16px;top:50%;transform:translateY(-50%);'+
+    plus.style.cssText='position:absolute;left:14px;top:50%;transform:translateY(-50%);'+
         'background:transparent;border:none;color:#888888;font-size:1.3rem;cursor:pointer;'+
         'z-index:10;padding:0;line-height:1;font-weight:300;transition:color .15s;';
     plus.addEventListener('mouseover',function(){plus.style.color='#ffffff';});
@@ -5941,10 +7198,62 @@ function _injectHomePlus(){
     });
     wrap.appendChild(plus);
 
+    // ── green status dot ──
+    var dot=pd.createElement('span');
+    dot.id='titan-home-dot';
+    dot.style.cssText='position:absolute;right:60px;top:50%;transform:translateY(-50%);'+
+        'width:8px;height:8px;border-radius:50%;background:#22c55e;z-index:10;pointer-events:none;';
+    wrap.appendChild(dot);
+
+    // ── blue send button (right) ──
+    var send=pd.createElement('button');
+    send.id='home-send-btn';
+    send.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
+    send.style.cssText='position:absolute;right:10px;top:50%;transform:translateY(-50%);'+
+        'background:#2563eb;border:none;border-radius:50%;width:36px;height:36px;'+
+        'cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;'+
+        'padding:0;transition:background .15s;';
+    send.addEventListener('mouseover',function(){send.style.background='#1d4ed8';});
+    send.addEventListener('mouseout',function(){send.style.background='#2563eb';});
+    send.addEventListener('click',function(e){
+        e.preventDefault();e.stopPropagation();
+        ['keydown','keypress','keyup'].forEach(function(t){
+            inp.dispatchEvent(new KeyboardEvent(t,{key:'Enter',keyCode:13,which:13,bubbles:true,cancelable:true}));
+        });
+    });
+    wrap.appendChild(send);
+
 }
 
-// ── Chat screen: inject visible Think button inside st.chat_input ─────────────
-function _injectChatThink(){}
+// ── Chat screen: inject green dot + blue send button inside st.chat_input ──────
+function _injectChatThink(){
+    var ci=pd.querySelector('[data-testid="stChatInput"]');
+    if(!ci||!pd.querySelector('[data-testid="stChatMessage"]')) return;
+    // Green dot
+    if(!ci.querySelector('#titan-chat-dot')){
+        var dot=pd.createElement('span');
+        dot.id='titan-chat-dot';
+        dot.style.cssText='position:absolute;right:62px;top:50%;transform:translateY(-50%);'+
+            'width:8px;height:8px;border-radius:50%;background:#22c55e;z-index:10;pointer-events:none;';
+        ci.appendChild(dot);
+    }
+    // Blue circle send button
+    var btns=ci.querySelectorAll('button');
+    if(btns.length>0){
+        var sendBtn=btns[btns.length-1];
+        if(!sendBtn.__titanBlued){
+            sendBtn.__titanBlued=true;
+            sendBtn.style.cssText='background:#2563eb !important;border-radius:50% !important;'+
+                'width:36px !important;height:36px !important;min-width:36px !important;'+
+                'padding:0 !important;border:none !important;flex-shrink:0 !important;'+
+                'display:flex !important;align-items:center !important;justify-content:center !important;'+
+                'margin-right:10px !important;transition:background .15s !important;';
+            sendBtn.querySelectorAll('svg,path').forEach(function(s){
+                s.style.fill='white';s.style.color='white';s.style.stroke='white';
+            });
+        }
+    }
+}
 
 // ── Hide mode buttons in chat mode (home screen hides them via CSS) ───────────
 function _hideModeBtns(){
@@ -6052,6 +7361,35 @@ if uploaded_file:
                                    f"Preview (first 20 rows):\n{_preview}")
             except Exception as _csv_e:
                 file_content = uploaded_file.read().decode("utf-8", errors="replace")
+        elif uploaded_file.name.lower().endswith(".pdf"):
+            try:
+                _pdf_raw = uploaded_file.read()
+                st.session_state["_uploaded_pdf_bytes"] = _pdf_raw
+                st.session_state["_uploaded_pdf_name"]  = uploaded_file.name
+                try:
+                    import pdfplumber as _plmb, io as _io_pl
+                    with _plmb.open(_io_pl.BytesIO(_pdf_raw)) as _pl_doc:
+                        _total_pages = len(_pl_doc.pages)
+                        _preview_txt = "\n".join(
+                            (p.extract_text() or "") for p in _pl_doc.pages[:3]
+                        )
+                except Exception:
+                    try:
+                        import PyPDF2 as _p2r, io as _io_p2
+                        _r2 = _p2r.PdfReader(_io_p2.BytesIO(_pdf_raw))
+                        _total_pages = len(_r2.pages)
+                        _preview_txt = " ".join(
+                            (_r2.pages[i].extract_text() or "") for i in range(min(3, _total_pages))
+                        )
+                    except Exception:
+                        _total_pages = 0
+                        _preview_txt = ""
+                file_content = (
+                    f"[PDF: {uploaded_file.name} — {_total_pages} pages]\n"
+                    f"Preview (first 3 pages):\n{_preview_txt[:1500]}"
+                )
+            except Exception:
+                file_content = f"[PDF: {uploaded_file.name}]"
         else:
             file_content = uploaded_file.read().decode("utf-8", errors="replace")
     except Exception:
@@ -6098,6 +7436,7 @@ if not user_input and uploaded_file:
     user_input = "Please analyze the attached file."
 
 if user_input:
+    _update_usage_on_message()
     # ── Auto-detect memory commands ───────────────────────────────────────────
     import re as _re_mem
     _mem_cmd = _re_mem.match(
@@ -6112,8 +7451,7 @@ if user_input:
             _k2, _v2 = f"note_{len(st.session_state.titan_memory)}", _fact
         st.session_state.titan_memory[_k2] = _v2
         _save_memory(st.session_state.titan_memory)
-        if _k2 == "name" and not _IS_OWNER:
-            _register_this_device(_v2)
+        pass  # device registration removed in public duplicate
 
     if not st.session_state.api_key and provider == "Groq":
         st.error("❌ Please enter your Groq API key in the sidebar first.")
@@ -6245,11 +7583,15 @@ if user_input:
                 with st.spinner("🔍 Searching for error solution..."):
                     _error_context = _get_error_search(user_input)
 
-            # Regular web search for current info questions
+            # Always search the web — live info for every message
+            import datetime as _wsd
+            _ws_today = _wsd.date.today().isoformat()
             _search_results = ""
-            if not _youtube_context and not _url_context and not _deep_results and _is_search_request(user_input):
-                with st.spinner("🔍 Searching the web..."):
-                    _search_results = _web_search(user_input)
+            if not _youtube_context and not _url_context and not _deep_results:
+                with st.spinner("⊙  Fetching latest information…"):
+                    _search_results = _web_search(f"{user_input} {_ws_today}", max_results=6)
+                    if _search_results:
+                        _search_results = f"[Today: {_ws_today}]\n\n{_search_results}"
 
             # Connected app live search — auto-fetch when user asks about a connected app
             _conn_app_results = ""
@@ -6266,6 +7608,74 @@ if user_input:
                         _conn_app_results = _web_search(
                             f"{_mentioned_app} {user_input} {_ca_date}", max_results=10
                         )
+
+            # ── AI Image / Video generation (Pro + Max) ──────────────────────────
+            _gen_tier = st.session_state.get("titan_tier", "basic")
+            if _gen_tier in ("pro", "max"):
+                if _is_image_gen_request(user_input):
+                    with st.spinner("🎨 Generating your image…"):
+                        _img_raw = re.sub(
+                            r'(?i)\b(generate|create|make|draw|show me|illustrate|visualize)\b'
+                            r'\s*(?:a\s+|an\s+)?(?:image|photo|picture|artwork|illustration)\s*(?:of\s*)?',
+                            '', user_input, count=1).strip() or user_input
+                        _img_url = _gen_image_url(_img_raw, is_max=True)
+                        _img_caption = (
+                            f"[TITAN_IMAGE:{_img_url}]\n\n"
+                            "✨ **Max-tier image** — photorealistic Flux model, designed to look completely real!"
+                        )
+                    msgs = cur_msgs(); msgs.append({"role":"assistant","content":_img_caption}); set_msgs(msgs)
+                    st.rerun()
+                elif _is_video_gen_request(user_input):
+                    # Pro: text-to-video only | Max/Owner: text-to-video + image-to-video
+                    if _gen_tier == "pro":
+                        with st.spinner("🎬 Creating your cinematic video…"):
+                            _vgif = _create_text_to_video(user_input)
+                        _vgif_fname = "titan_pro_video.gif"
+                        st.session_state["_pending_video_gif"] = (_vgif, _vgif_fname)
+                        _vid_caption = (
+                            "🎬 **Pro video created!** Cinematic animated video generated from your description.\n\n"
+                            "Download it below. Want a different style? Try:\n"
+                            "- *\"make it sunset colours, slow wave\"*\n"
+                            "- *\"dark space galaxy, spinning\"*\n"
+                            "- *\"ocean blue, radial zoom\"*"
+                        )
+                        msgs = cur_msgs(); msgs.append({"role":"user","content":user_input}); msgs.append({"role":"assistant","content":_vid_caption}); set_msgs(msgs)
+                        st.rerun()
+                    else:
+                        # Max / Owner: image-to-video if image uploaded, else text-to-video
+                        _vid_img = None
+                        if _current_vision:
+                            _vid_img = _current_vision.get("bytes")
+                        if _vid_img:
+                            _vparams = _parse_video_effect(user_input)
+                            _effect_names = {
+                                "ken_burns": "Cinematic Ken Burns", "zoom_in": "Zoom In",
+                                "zoom_out": "Zoom Out", "pan_right": "Pan Right",
+                                "pan_left": "Pan Left", "pan_up": "Pan Up",
+                                "pan_down": "Pan Down", "pulse": "Pulse / Breathe",
+                                "fade_in": "Fade In", "shake": "Camera Shake",
+                            }
+                            _ename = _effect_names.get(_vparams["effect"], _vparams["effect"])
+                            with st.spinner(f"🎬 Animating your image — {_ename}, {_vparams['duration']}s…"):
+                                _vgif = _create_animated_gif(_vid_img, _vparams)
+                            _vgif_fname = f"titan_max_video_{_vparams['effect']}_{_vparams['duration']}s.gif"
+                            st.session_state["_pending_video_gif"] = (_vgif, _vgif_fname)
+                            _vid_caption = (
+                                f"🎬 **Max video created!** Effect: **{_ename}** · {_vparams['duration']}s · {_vparams['speed']} speed\n\n"
+                                f"Your image has been animated — download below.\n\n"
+                                f"Want a different effect? Ask — *\"zoom out\"*, *\"pan left\"*, *\"cinematic\"*, etc."
+                            )
+                        else:
+                            with st.spinner("🎬 Creating your cinematic video…"):
+                                _vgif = _create_text_to_video(user_input)
+                            _vgif_fname = "titan_max_video.gif"
+                            st.session_state["_pending_video_gif"] = (_vgif, _vgif_fname)
+                            _vid_caption = (
+                                "🎬 **Max video created!** Cinematic animated video from your description.\n\n"
+                                "Download below. To animate your own photo, upload an image first then ask again!"
+                            )
+                        msgs = cur_msgs(); msgs.append({"role":"user","content":user_input}); msgs.append({"role":"assistant","content":_vid_caption}); set_msgs(msgs)
+                        st.rerun()
 
             # Generate animated diagram if requested
             if _is_diagram_request(user_input):
