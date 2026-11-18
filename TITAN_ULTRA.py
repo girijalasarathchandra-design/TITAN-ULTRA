@@ -333,14 +333,14 @@ section[data-testid="stMain"] .block-container {
     padding-right:1.5rem !important;
 }
 [data-testid="stChatInput"] textarea {
-    background:#111111 !important; color:#e8e8e8 !important;
-    font-size:1rem !important; padding:20px 140px 20px 52px !important;
-    min-height:56px !important; line-height:1.6 !important;
+    background:#1a1a1a !important; color:#e8e8e8 !important;
+    font-size:1rem !important; padding:18px 110px 18px 52px !important;
+    min-height:44px !important; line-height:1.4 !important;
     resize:none !important;
 }
 [data-testid="stChatInput"] {
-    background:#111111 !important; border-radius:28px !important;
-    border:1px solid #2a2a2a !important; min-height:72px !important;
+    background:#1a1a1a !important; border-radius:999px !important;
+    border:1px solid #2e2e2e !important; min-height:60px !important;
     padding:0 !important; position:relative !important;
 }
 [data-testid="stChatInput"]:focus-within {
@@ -465,15 +465,15 @@ html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testi
 }
 /* ── HOME SCREEN: tall ChatGPT-style input ── */
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] input {
-    background:#141414 !important; color:#e8e8e8 !important;
-    border:1px solid #333333 !important; border-radius:999px !important;
-    padding:0 130px 0 28px !important; font-size:1rem !important;
+    background:#1a1a1a !important; color:#e8e8e8 !important;
+    border:1px solid #2e2e2e !important; border-radius:999px !important;
+    padding:0 58px 0 48px !important; font-size:1rem !important;
     height:60px !important; box-shadow:none !important; animation:none !important;
     box-sizing:border-box !important;
 }
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] [data-baseweb="input"] {
     height:60px !important; border-radius:999px !important;
-    background:#141414 !important; border:none !important;
+    background:#1a1a1a !important; border:none !important;
 }
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="stTextInput"] input:focus {
     border-color:#444444 !important; outline:none !important;
@@ -7186,7 +7186,7 @@ function _injectHomePlus(){
     var plus=pd.createElement('button');
     plus.id='home-plus-icon';
     plus.textContent='+';
-    plus.style.cssText='position:absolute;left:16px;top:50%;transform:translateY(-50%);'+
+    plus.style.cssText='position:absolute;left:14px;top:50%;transform:translateY(-50%);'+
         'background:transparent;border:none;color:#888888;font-size:1.3rem;cursor:pointer;'+
         'z-index:10;padding:0;line-height:1;font-weight:300;transition:color .15s;';
     plus.addEventListener('mouseover',function(){plus.style.color='#ffffff';});
@@ -7198,10 +7198,62 @@ function _injectHomePlus(){
     });
     wrap.appendChild(plus);
 
+    // ── green status dot ──
+    var dot=pd.createElement('span');
+    dot.id='titan-home-dot';
+    dot.style.cssText='position:absolute;right:60px;top:50%;transform:translateY(-50%);'+
+        'width:8px;height:8px;border-radius:50%;background:#22c55e;z-index:10;pointer-events:none;';
+    wrap.appendChild(dot);
+
+    // ── blue send button (right) ──
+    var send=pd.createElement('button');
+    send.id='home-send-btn';
+    send.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
+    send.style.cssText='position:absolute;right:10px;top:50%;transform:translateY(-50%);'+
+        'background:#2563eb;border:none;border-radius:50%;width:36px;height:36px;'+
+        'cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;'+
+        'padding:0;transition:background .15s;';
+    send.addEventListener('mouseover',function(){send.style.background='#1d4ed8';});
+    send.addEventListener('mouseout',function(){send.style.background='#2563eb';});
+    send.addEventListener('click',function(e){
+        e.preventDefault();e.stopPropagation();
+        ['keydown','keypress','keyup'].forEach(function(t){
+            inp.dispatchEvent(new KeyboardEvent(t,{key:'Enter',keyCode:13,which:13,bubbles:true,cancelable:true}));
+        });
+    });
+    wrap.appendChild(send);
+
 }
 
-// ── Chat screen: inject visible Think button inside st.chat_input ─────────────
-function _injectChatThink(){}
+// ── Chat screen: inject green dot + blue send button inside st.chat_input ──────
+function _injectChatThink(){
+    var ci=pd.querySelector('[data-testid="stChatInput"]');
+    if(!ci||!pd.querySelector('[data-testid="stChatMessage"]')) return;
+    // Green dot
+    if(!ci.querySelector('#titan-chat-dot')){
+        var dot=pd.createElement('span');
+        dot.id='titan-chat-dot';
+        dot.style.cssText='position:absolute;right:62px;top:50%;transform:translateY(-50%);'+
+            'width:8px;height:8px;border-radius:50%;background:#22c55e;z-index:10;pointer-events:none;';
+        ci.appendChild(dot);
+    }
+    // Blue circle send button
+    var btns=ci.querySelectorAll('button');
+    if(btns.length>0){
+        var sendBtn=btns[btns.length-1];
+        if(!sendBtn.__titanBlued){
+            sendBtn.__titanBlued=true;
+            sendBtn.style.cssText='background:#2563eb !important;border-radius:50% !important;'+
+                'width:36px !important;height:36px !important;min-width:36px !important;'+
+                'padding:0 !important;border:none !important;flex-shrink:0 !important;'+
+                'display:flex !important;align-items:center !important;justify-content:center !important;'+
+                'margin-right:10px !important;transition:background .15s !important;';
+            sendBtn.querySelectorAll('svg,path').forEach(function(s){
+                s.style.fill='white';s.style.color='white';s.style.stroke='white';
+            });
+        }
+    }
+}
 
 // ── Hide mode buttons in chat mode (home screen hides them via CSS) ───────────
 function _hideModeBtns(){
