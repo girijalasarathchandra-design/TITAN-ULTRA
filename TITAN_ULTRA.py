@@ -476,17 +476,35 @@ p, li { color:#e8e8e8 !important; }
     border: none !important;
     padding: 0 !important;
 }
-/* ── CHATBAR — visual styling only; JS handles all positioning ── */
+/* ── CHATBAR — Gemini-style floating pill ── */
 [data-testid="stBottom"] {
-    z-index:9000 !important;
-    background:rgba(10,10,14,0.96) !important;
-    backdrop-filter:blur(20px) !important;
-    -webkit-backdrop-filter:blur(20px) !important;
-    border-top:1px solid rgba(255,255,255,0.06) !important;
-    padding:10px 16px env(safe-area-inset-bottom,14px) !important;
-    box-shadow:0 -6px 30px rgba(0,0,0,0.6) !important;
-    min-height:72px !important;
+    background:transparent !important;
+    border:none !important;
+    box-shadow:none !important;
+    padding:0 24px 20px !important;
+    min-height:80px !important;
 }
+[data-testid="stChatInput"] {
+    border-radius:28px !important;
+    background:rgba(28,28,40,0.97) !important;
+    border:1px solid rgba(255,255,255,0.11) !important;
+    backdrop-filter:blur(24px) !important;
+    -webkit-backdrop-filter:blur(24px) !important;
+    box-shadow:0 4px 28px rgba(0,0,0,0.55) !important;
+    overflow:hidden !important;
+    max-width:800px !important;
+    margin:0 auto !important;
+}
+[data-testid="stChatInput"] textarea {
+    background:transparent !important;
+    border:none !important;
+    color:#e8e8e8 !important;
+    font-size:1rem !important;
+    padding:14px 12px !important;
+    resize:none !important;
+}
+[data-testid="stChatInput"] textarea::placeholder { color:#666 !important; }
+[data-testid="stChatInput"] textarea:focus { outline:none !important; box-shadow:none !important; }
 /* ── Hide TITAN_SET hidden mode buttons via their Streamlit key class ── */
 .st-key-_hid_mode_fast,
 .st-key-_hid_mode_think,
@@ -7717,11 +7735,41 @@ function _fixChatBar(){
     bar.style.setProperty('bottom','0','important');
     bar.style.setProperty('left',sbW+'px','important');
     bar.style.setProperty('right','0','important');
-    bar.style.setProperty('min-height','72px','important');
+    bar.style.setProperty('min-height','80px','important');
     bar.style.setProperty('z-index','9000','important');
 }
 window.addEventListener('resize',_fixChatBar);
 setInterval(_fixChatBar,400);
+
+// ── Scroll-to-bottom arrow ────────────────────────────────────────────────────
+function _injectScrollArrow(){
+    if(pd.getElementById('tu-scroll-arrow')) return;
+    var btn=pd.createElement('div');
+    btn.id='tu-scroll-arrow';
+    btn.innerHTML='&#8595;';
+    btn.style.cssText='position:fixed;bottom:100px;right:28px;width:38px;height:38px;'+
+        'border-radius:50%;background:rgba(40,40,55,0.92);border:1px solid rgba(255,255,255,0.15);'+
+        'color:#ccc;font-size:20px;display:none;align-items:center;justify-content:center;'+
+        'cursor:pointer;z-index:8999;backdrop-filter:blur(8px);'+
+        'box-shadow:0 2px 12px rgba(0,0,0,0.5);transition:opacity 0.2s;user-select:none;';
+    btn.onclick=function(){
+        var main=pd.querySelector('[data-testid="stMain"]');
+        if(main) main.scrollTo({top:main.scrollHeight,behavior:'smooth'});
+        else pd.documentElement.scrollTo({top:pd.body.scrollHeight,behavior:'smooth'});
+    };
+    pd.body.appendChild(btn);
+}
+function _checkScrollArrow(){
+    _injectScrollArrow();
+    var btn=pd.getElementById('tu-scroll-arrow');
+    if(!btn) return;
+    var main=pd.querySelector('[data-testid="stMain"]');
+    if(!main){btn.style.display='none';return;}
+    var atBottom=main.scrollHeight-main.scrollTop-main.clientHeight<80;
+    btn.style.display=atBottom?'none':'flex';
+}
+_injectScrollArrow();
+setInterval(_checkScrollArrow,500);
 
 // ── Thinking indicator: replace Streamlit spinner with Claude-style dots ────────
 var _TP={
@@ -8474,10 +8522,9 @@ if user_input:
                             f"[LIVE {_src_label.upper()}]:\n{_extra}\n\n"
                             f"Use the above {_src_label} to give a complete, accurate answer. "
                             f"Write entirely in your own words — never mention source names, website names, URLs, or where the data came from.\n\n"
-                            f"CRITICAL — RELEASE STATUS: If the search results mention any product, software, or hardware as 'expected', "
-                            f"'rumoured', 'leaked', 'announced', 'upcoming', or not yet released — say so clearly. "
-                            f"NEVER state an unreleased item as if it is already available. "
-                            f"Only say something is released if the search results explicitly confirm a release date that has already passed."
+                            f"IMPORTANT: If the user asks for the LATEST or CURRENT version of something — answer with the most recent RELEASED version first and state it clearly as released. "
+                            f"Only if search results also mention upcoming/rumoured future versions, mention them SEPARATELY and briefly as 'upcoming' or 'expected'. "
+                            f"Do NOT focus on unreleased rumours if the user asked about what is available NOW."
                         )
                     # If diagram was generated, tell the AI NOT to draw ASCII art
                     if _is_diagram_request(user_input):
