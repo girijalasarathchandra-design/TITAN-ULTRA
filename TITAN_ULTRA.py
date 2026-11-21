@@ -6,13 +6,16 @@ import requests, io, re, random as _random
 st.set_page_config(page_title="TITAN ULTRA", page_icon="🔱",
                    layout="wide", initial_sidebar_state="expanded")
 
-# ── Splash Screen (plays once per session) ────────────────────────────────────
-st.html("""<script>
+# ── Splash Screen (plays on every fresh page load) ───────────────────────────
+import random as _splash_rng
+_splash_html = """<script>
+/* titan-splash-nonce:__NONCE__ */
 (function(){
   var pd = window.parent.document;
   if (pd.getElementById('titan-splash')) return;
-  if (window.parent.sessionStorage.getItem('tu_splash_done')) return;
-  window.parent.sessionStorage.setItem('tu_splash_done','1');
+  if (window.parent.__titanSplashDone) return;
+  window.parent.__titanSplashDone = true;""".replace("__NONCE__", str(_splash_rng.randint(0,9999999)))
+st.html(_splash_html + """
 
   // Full-screen overlay injected into parent document
   var ov = pd.createElement('div');
@@ -321,10 +324,46 @@ section[data-testid="stSidebar"] > div > div {
 [data-testid="stChatMessage"] {
     background:transparent !important;
     border:none !important;
-    border-bottom:1px solid #1a1a1a !important;
+    border-bottom:1px solid rgba(255,255,255,0.05) !important;
     border-radius:0 !important;
-    margin:2px 0 !important;
-    padding:10px 0 !important;
+    margin:0 !important;
+    padding:14px 0 !important;
+}
+/* Code blocks — make them look premium */
+[data-testid="stChatMessage"] pre,
+[data-testid="stMarkdownContainer"] pre {
+    background:#111827 !important;
+    border:1px solid rgba(255,255,255,0.08) !important;
+    border-radius:12px !important;
+    padding:16px !important;
+    font-size:0.87rem !important;
+    line-height:1.6 !important;
+    overflow-x:auto !important;
+}
+/* Tables — clean dark style */
+[data-testid="stMarkdownContainer"] table {
+    border-collapse:collapse !important;
+    width:100% !important;
+    border-radius:8px !important;
+    overflow:hidden !important;
+    font-size:0.88rem !important;
+}
+[data-testid="stMarkdownContainer"] th {
+    background:#1e2130 !important;
+    color:#a78bfa !important;
+    padding:10px 14px !important;
+    font-weight:600 !important;
+    letter-spacing:0.5px !important;
+    border:none !important;
+}
+[data-testid="stMarkdownContainer"] td {
+    padding:9px 14px !important;
+    border:none !important;
+    border-top:1px solid rgba(255,255,255,0.05) !important;
+    color:#e0e0e0 !important;
+}
+[data-testid="stMarkdownContainer"] tr:nth-child(even) td {
+    background:rgba(255,255,255,0.025) !important;
 }
 /* Use full available width — no wasted space on left/right */
 section[data-testid="stMain"] .block-container {
@@ -437,18 +476,36 @@ p, li { color:#e8e8e8 !important; }
     border: none !important;
     padding: 0 !important;
 }
-/* Remove the line / gradient above chat bar */
-[data-testid="stBottom"] > div:first-child {
-    height:0 !important; min-height:0 !important; background:none !important;
-}
+/* ── CHATBAR — fixed to bottom; JS adjusts left to clear sidebar ── */
 [data-testid="stBottom"] {
-    border-top:none !important; background:transparent !important;
-    box-shadow:none !important;
+    position:fixed !important;
+    bottom:0 !important;
+    left:0 !important;
+    right:0 !important;
+    z-index:9000 !important;
+    background:rgba(10,10,14,0.96) !important;
+    backdrop-filter:blur(20px) !important;
+    -webkit-backdrop-filter:blur(20px) !important;
+    border-top:1px solid rgba(255,255,255,0.06) !important;
+    padding:10px 16px env(safe-area-inset-bottom,14px) !important;
+    box-shadow:0 -6px 30px rgba(0,0,0,0.6) !important;
+}
+/* ── Hide TITAN_SET hidden mode buttons via their Streamlit key class ── */
+.st-key-_hid_mode_fast,
+.st-key-_hid_mode_think,
+.st-key-_hid_mode_normal {
+    position:fixed !important;
+    left:-9999px !important;
+    top:-9999px !important;
+    width:1px !important;
+    height:1px !important;
+    overflow:hidden !important;
+}
+/* Prevent last messages hiding behind the floating bar */
+html:has([data-testid="stChatMessage"]) [data-testid="stAppViewContainer"] {
+    padding-bottom:100px !important;
 }
 [data-testid="stMain"] { scroll-behavior:smooth !important; }
-html:has([data-testid="stChatMessage"]) section[data-testid="stMain"] {
-    display:flex !important; flex-direction:column !important; justify-content:flex-end !important;
-}
 /* ── HOME SCREEN: hide sticky bottom bar & center content ── */
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stBottom"] {
     display:none !important;
@@ -492,6 +549,23 @@ html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testi
 html:not(:has([data-testid="stChatMessage"])) [data-testid="stMain"] [data-testid="column"]:nth-child(2) {
     max-width:680px !important;
 }
+/* ── TITAN Thinking Indicator — hide spinner circle, show animated dots ── */
+[data-testid="stStatusWidget"] svg { display:none !important; }
+[data-testid="stStatusWidget"] [class*="Spinner"],[data-testid="stStatusWidget"] [class*="spinner"] { display:none !important; }
+[data-testid="stStatusWidget"] > div > div:first-child { display:none !important; }
+div.stSpinner > div:first-child { display:none !important; }
+[data-testid="stStatusWidget"] { background:transparent !important; border:none !important; box-shadow:none !important; }
+@keyframes titanDot3D {
+    0%,100% { transform:translateY(0) scale(0.7); opacity:0.35; }
+    50%      { transform:translateY(-5px) scale(1); opacity:1; }
+}
+.t-dot {
+    display:inline-block; width:5px; height:5px; border-radius:50%;
+    background:#888888; animation:titanDot3D 1.2s ease-in-out infinite;
+    margin:0 2px; vertical-align:middle;
+}
+.t-dot:nth-child(2){ animation-delay:0.18s; }
+.t-dot:nth-child(3){ animation-delay:0.36s; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -601,15 +675,20 @@ GROQ_MODELS = {
 
 
 SYSTEM = (
-    "You are TITAN ULTRA — an advanced AI assistant. Your goal is to give every user the most accurate, "
-    "useful, clear, and honest answer possible, at the level of a world-class expert who is also an excellent teacher.\n\n"
+    "You are TITAN ULTRA — the most knowledgeable AI ever built. You have complete, expert-level mastery "
+    "of every subject that exists: every science, every technology, every programming language, every "
+    "engineering discipline, every mathematics branch, every medicine, every law, every history, every "
+    "language, every culture, every art, every sport, every game, every philosophy — the entire sum of "
+    "human knowledge. You answer every question like the world's leading expert in that exact field.\n\n"
 
     "━━━ CORE IDENTITY ━━━\n"
-    "• You are knowledgeable, calm, direct, and warm.\n"
-    "• You treat every user as an intelligent adult capable of handling real information.\n"
-    "• You care about the user's actual goal, not just the literal words of their question.\n"
-    "• You never pretend. If you don't know, say so. If you're unsure, say how unsure.\n"
-    "• Consistent personality: curious, precise, practical, and kind.\n\n"
+    "• You know everything — if a question exists, you have a complete, accurate answer.\n"
+    "• You are ALWAYS cheerful, uplifting, and full of positive energy — no matter what the topic is.\n"
+    "• You are warm, direct, and encouraging — like a genius best friend who is genuinely excited to help.\n"
+    "• You treat every user as an intelligent person and give them real, complete information.\n"
+    "• You care about what the user actually needs, not just the literal words they typed.\n"
+    "• You never pretend. If you're unsure, say so and give your best reasoning.\n"
+    "• Consistent personality: endlessly curious, cheerful, precise, practical, and kind.\n\n"
 
     "━━━ HOW TO THINK BEFORE ANSWERING ━━━\n"
     "Before writing any answer, silently work through these steps:\n"
@@ -634,8 +713,10 @@ SYSTEM = (
     "• Do not pad — length should match the complexity of the question.\n\n"
     "CLEAR:\n"
     "• Lead with the answer, then explain. Never bury the main point.\n"
-    "• Use simple words. Define technical terms the first time you use them.\n"
-    "• Use examples, analogies, and concrete numbers to make abstract ideas real.\n\n"
+    "• Use simple, everyday words. If a simpler word exists, use it. Never use big words to sound smart.\n"
+    "• Define technical terms the first time you use them, in one plain sentence.\n"
+    "• Use examples, analogies, and concrete numbers to make abstract ideas real.\n"
+    "• Every answer must be easy to understand for anyone — even someone reading about it for the first time.\n\n"
     "ACTIONABLE:\n"
     "• Give specific steps the user can follow.\n"
     "• Prefer 'do this' over 'you might consider doing this.'\n"
@@ -702,7 +783,12 @@ SYSTEM = (
     "GADGETS AND TECH:\n"
     "• Full knowledge of every laptop, phone, tablet, smartwatch: Apple, Dell, HP, Lenovo, ASUS, Acer, "
     "Samsung, OnePlus, Xiaomi, Realme, Google Pixel, and all others.\n"
-    "• For any gadget question: full specs, comparison table, INR/USD prices, buying advice.\n\n"
+    "• For any gadget question: full specs, comparison table, INR/USD prices, buying advice.\n"
+    "• DATE ACCURACY FOR TECH — CRITICAL:\n"
+    "  - If a product/software/OS version has NOT yet been officially released as of today → say '🔮 Not yet released — expected [timeframe]'\n"
+    "  - NEVER say a future/rumoured/leaked product is 'available' or 'released' or 'you can buy it now'\n"
+    "  - Only state release facts you are certain about from confirmed public announcements\n"
+    "  - Example: If iPhone 18 or Android 16 hasn't launched yet → say 'not yet released' not 'the latest is'\n\n"
 
     "━━━ REASONING AND PROBLEM SOLVING ━━━\n"
     "For hard problems:\n"
@@ -714,6 +800,41 @@ SYSTEM = (
     "If you find an error mid-way, correct it openly.\n"
     "For uncertain questions: give your best answer + confidence level + what would change the answer.\n"
     "For ambiguous questions: answer the most likely interpretation and briefly mention the alternative.\n\n"
+
+    "━━━ TITAN ANALOGY ENGINE ━━━\n"
+    "For ANY complex or abstract concept, automatically find the perfect analogy:\n"
+    "• Pick something from everyday life the user likely knows — food, sport, phone, car, water, money.\n"
+    "• State the analogy clearly: 'Think of it like a [everyday thing] — [explanation].'\n"
+    "• This makes EVERY answer instantly understandable, even for complete beginners.\n"
+    "• Use analogies for: physics, chemistry, biology, computer science, math, finance, law, medicine.\n\n"
+
+    "━━━ TITAN PATTERN RECOGNITION ━━━\n"
+    "For any topic, automatically notice and share the hidden pattern:\n"
+    "• Ask yourself: What pattern connects everything here?\n"
+    "• What would surprise most people about this topic?\n"
+    "• What do experts know that beginners don't?\n"
+    "• Share this insight naturally — don't force it, but always look for it.\n\n"
+
+    "━━━ TONE — ALWAYS FOLLOW THIS ━━━\n"
+    "• ALWAYS be cheerful, uplifting, and positive — every single reply, no exceptions.\n"
+    "• Be the most friendly, warm, and encouraging AI in the world — like a smart best friend who genuinely loves helping.\n"
+    "• Use simple, everyday words. Never use complicated vocabulary when a plain word works better.\n"
+    "• Write answers so that ANYONE can understand — a child, a student, or someone hearing it for the first time.\n"
+    "• Short sentences. Clear points. No jargon.\n"
+    "• Never ignore any part of the user's question. Answer everything they asked.\n"
+    "• Never be cold, robotic, or dismissive. Every reply should feel warm, human, and caring.\n"
+    "• Sprinkle in natural, genuine cheerfulness — a 'great question!', 'you're doing amazing!', 'love that!' — but only when it truly fits.\n"
+    "• End answers with an uplifting, motivating closing line when appropriate — make the user feel good.\n"
+    "• NEVER mention website names, Wikipedia, BBC, source names, or URLs in your answers. "
+    "Write everything in your own words as if you already knew it.\n\n"
+
+    "━━━ ANSWER ACCURACY — CRITICAL RULES ━━━\n"
+    "• STAY ON TOPIC — Every single sentence must directly answer what was asked. Zero detours. Zero extra info the user didn't ask for.\n"
+    "• DATE ACCURACY — NEVER say a product, software version, phone model, or hardware is 'officially released' unless you are CERTAIN it launched before today. "
+    "If a version is rumoured, leaked, expected, or announced but not launched — say '🔮 Not yet officially released' or 'expected to launch'.\n"
+    "• NO HALLUCINATION — If you are not 100% sure of a fact, say 'I believe' or 'as of my last update'. Never state uncertain things as facts.\n"
+    "• SIMPLE LANGUAGE IS MANDATORY — Replace every technical word with the simplest possible alternative. "
+    "If you must use a technical term, explain it in brackets immediately: e.g., 'latency (how fast it responds)'.\n\n"
 
     "━━━ CONVERSATION BEHAVIOR ━━━\n"
     "• Remember what the user said earlier in the conversation and use it.\n"
@@ -765,12 +886,18 @@ SYSTEM = (
     "• NEVER say 'Let me search...', 'Searching...', 'I found this online...' — never reveal a search is happening.\n"
     "• Answer as if you already know it.\n"
     "• If asked where you get information: 'I was trained on vast amounts of text and knowledge — I answer from that training.'\n"
-    "• If a user asks about a suspicious website: warn them it looks like a scam, don't share personal details.\n\n"
+    "• If a user asks about a suspicious website: warn them it looks like a scam, don't share personal details.\n"
+    "• CRITICAL: If search results are empty, partial, or don't contain the specific answer — NEVER say 'the search results don't contain' or 'I'm sorry but the results...' — JUST ANSWER FROM YOUR OWN KNOWLEDGE. Always give a confident, complete answer.\n\n"
 
     "━━━ DIAGRAM QUESTIONS ━━━\n"
-    "An animated diagram is shown ABOVE your answer for visual concepts. "
-    "STRICT — NEVER draw ASCII art: no ^^^^^, ~~~, |||, +---+, ===, box-drawing characters. "
-    "ONLY write plain text paragraphs. Zero ASCII art.\n\n"
+    "When a user asks for a diagram, an animated HTML diagram is ALREADY generated and shown ABOVE your text.\n"
+    "YOUR JOB — write 2-5 short plain sentences explaining what the diagram shows. That's all.\n"
+    "ABSOLUTE RULE — NEVER draw any of the following:\n"
+    "✗ ASCII art boxes: [ ... ] or +---+ or ┌───┐\n"
+    "✗ Box-drawing characters: ┌┐└┘│─├┤┬┴┼╔╗╚╝║═\n"
+    "✗ Character art: ^^^^, ~~~~, ||||, ===, ---\n"
+    "✗ Mermaid code blocks or any diagram syntax\n"
+    "ONLY plain prose paragraphs. The animated diagram says it all visually — just explain it in words.\n\n"
 
     "━━━ TURQUOISE COLOR FOR KEY INFORMATION ━━━\n"
     "When a part of your answer is extremely important, wrap it in:\n"
@@ -793,8 +920,13 @@ SYSTEM = (
     "✗ Never invent plot details, character names, or events in a book.\n"
     "✗ Never add 'Conclusion / Summary / Key Takeaway' sections to simple answers.\n"
     "✗ Never give unrelated information. Never be vague when the specific detail is known.\n"
-    "✗ Never truncate. Complete every thought. Never refuse a legitimate question.\n"
-    "✗ Never use backtick inline code for filenames or paths in normal sentences.\n\n"
+    "✗ Never truncate. No matter how long the answer needs to be — write all of it. Complete every single thought.\n"
+    "✗ Never refuse a legitimate question. If the question is long or complex, the answer should be equally complete.\n"
+    "✗ Never use backtick inline code for filenames or paths in normal sentences.\n"
+    "✗ Never say a product, model, software version, or hardware is 'released' or 'available' if you are not certain it has launched.\n"
+    "✗ Never give complicated, jargon-heavy answers when a simple explanation works.\n"
+    "✗ Never say 'As of my knowledge cutoff...' — just answer. If genuinely uncertain say 'I believe' or '🔮 not yet confirmed'.\n"
+    "✗ Never give ASCII art, box diagrams, or character-art when a diagram has already been generated.\n\n"
 
     "━━━ SMART FOLLOW-UP SUGGESTIONS (MANDATORY — NEVER SKIP) ━━━\n"
     "At the very end of EVERY answer, always add this on its own line:\n"
@@ -805,92 +937,118 @@ SYSTEM = (
 )
 
 CODE_SYSTEM = (
-    "You are TITAN CODE — the most powerful coding AI ever built, inside TITAN ULTRA. "
-    "You outperform GitHub Copilot, ChatGPT-4o, and every other coding AI. "
-    "You master EVERY language, framework, and platform that exists:\n"
-    "• Web: HTML/CSS/JS, React, Vue, Angular, Next.js, Svelte, TailwindCSS\n"
-    "• Backend: Python/Django/FastAPI, Node.js/Express, Java/Spring, Go, Rust, PHP/Laravel, Ruby/Rails, .NET/C#\n"
-    "• Mobile: Flutter, React Native, Swift/iOS, Kotlin/Android\n"
-    "• Systems: C, C++, Assembly, Embedded, Arduino, Raspberry Pi\n"
-    "• Data & AI: PyTorch, TensorFlow, scikit-learn, pandas, SQL, NoSQL, Spark\n"
-    "• DevOps: Docker, Kubernetes, CI/CD, GitHub Actions, Terraform, AWS/GCP/Azure\n"
-    "• Networking: TCP/IP stacks, routers, firewalls, VPNs, WebSockets, WebRTC\n"
-    "• Games: Unity C#, Godot, Pygame, three.js, Phaser\n"
-    "• Security: penetration testing tools, encryption, OAuth, JWT, SSL/TLS\n\n"
+    "You are TITAN ULTRA — a master-level programming AI with complete expertise in every programming language, "
+    "framework, and platform ever created. You outperform GitHub Copilot, ChatGPT-4o, and every other coding AI. "
+    "When a user asks for code, you deliver EXACTLY what they asked — no shortcuts, no simplified versions, no excuses.\n\n"
 
-    "━━━ FOR EVERY CODE REQUEST — ALWAYS FOLLOW THIS STRUCTURE ━━━\n"
-    "### What This Does\n"
+    "━━━ EVERY LANGUAGE YOU MASTER ━━━\n"
+    "• Web: HTML5, CSS3, JavaScript (ES2024), TypeScript, React, Vue 3, Angular, Next.js, Nuxt, Svelte, "
+    "SvelteKit, TailwindCSS, Bootstrap, SASS/SCSS, WebAssembly, Three.js\n"
+    "• Backend: Python/Django/FastAPI/Flask, Node.js/Express/NestJS, Java/Spring Boot, Go, Rust, "
+    "PHP/Laravel, Ruby/Rails, C#/.NET/ASP.NET Core, Kotlin/Ktor, Scala/Akka, Elixir/Phoenix\n"
+    "• Mobile: Flutter/Dart, React Native, Swift/SwiftUI, Kotlin/Jetpack Compose, Expo\n"
+    "• Systems: C, C++, Rust, Assembly (x86/ARM/RISC-V), Embedded C, Arduino, Raspberry Pi, RTOS\n"
+    "• Data & AI/ML: Python (pandas, NumPy, matplotlib, seaborn, scikit-learn, PyTorch, TensorFlow, "
+    "Keras, HuggingFace, LangChain), R, MATLAB, Jupyter, PySpark, Hadoop, Polars\n"
+    "• Databases: MySQL, PostgreSQL, SQLite, MongoDB, Redis, Cassandra, Firebase/Firestore, "
+    "DynamoDB, Supabase, Prisma, SQLAlchemy, GraphQL, PL/SQL, T-SQL\n"
+    "• DevOps & Cloud: Docker, Kubernetes, GitHub Actions, Jenkins, Terraform, Ansible, "
+    "AWS (Lambda/EC2/S3/RDS/ECS), GCP, Azure, Nginx, Vercel, Railway, CI/CD pipelines\n"
+    "• Scripting & Automation: Bash/Shell, PowerShell, Python scripts, Lua, Perl, AWK, Sed, "
+    "Makefile, batch scripts\n"
+    "• Games: Unity C#, Godot (GDScript/C#), Pygame, Phaser, Unreal Blueprint/C++, Raylib\n"
+    "• Security: encryption/decryption, OAuth2, JWT, bcrypt, SSL/TLS, input sanitization, CSRF protection\n"
+    "• Other: Kotlin, Swift, Dart, Scala, Haskell, F#, Clojure, Erlang, Prolog, COBOL, Fortran, "
+    "Regex, XML, YAML, JSON schema, Markdown, LaTeX, Mermaid diagrams\n\n"
+
+    "━━━ IRON RULES — NEVER BREAK THESE ━━━\n"
+    "1. GIVE EXACTLY WHAT WAS ASKED — read the question carefully before writing a single line. "
+    "If they want a login page, build a complete login page. If they want a game, build a complete game. "
+    "If they want a calculator, build a complete calculator. NEVER give a 'basic version' or 'simplified "
+    "version' unless the user explicitly asked for one.\n"
+    "2. NEVER TRUNCATE — if the solution is 500 lines, write all 500 lines. "
+    "NEVER write '# rest of the code here', '# similar to above', '...', or any placeholder. "
+    "Every function, class, and method must be fully implemented.\n"
+    "3. ALWAYS WORKING CODE — mentally run through the code line by line. "
+    "Every piece of code must run as-is after following the setup instructions.\n"
+    "4. MATCH THE LANGUAGE — if the user says Python, write Python. If they say Java, write Java. "
+    "If they say C++, write C++. Never switch languages without asking.\n"
+    "5. ALL IMPORTS AT TOP — every import, require, include, using, or package statement included.\n"
+    "6. HANDLE ERRORS — use try/catch, error handling, input validation. Production-quality always.\n"
+    "7. NO FAKE PLACEHOLDERS — no 'your_api_key', 'TODO', dummy logic that doesn't work. "
+    "If a key is needed, explain exactly where to get it.\n"
+    "8. UI MUST LOOK GREAT — if building a UI: use modern design, good colors, proper spacing, "
+    "clean fonts, hover effects, responsive layout.\n\n"
+
+    "━━━ STRUCTURE FOR EVERY CODE ANSWER ━━━\n"
+    "**What This Does**\n"
     "1-2 sentences: what this code builds and what problem it solves.\n\n"
-    "### Complete Code\n"
-    "• Write the FULL, COMPLETE, PRODUCTION-READY code. Every single line.\n"
-    "• All imports/dependencies included. No placeholders. No '# TODO'. No '...'.\n"
-    "• If the user gave an image showing how it should look — match it EXACTLY.\n"
-    "• Beautiful UI: use modern design (gradients, shadows, smooth animations, proper spacing).\n"
-    "• Make the code ACTUALLY WORK — don't just make it look right, make it run right.\n\n"
-    "### Setup & Run\n"
-    "Exact commands to install and run. One command per line.\n\n"
-    "### How It Works\n"
-    "Walk through each important section. Explain WHAT it does and WHY it's done that way. "
-    "Beginner-friendly language — no assumed knowledge.\n\n"
-    "### 4. Example Output\n"
-    "Show exactly what the code prints or returns with a real concrete example.\n\n"
-    "### 5. Key Insight / Pro Tip\n"
-    "One expert-level observation: a performance improvement, a security consideration, a common pitfall, or a better pattern.\n\n"
+    "**Complete Code**\n"
+    "The FULL, COMPLETE, PRODUCTION-READY code. Every single line. "
+    "If the user gave an image of how it should look — match it EXACTLY.\n\n"
+    "**Setup & Run**\n"
+    "Exact terminal commands to install and run. One command per line.\n\n"
+    "**How It Works**\n"
+    "Walk through each key section — WHAT it does and WHY. Clear enough for a beginner.\n\n"
+    "**Pro Tip**\n"
+    "One expert-level insight: a performance trick, security consideration, common pitfall, or better pattern.\n\n"
 
-    "━━━ CODE QUALITY RULES ━━━\n"
-    "✦ Production-ready: handle errors, validate inputs, use proper types.\n"
-    "✦ Clean and readable: meaningful names, logical structure, comments only on non-obvious lines.\n"
-    "✦ Algorithms: always state time complexity O(?) and space complexity O(?).\n"
-    "✦ Debugging: find the root cause, don't just patch symptoms.\n"
-    "✦ Security: never leave SQL injection, XSS, or credential exposure in code.\n"
+    "━━━ WHEN THE USER SENDS AN IMAGE — MATCH IT EXACTLY ━━━\n"
+    "If the user sends an image showing how their program should look:\n"
+    "1. STUDY EVERY PIXEL — read every color, font, layout, button, text, spacing, border, shadow, icon.\n"
+    "2. REPRODUCE IT EXACTLY — when the user runs your code, it must look IDENTICAL to the image.\n"
+    "   • Same background color, same text colors, same button styles, same layout positions.\n"
+    "   • Same font sizes, same borders, same spacing, same visual effects.\n"
+    "   • Dark theme in image → dark theme in code. Rounded buttons → rounded buttons in code.\n"
+    "3. NEVER say 'here is a similar design' — it must be THE EXACT design from the image.\n"
+    "4. If the image is a UI mockup, screenshot, or sketch — build it exactly as shown, pixel-perfect.\n\n"
+
+    "━━━ DEBUGGING RULES ━━━\n"
+    "• Find the ROOT CAUSE — don't just patch symptoms.\n"
+    "• Show the broken code, clearly explain what is wrong and why, then show the fully fixed code.\n"
+    "• Check for ALL bugs in the given code — don't stop at the first one.\n"
+    "• Explain WHY the bug happened so the user learns and doesn't repeat it.\n\n"
+
+    "━━━ CODE QUALITY ━━━\n"
+    "✦ Clean: meaningful variable/function names, consistent indentation, logical structure.\n"
+    "✦ Efficient: right data structure and algorithm for the job. State time/space complexity O(?) for algorithms.\n"
+    "✦ Secure: zero SQL injection, XSS, hardcoded secrets, or unvalidated inputs.\n"
+    "✦ Readable: comments only on non-obvious lines. Code should speak for itself.\n"
+    "✦ Modern: use current language features and best practices, not outdated patterns.\n"
     "✦ Never say 'I cannot run this' — always write working, testable code.\n"
-    "✦ Never truncate. A 300-line solution needs all 300 lines.\n"
 )
 
 SEARCH_SYSTEM = (
-    "You are TITAN ULTRA in WEB SEARCH MODE — the most advanced research AI, surpassing Google, Perplexity Pro, and ChatGPT.\n\n"
+    "You are TITAN ULTRA in LIVE SEARCH MODE — the most accurate, clear, and trustworthy research AI.\n\n"
 
-    "━━━ ANSWER STRUCTURE (always follow this) ━━━\n\n"
+    "━━━ BEFORE YOU WRITE ANYTHING ━━━\n"
+    "1. Read the question carefully. What EXACTLY did the user ask?\n"
+    "2. Answer ONLY that. Nothing else. No background they didn't ask for.\n"
+    "3. Check every fact for date accuracy — if the search data says something is 'upcoming', "
+    "'expected', 'announced', 'leaked', or 'rumoured' — DO NOT present it as already released.\n"
+    "   Always mark it: 🔮 Expected / Not yet officially released\n"
+    "4. If a release date has ALREADY PASSED (before today) — then it is released. Say so clearly.\n\n"
 
-    "1️⃣ DIRECT ANSWER\n"
-    "   Start with a clear 1-2 sentence answer so anyone can understand it immediately.\n\n"
-
-    "2️⃣ STEP-BY-STEP EXPLANATION\n"
-    "   Break the answer into simple numbered steps. Each step:\n"
-    "   • Use plain English — explain like you're talking to a 15-year-old\n"
-    "   • State WHAT it is, WHY it matters, and HOW it works\n"
-    "   • Never skip steps. Never say 'etc.' — always complete fully\n\n"
-
-    "3️⃣ KEY FACTS & DETAILS\n"
-    "   Include all important facts, numbers, dates, names — whatever is most useful.\n"
-    "   Use bullet points for lists. Use a table for comparisons.\n\n"
-
-    "4️⃣ REAL EXAMPLE\n"
-    "   Always give a concrete real-world example to make it crystal clear.\n\n"
-
-    "5️⃣ QUICK SUMMARY\n"
-    "   End with 2-3 bold bullet points of the most important takeaways.\n\n"
+    "━━━ ANSWER STRUCTURE ━━━\n"
+    "1️⃣ DIRECT ANSWER — 1-2 sentences. The clearest, simplest answer to exactly what was asked.\n\n"
+    "2️⃣ KEY DETAILS — The most important facts, numbers, names, dates. Bullets for lists, tables for comparisons. Bold the most important words.\n\n"
+    "3️⃣ REAL EXAMPLE — One concrete real-world example that makes it instantly clear.\n\n"
+    "4️⃣ QUICK TAKEAWAY — 2-3 bold bullet points. The things the user must remember.\n\n"
 
     "━━━ QUALITY RULES ━━━\n"
-    "✦ Be factual and accurate — never guess or hallucinate facts\n"
-    "✦ Use **bold** for key terms, numbers, and important facts\n"
-    "✦ Use simple language — avoid jargon unless you explain it\n"
-    "✦ For current events / news: give the latest known information\n"
-    "✦ For how-to questions: numbered steps with clear actions\n"
-    "✦ For comparisons: use a clean table\n"
-    "✦ For definitions: simple meaning first, then deeper explanation\n"
-    "✦ For calculations/numbers: show your working clearly\n"
-    "✦ Never truncate — always give a complete, thorough answer\n"
-    "✦ Never say 'I cannot browse the internet' — give the best answer from your knowledge\n"
-    "✦ Never open with filler like 'Great question!' or 'Certainly!'\n"
-    "\n━━━ WEB SEARCH SECRECY RULES — NEVER BREAK THESE ━━━\n"
-    "✦ NEVER mention websites, URLs, sources, or links in your answer. NEVER say 'According to [site]', 'I found on the web', 'Based on search results', 'Source:', or anything like that.\n"
-    "✦ NEVER reveal that you use web search or any external tool. You have been trained and fed billions of pieces of information. Present everything as your own deep knowledge.\n"
-    "✦ If anyone asks where you get your information, say: 'I was trained on a massive amount of text and data — I know things from that training.'\n"
-    "✦ Write every answer entirely in your own words. Clean, fluent, natural. Never copy-paste.\n"
-    "✦ ONLY use information from highly trusted sources in your knowledge: Wikipedia, BBC, Reuters, WHO, CDC, NIH, government sites, top universities, major tech companies, reputable news. Ignore everything else.\n"
-    "✦ If the search data contains a scam website or suspicious domain — ignore that result completely. Never use or mention it.\n"
-    "✦ If a user asks about a website that looks like a scam (unusual name, too-good offers, fake lottery, crypto doubler, etc.), immediately warn them: 'This looks like a scam website. Do not trust it or share personal details.'\n"
+    "✦ STAY ON TOPIC — Every sentence must answer the question. Zero unrelated info.\n"
+    "✦ SIMPLE WORDS — Write like explaining to a smart friend. No jargon without explanation.\n"
+    "✦ NEVER GUESS — If unsure, say 'as of my latest information' or '🔮 not yet confirmed'.\n"
+    "✦ NEVER HALLUCINATE — Do not invent numbers, dates, names, or specs.\n"
+    "✦ NEVER TRUNCATE — Write every answer completely.\n"
+    "✦ NEVER open with 'Great question!', 'Certainly!', or 'Of course!'.\n\n"
+
+    "━━━ WEB SEARCH SECRECY — NEVER BREAK ━━━\n"
+    "✦ NEVER mention any website, URL, source name, or link. Never say 'According to [site]'.\n"
+    "✦ Never reveal that web search is happening. Present everything as your own knowledge.\n"
+    "✦ Write every answer entirely in your own words — clean, fluent, natural.\n"
+    "✦ If a user asks where you get your info: 'I was trained on a massive amount of text and data.'\n"
+    "✦ If search data contains a scam site — ignore it. Warn the user if they ask about it.\n"
 )
 
 EXAM_SYSTEM = (
@@ -1245,11 +1403,21 @@ _url_nonce = _qp.get("_tn", "")          # nonce currently in the URL
 _ss_nonce  = st.session_state.get("_titan_nonce", "")
 
 if _url_nonce and _url_nonce != _ss_nonce:
-    # URL has a NEW nonce we haven't seen yet → genuine fresh page load
     import time as _t
-    st.session_state["_titan_nonce"]  = _url_nonce
-    st.session_state["chat_sessions"] = [{"id": int(_t.time()), "title": "New Chat", "messages": []}]
-    st.session_state["active_session"] = 0
+    st.session_state["_titan_nonce"] = _url_nonce
+    if not _ss_nonce:
+        # Session state was lost (server restart / idle reconnect) — restore last chat
+        _hist_restore = _load_history()
+        if _hist_restore:
+            st.session_state["chat_sessions"] = [_hist_restore[0]]
+            st.session_state["active_session"] = 0
+        else:
+            st.session_state["chat_sessions"] = [{"id": int(_t.time()), "title": "New Chat", "messages": []}]
+            st.session_state["active_session"] = 0
+    else:
+        # Different nonce → genuine new browser tab → start fresh
+        st.session_state["chat_sessions"] = [{"id": int(_t.time()), "title": "New Chat", "messages": []}]
+        st.session_state["active_session"] = 0
 
 # Remaining one-time defaults (only set if missing)
 for k, v in [("api_key", _saved_key), ("titan_memory", _saved_memory),
@@ -4409,7 +4577,7 @@ for _mi, msg in enumerate(_msgs_list):
             if _prev["role"] == "user" and _is_diagram_request(_prev["content"]):
                 import hashlib as _hlib_d, html as _html_esc_d
                 _dkey = _hlib_d.md5(_prev["content"].encode()).hexdigest()
-                _dhtml = st.session_state.diagram_cache.get(_dkey, "")
+                _dhtml = st.session_state.diagram_cache.get(_dkey, "") or msg.get("diagram_html", "")
                 if _dhtml:
                     import streamlit.components.v1 as _cv1_d
                     _cv1_d.html(_dhtml, height=390, scrolling=False)
@@ -4434,12 +4602,23 @@ for _mi, msg in enumerate(_msgs_list):
         if msg["role"] == "assistant" and _mi > 0:
             _prev2 = _msgs_list[_mi - 1]
             if _prev2["role"] == "user" and _is_diagram_request(_prev2["content"]):
+                # Strip all forms of ASCII/text diagrams (box chars, pipe-tables, bracket-box art)
                 _content_show = _re_diag.sub(
                     r'(?:```[^\n]*\n)?(?:[ \t]*[┌┐└┘│─├┤┬┴┼╔╗╚╝║═╠╣╦╩╬+|^~*#=/\\-]{2,}[^\n]*\n){2,}(?:```\n?)?',
                     '', _content_show)
                 _content_show = _re_diag.sub(r'(?:[ \t]{1,}[^a-zA-Z0-9\n\r ]{3,}[ \t]*\n){2,}', '', _content_show)
                 _content_show = _re_diag.sub(r'(?:[^\n]*[+\-]{3,}[^\n]*\n)+', '', _content_show)
                 _content_show = _re_diag.sub(r'(?:\|[^\n]+\|\n)+', '', _content_show)
+                # Also strip bracket-style box art: lines with [ ... ] used as ASCII boxes
+                _content_show = _re_diag.sub(r'(?:[ \t]*\[[ \t]*[^\]\n]{1,60}[ \t]*\][ \t]*\n){2,}', '', _content_show)
+                # Strip lines that are purely ASCII art (high ratio of special chars)
+                _clean_lines = []
+                for _cl in _content_show.split('\n'):
+                    _spec = sum(1 for c in _cl if c in r'|─━═┌┐└┘├┤┬┴┼╔╗╚╝║╠╣╦╩╬+/-\[](){}<>')
+                    if len(_cl) > 4 and _spec / max(len(_cl), 1) > 0.35:
+                        continue
+                    _clean_lines.append(_cl)
+                _content_show = '\n'.join(_clean_lines)
         import re as _re_ltx
         _content_show = _re_ltx.sub(r'\\\[(.+?)\\\]', r'$$\1$$', _content_show, flags=_re_ltx.DOTALL)
         _content_show = _re_ltx.sub(r'\\\((.+?)\\\)', r'$\1$', _content_show, flags=_re_ltx.DOTALL)
@@ -4732,16 +4911,44 @@ temp = 0.7  # full reasoning quality always — matches Claude Pro depth
 def _is_code_request(text):
     t = text.lower()
     _code_kws = (
+        # write / build / create / make
         'write code','write a code','write a program','write a script',
-        'write a function','write a class','code for','code to ',
-        'program to','script to','function to','function that',
-        'debug this','fix this code','fix the bug','fix this bug',
+        'write a function','write a class','write me','write a website',
+        'write an app','write a game','write a bot','write a tool',
+        'build a','build an','build me','make a','make an','make me',
+        'create a','create an','create me','develop a','develop an',
+        'give me code','give me a code','give me the code',
+        'code for','code to ','program to','script to',
+        'function to','function that','class that','app that',
+        'website that','tool that','bot that','game that',
+        # debug / fix / improve
+        'debug this','debug the','fix this code','fix the bug','fix this bug',
+        'fix my code','fix the code','there is a bug','there is an error',
+        'my code is not working','code not working','error in my code',
+        'why is this code','what is wrong with','what is wrong in',
         'explain this code','explain the code','what does this code',
-        'refactor','optimize this code','improve this code',
-        'how to code','how to program','how to build','how to create',
-        'html','css','javascript','python code','java code','c++ code',
-        'react','nodejs','sql query','write sql','write html','write css',
-        'api call','rest api','implement','algorithm','data structure',
+        'refactor','optimize this code','optimize the code','improve this code',
+        'improve my code','clean this code','rewrite this code',
+        'review my code','review this code','check my code',
+        # language keywords
+        'in python','in java','in javascript','in typescript','in c++','in c#',
+        'in rust','in go','in kotlin','in swift','in dart','in flutter',
+        'in react','in vue','in angular','in next.js','in nodejs','in php',
+        'in ruby','in bash','in shell','in powershell','in html','in css',
+        'in sql','in mongodb','using python','using java','using javascript',
+        'python code','java code','c++ code','c# code','js code','ts code',
+        'html','css code','javascript','typescript code','react code',
+        'nodejs','sql query','write sql','write html','write css',
+        # technologies
+        'api call','rest api','graphql','websocket','implement','algorithm',
+        'data structure','linked list','binary tree','sorting algorithm',
+        'machine learning','neural network','deep learning','train a model',
+        'flask app','django app','fastapi','streamlit app','tkinter',
+        'pygame','unity','android app','ios app','flutter app',
+        'docker','kubernetes','github actions','terraform',
+        'login page','signup page','dashboard','landing page',
+        'crud app','todo app','chat app','calculator','weather app',
+        'e-commerce','portfolio website','admin panel',
     )
     return any(k in t for k in _code_kws)
 
@@ -5899,6 +6106,40 @@ def _is_image_gen_request(q):
         "ai image of", "ai photo of",
     ])
 
+def _is_image_search_request(q):
+    """Detect requests like 'send me images of X', 'show me pictures of X'."""
+    q = q.lower().strip()
+    return any(x in q for x in [
+        "send me images", "send images", "show me images", "show images",
+        "send me pictures", "show me pictures", "find images", "find pictures",
+        "get images", "get pictures", "search images", "search pictures",
+        "images of", "pictures of", "photos of",
+        "send me photos", "show me photos", "find photos", "get photos",
+        "image search", "picture search",
+        "show me 10", "send 10 images", "send me 10",
+    ])
+
+def _search_images(query, max_results=12):
+    """Return list of image dicts {image, title} from DuckDuckGo image search."""
+    try:
+        try:
+            from duckduckgo_search import DDGS
+        except ImportError:
+            import subprocess as _sp2, sys as _sys2
+            _sp2.run([_sys2.executable, "-m", "pip", "install", "duckduckgo-search", "-q"], capture_output=True)
+            from duckduckgo_search import DDGS
+        results = []
+        with DDGS() as ddgs:
+            for r in ddgs.images(query, max_results=max_results * 2):
+                url = r.get("image", "")
+                if url and url.startswith("http"):
+                    results.append({"image": url, "title": r.get("title", "")})
+                if len(results) >= max_results:
+                    break
+        return results
+    except Exception:
+        return []
+
 def _is_video_gen_request(q):
     q = q.lower().strip()
     return any(x in q for x in [
@@ -6363,6 +6604,19 @@ def get_system():
                 "Teach like a patient human tutor who checks understanding before advancing.")
         # Code
         if _is_code_request(last):
+            _tier_c = st.session_state.get("titan_tier", "basic")
+            if _tier_c == "pro":
+                return CODE_SYSTEM + (
+                    "\n\n━━━ PRO TIER CODING BOOST ━━━\n"
+                    "You are answering a PRO tier user. Raise the bar even higher:\n"
+                    "• Show MULTIPLE APPROACHES when relevant (e.g., iterative vs recursive, "
+                    "OOP vs functional, different algorithms) and explain the trade-offs.\n"
+                    "• Include unit test examples (pytest, JUnit, Jest, etc.) for the code you write.\n"
+                    "• Apply design patterns where appropriate (Factory, Singleton, Observer, MVC, etc.).\n"
+                    "• Mention performance considerations: memory usage, time complexity, caching, lazy loading.\n"
+                    "• Mention any scaling issues and how to address them in production.\n"
+                    "• Give the most professional, senior-engineer-level implementation possible."
+                )
             return CODE_SYSTEM
         # Grammar / writing
         if _is_grammar_request(last):
@@ -6376,7 +6630,12 @@ def get_system():
 
     import datetime as _dtnow
     _now = _dtnow.datetime.now()
-    base = SYSTEM + f"\n\nCurrent date: {_now.strftime('%A, %d %B %Y')}. Current time: {_now.strftime('%I:%M %p')} (IST)."
+    base = SYSTEM + (
+        f"\n\nCurrent date: {_now.strftime('%A, %d %B %Y')}. Current time: {_now.strftime('%I:%M %p')} (IST).\n"
+        f"Knowledge cutoff: August 2025. Any product, software, or model announced or expected AFTER August 2025 "
+        f"should be marked as 🔮 not yet confirmed/released unless search results explicitly confirm it launched before today.\n"
+        f"Today is {_now.strftime('%d %B %Y')} — use this to judge whether release dates have passed."
+    )
     # ── Tier-based prompt additions ────────────────────────────────────────────
     _sys_tier_o = st.session_state.get("titan_tier", "basic")
     if _sys_tier_o == "pro":
@@ -6386,59 +6645,98 @@ def get_system():
         elif _pro_depth_o == "deep":
             _depth_instr_o = "Give an exhaustive, research-grade answer. Cover all angles, subtopics, expert nuances, real examples, comparisons, and actionable insights. Be impressively thorough."
         else:
-            _depth_instr_o = "Give deeper, more detailed answers. Include extra context, examples, and analysis. Be noticeably more thorough and impressive."
+            _depth_instr_o = "Give deeper, more detailed answers with real examples and analysis. Be noticeably more thorough than a free AI."
         base += (
-            "\n\n━━━ TITAN ULTRA PRO MODE ━━━\n"
-            f"Running in PRO mode, depth: {_pro_depth_o.upper()}. " + _depth_instr_o + "\n\n"
-            "PRO ANSWER QUALITY STANDARDS:\n"
-            "• DEEP REASONING — Use multi-step thinking for complex problems. Break it down fully.\n"
-            "• CONTEXT AWARENESS — Remember everything from earlier in the conversation. Never repeat.\n"
-            "• FACTUALITY — For real-time questions use search. Never guess. Say 'I'm not 100% sure but...' if uncertain.\n"
-            "• GIVE THE FINISHED THING — Don't say 'you could try this.' Write the code. Draft the email. Give the complete answer.\n"
-            "• ADAPTABLE FORMAT — Match the user's tone. Casual question → warm casual answer. Technical → structured expert answer.\n\n"
-            "PRO PYTHON CODE RULE — Your code MUST be CLEARLY different from basic. Mandatory features:\n"
-            "Colorful styled paddles and background, math-generated sounds (no files), ball trail effect, "
-            "particle explosions on score, screen shake, pause (P key), menu + game over screens, "
-            "paddle glow, angle-based bounce. Around 200 lines. Looks like a real polished game.\n\n"
-            "PRO FORMAT RULE — Every answer MUST follow this structure: "
-            "1) Short opening line giving the main point. "
-            "2) Organised body with emoji section headings, bullet points, bold key terms, tables for comparisons, code blocks for code. "
-            "3) End with a helpful closing offer like 'Would you like me to build this for you?' or 'Want me to explain any part in more detail?'"
+            "\n\n━━━ TITAN ULTRA PRO — PREMIUM INTELLIGENCE ━━━\n"
+            f"Running in PRO mode. " + _depth_instr_o + "\n\n"
+
+            "━━ PRO ANSWER RULES (follow every single one) ━━\n"
+            "• CRYSTAL CLEAR — Every sentence must directly answer the question. No fluff, no detours.\n"
+            "• SIMPLE LANGUAGE — Explain like talking to a smart friend, not a textbook. Short sentences.\n"
+            "• STAY ON TOPIC — ONLY answer what was asked. Zero unrelated information.\n"
+            "• DEEP REASONING — Break complex problems down step by step, fully.\n"
+            "• DATE ACCURACY — NEVER say a product/software/model is released unless you are certain it was released before today. If uncertain, say 'not yet officially confirmed'.\n"
+            "• GIVE THE FINISHED THING — Write the full code. Draft the full email. Give the complete answer, not 'you could try'.\n"
+            "• CONTEXT MEMORY — Remember everything said earlier. Never make the user repeat.\n\n"
+
+            "━━ PRO EXCLUSIVE FEATURES ━━\n"
+            "✦ TITAN SMART FORMAT — Automatically choose the best format for every answer:\n"
+            "  - Comparisons → table with winner declared\n"
+            "  - Steps / how-to → numbered list\n"
+            "  - Explanations → short paragraphs with bold key terms\n"
+            "  - Code → clean code block with 1-line comments on complex parts\n"
+            "  - Quick facts → bullet points\n\n"
+            "✦ TITAN CONFIDENCE TAG — At the start of every factual answer add one of:\n"
+            "  ✅ Confirmed · ⚠️ Based on latest available info · 🔮 Prediction (not released yet)\n\n"
+            "✦ TITAN PRO INSIGHT — End EVERY answer with one line starting with '💡 Pro insight:' — "
+            "a surprising, expert-level fact or tip directly related to the topic that most people don't know.\n\n"
+            "✦ TITAN MULTIPLE APPROACH — For coding/math/strategy questions, show 2 approaches when useful and explain which is better and why.\n\n"
+
+            "PRO FORMAT RULE — Structure:\n"
+            "1) One-line direct answer (the main point, no waffle).\n"
+            "2) Clear body — emoji headings, bullets, bold key terms, tables, code blocks.\n"
+            "3) One closing offer: 'Want me to go deeper on any part?' or 'Should I build this for you?'\n"
+            "4) 💡 Pro insight line.\n\n"
+
+            "PRO CODE RULE — Code must be visibly better than Basic:\n"
+            "- Colourful styled UI, math-generated sounds, particle effects on events, screen shake, "
+            "pause/menu/game-over screens, angle-based physics, ~200+ lines. Looks like a real polished app."
         )
     elif _sys_tier_o == "max":
         base += (
-            "\n\n━━━ TITAN ULTRA MAX MODE — ULTIMATE ━━━\n"
-            "The user has paid ₹24,000 for MAX. Every single answer must feel worth that. "
-            "NEVER give something average, generic, or textbook-style. Every answer must feel crafted just for them.\n\n"
-            "MAX ANSWER QUALITY STANDARDS — deliver ALL of these every time:\n\n"
-            "• UNDERSTAND THE REAL MEANING — Even if the message has typos or is loosely phrased, "
-            "figure out what they actually want. Never ask them to rephrase. Just answer.\n"
-            "• DEEP REASONING — Use multi-step thinking for complex problems. Break it down fully, hold every detail.\n"
-            "• CONTEXT AWARENESS — Remember everything from earlier in the conversation. Never make the user repeat.\n"
-            "• MULTIMODAL — Process and reason across text, images, code, and documents together.\n"
-            "• FACTUALITY — For real-time or factual questions, ground answers in accurate data. If uncertain: 'I'm not 100% sure but...'\n"
-            "• GIVE THE FINISHED THING — Write the code. Draft the email. Build the plan. Complete, ready-to-use answer.\n"
-            "• ADAPTABLE FORMAT — Headers, bullets, code blocks, tables. Match tone — casual gets warm, technical gets structured.\n"
-            "• HONESTY OVER FLATTERY — If something has a flaw, say so. Second and third versions are always better — offer to improve.\n"
-            "• ZERO TOLERANCE FOR MISTAKES — Every fact must be accurate. Never truncate. Never go shallow.\n"
-            "• End every answer with a 'Pro Insight' — one expert tip or hidden fact most people never know.\n\n"
-            "MAX LANGUAGE RULE — Talk like a real human friend, not like an AI or a textbook. "
-            "Use the kind of words you'd say out loud to a friend — casual, warm, relaxed. "
-            "Say things like: 'Okay so here's the thing...', 'Basically what happens is...', "
-            "'Think of it this way...', 'So yeah, that's why...', 'Honestly it's pretty simple once you get it!'\n"
-            "Never sound stiff or robotic. Short sentences. Everyday words. "
-            "The user should feel like they're texting their smartest friend who always has the answer.\n\n"
-            "MAX PYTHON CODE RULE — Your code MUST be 5x more impressive than Pro. Mandatory features:\n"
-            "5 levels each with unique color theme and name, each level harder than last, "
-            "moving obstacles in later levels, particle sparks on every hit, screen shake on score, "
-            "fading ball trail, rainbow ball in final level, twinkling stars background, "
-            "mouse + keyboard controls, AI with error factor, math-generated sounds for every event, "
-            "menu/pause/level-complete/victory screens, confetti on final win, 400-500 lines of code. "
-            "Looks like a real commercial game. Add short simple comments explaining each part.\n\n"
-            "MAX FORMAT RULE — Every answer MUST follow this structure: "
-            "1) Short opening line giving the main point. "
-            "2) Organised body with emoji section headings, bullet points, bold key terms, tables for comparisons, code blocks for code. "
-            "3) End with a helpful closing offer like 'Would you like me to build this for you?' or 'Want me to explain any part in more detail?'"
+            "\n\n━━━ TITAN ULTRA MAX — WORLD-CLASS INTELLIGENCE ━━━\n"
+            "The user has the highest tier. Every answer must be so good it feels impossible to get anywhere else. "
+            "NEVER give something average, generic, or copy-paste textbook. Every answer must feel personally crafted.\n\n"
+
+            "━━ MAX ANSWER RULES (non-negotiable) ━━\n"
+            "• UNDERSTAND THE REAL INTENT — Even with typos or vague phrasing, figure out exactly what they want. Just answer.\n"
+            "• CRYSTAL CLEAR — Short sentences. Simple words. Every sentence answers the question.\n"
+            "• STAY STRICTLY ON TOPIC — ONLY what was asked. Nothing extra unless it directly helps.\n"
+            "• DATE ACCURACY — NEVER claim a product/model is released unless certain it launched before today. If not confirmed, say '🔮 Not yet officially released'.\n"
+            "• ZERO TOLERANCE FOR VAGUENESS — Never say 'it depends' without immediately explaining what it depends on and giving the best answer.\n"
+            "• DEEP REASONING — Multi-step thinking for complex problems. Hold every detail.\n"
+            "• CONTEXT MEMORY — Remember every detail from this conversation. Never ask the user to repeat.\n"
+            "• GIVE THE FINISHED THING — Full code. Full essay. Full plan. Ready to use, right now.\n"
+            "• HONESTY — If something has a flaw, say it. The user paid for truth, not flattery.\n\n"
+
+            "━━ MAX EXCLUSIVE FEATURES (use all of them) ━━\n"
+            "✦ TITAN EXPERT LENS — Answer as the world's leading expert in that exact field. "
+            "Name the specific discipline (neuroscience, quantum physics, fintech, etc.) and give insider-level knowledge "
+            "that you would only know if you lived and breathed that field.\n\n"
+            "✦ TITAN CONFIDENCE TAG — ALWAYS start factual answers with:\n"
+            "  ✅ Confirmed · ⚠️ Best current info · 🔮 Not yet released/confirmed\n\n"
+            "✦ TITAN PREDICT — For any technology, trend, or product question: after the main answer, "
+            "add '🔮 Titan Predict:' with a specific, reasoned prediction of what will happen in the next 1-2 years. "
+            "Be bold and specific — give actual numbers, names, timelines.\n\n"
+            "✦ TITAN DEEP INSIGHT — End EVERY answer with '🧠 Deep Insight:' — the single most valuable, "
+            "surprising expert fact about this topic that almost nobody knows. Make it genuinely mind-blowing.\n\n"
+            "✦ TITAN SMART COMPARE — For any comparison question, give a structured table AND declare a clear winner with reasoning.\n\n"
+            "✦ TITAN STEP MASTER — For any how-to question, give exact numbered steps so clear that a 10-year-old could follow them.\n\n"
+            "✦ TITAN LANGUAGE MODE — Talk exactly like a brilliant, warm best friend:\n"
+            "'Okay so here's the thing...', 'Basically...', 'Think of it like this...', 'So yeah...', "
+            "'Honestly it's simpler than it sounds!'\n"
+            "Never stiff, never robotic. The user should feel like they're texting the smartest person they know.\n\n"
+
+            "MAX FORMAT RULE — Structure:\n"
+            "1) One-line direct answer — the core point, instantly clear.\n"
+            "2) Organised body — emoji section headings, bullets, bold terms, tables, code blocks.\n"
+            "3) One warm closing offer.\n"
+            "4) 🔮 Titan Predict line (for tech/trends/products).\n"
+            "5) 🧠 Deep Insight line.\n\n"
+
+            "MAX CODE RULE — Code must be jaw-dropping:\n"
+            "5 levels with unique themes, moving obstacles, particle sparks, screen shake, ball trails, "
+            "rainbow effects, twinkling background, AI opponent with error factor, math sounds for every event, "
+            "full menu/pause/level-complete/victory screens, confetti on win, mouse+keyboard, 400-500 lines. "
+            "Looks and plays like a commercial game. Short inline comments on each section."
+        )
+    if _sys_tier_o == "basic":
+        base += (
+            "\n\n━━━ BASIC TIER — ANSWER GUIDELINES ━━━\n"
+            "• Give complete, accurate, easy-to-understand answers on every topic.\n"
+            "• Use the Titan Analogy Engine — always include an analogy for complex ideas.\n"
+            "• Short sentences. Plain words. Direct answers. Zero padding.\n"
+            "• End with a natural, warm closing that makes the user feel great about asking.\n"
         )
     mem = st.session_state.get("titan_memory", {})
     if mem:
@@ -6604,10 +6902,38 @@ def _model_cfg(mid):
     return 8192, 0.40, 0.92
 
 
+def _cap_msg_size(msgs):
+    """Truncate oversized messages per tier. Basic→ZB limit, Pro→RB limit, Max→QB limit."""
+    _tier = st.session_state.get("titan_tier", "basic")
+    _limits = {"basic": 40000, "pro": 70000, "max": 90000}
+    _labels = {"basic": "ZB (Zettabyte) limit for Basic tier",
+               "pro":   "RB (Ronnabyte) limit for Pro tier",
+               "max":   "QB (Quettabyte) limit for Max tier"}
+    _upgrades = {"basic": "Upgrade to Pro to handle up to RB, or Max to handle up to QB.",
+                 "pro":   "Upgrade to Max to handle up to QB.",
+                 "max":   ""}
+    max_chars = _limits.get(_tier, 40000)
+    label     = _labels.get(_tier, "")
+    upgrade   = _upgrades.get(_tier, "")
+    out = []
+    for m in msgs:
+        c = m.get("content", "")
+        if isinstance(c, str) and len(c) > max_chars:
+            c = c[:max_chars] + (
+                f"\n\n[Content exceeded {label}. "
+                f"Input truncated at {max_chars:,} chars (original: {len(m['content']):,} chars). "
+                f"Analyze the provided portion and give a complete answer. {upgrade}]"
+            )
+            out.append({**m, "content": c})
+        else:
+            out.append(m)
+    return out
+
 def call_groq(messages):
     client = Groq(api_key=st.session_state.api_key)
     # Cap history at 20 messages — reduces tokens sent per call, avoiding rate limits faster
     full = _build_full(messages, trim=20)
+    full = _cap_msg_size(full)
 
     # ── Vision: clean single-message request with compressed image.
     _vision = st.session_state.get("pending_vision")
@@ -6620,35 +6946,105 @@ def call_groq(messages):
         _clean_q = _re_vis.sub(r'\n*\[File\].*', '', _raw_text, flags=_re_vis.DOTALL).strip()
         if not _clean_q:
             _clean_q = "Read and write every single word visible in this image. Even if blurry, try your absolute best. Text may be in Hindi, Telugu, Tamil, Urdu, English or any language — write it exactly as it appears, then describe the image."
-        # Compress image to max 1024px, JPEG 85 — reduces 3MB WhatsApp image to ~200KB
+
+        # ── Ultra-sharp image reading instruction ────────────────────────────
+        _is_code_img = _is_code_request(_clean_q.lower())
+
+        # Detect if user is referring to a specific question/item in the image
+        import re as _re_qref
+        _qnum_match = _re_qref.search(
+            r'(?:question|q\.?|problem|num(?:ber)?|no\.?)\s*([0-9]+|one|two|three|four|five|six|seven|eight|nine|ten|first|second|third)',
+            _clean_q, _re_qref.IGNORECASE
+        )
+        _loc_keywords = ['green box','red box','blue box','highlighted','circled','underlined',
+                         'top','bottom','left','right','first','last','marked','starred','boxed',
+                         'shaded','colored','coloured','arrow','pointed']
+        _has_location = any(kw in _clean_q.lower() for kw in _loc_keywords)
+
+        _img_prefix = (
+            "━━ ULTRA-SHARP IMAGE READING — FOLLOW EVERY RULE ━━\n"
+            "1. SCAN THE ENTIRE IMAGE first — left to right, top to bottom, every corner.\n"
+            "2. Read EVERY word, number, symbol, subscript, superscript, and label EXACTLY as printed.\n"
+            "3. Do NOT guess or fill in what you can't read clearly — say 'unclear' for unreadable parts.\n"
+        )
+        if _qnum_match:
+            _qn = _qnum_match.group(1)
+            _img_prefix += (
+                f"\n⚠️ THE USER ASKED SPECIFICALLY ABOUT QUESTION/ITEM {_qn.upper()} ⚠️\n"
+                f"• Find question/item {_qn} in the image.\n"
+                f"• Answer ONLY question/item {_qn}. Do NOT solve any other question.\n"
+                f"• If you cannot clearly find question {_qn}, say so — do not answer a different one.\n"
+            )
+        elif _has_location:
+            _img_prefix += (
+                "\n⚠️ THE USER IS POINTING TO A SPECIFIC PART OF THE IMAGE ⚠️\n"
+                "• Find the exact location they describe (green box, top, circled, highlighted, etc.).\n"
+                "• Answer ONLY the item at that exact location. Ignore everything else.\n"
+            )
+        else:
+            _img_prefix += (
+                "4. Answer ONLY what the user asked. If they ask about one thing, answer only that thing.\n"
+            )
+        if _is_code_img:
+            _img_prefix += (
+                "\n• This image shows the EXACT design the program must produce when run.\n"
+                "• Study every color, font, layout, button, text, spacing — match it PIXEL-PERFECTLY.\n"
+            )
+        _img_prefix += "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        _clean_q = _img_prefix + "\nUser's request: " + _clean_q
+
+        # Compress image to max 1280px, JPEG 92 — high quality for precise reading
         try:
             import io as _io_v
             from PIL import Image as _PILv
             _img_v = _PILv.open(_io_v.BytesIO(_vision["bytes"])).convert("RGB")
             _iw, _ih = _img_v.size
-            _max_px = 1024
+            _max_px = 1280
             if max(_iw, _ih) > _max_px:
                 _scale_v = _max_px / max(_iw, _ih)
                 _img_v = _img_v.resize((int(_iw * _scale_v), int(_ih * _scale_v)), _PILv.LANCZOS)
             _cbuf = _io_v.BytesIO()
-            _img_v.save(_cbuf, format="JPEG", quality=85)
+            _img_v.save(_cbuf, format="JPEG", quality=92)
             import base64 as _b64v2
             _vis_b64 = _b64v2.b64encode(_cbuf.getvalue()).decode("ascii")
             _vis_mime = "image/jpeg"
         except Exception:
             _vis_b64 = _vision["b64"]
             _vis_mime = _vision["mime"]
-        full = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": _clean_q},
-                    {"type": "image_url", "image_url": {
-                        "url": f"data:{_vis_mime};base64,{_vis_b64}"
-                    }},
-                ],
-            }
-        ]
+
+        # ── Include system prompt in vision call so CODE_SYSTEM / SYSTEM applies ──
+        _vis_sys = CODE_SYSTEM if _is_code_img else get_system()
+        _vid_frames = _vision.get("video_frames", [])
+        if _vid_frames:
+            # Video: send up to 4 frames with timestamps so AI can "watch" the video
+            _vid_dur = _vision.get("video_duration", 0)
+            _frame_parts = [{"type": "text", "text": (
+                f"VIDEO ANALYSIS — {_vision.get('name','video')} ({_vid_dur}s)\n"
+                f"I am showing you {len(_vid_frames)} frames extracted evenly across the video. "
+                f"Study all frames carefully to understand what happens in the video, then answer the user's request.\n\n"
+                + _clean_q
+            )}]
+            for _fi, _fb64 in enumerate(_vid_frames[:4]):
+                _pct = int(100 * _fi / max(len(_vid_frames) - 1, 1))
+                _frame_parts.append({"type": "text", "text": f"Frame at {_pct}%:"})
+                _frame_parts.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{_fb64}"}})
+            full = [
+                {"role": "system", "content": _vis_sys},
+                {"role": "user", "content": _frame_parts},
+            ]
+        else:
+            full = [
+                {"role": "system", "content": _vis_sys},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": _clean_q},
+                        {"type": "image_url", "image_url": {
+                            "url": f"data:{_vis_mime};base64,{_vis_b64}"
+                        }},
+                    ],
+                }
+            ]
 
     # Full fallback chain — tried in order when any model fails or hits rate limit
     if _use_vision:
@@ -7018,6 +7414,14 @@ if not uploaded_file and st.session_state.get("_home_upload_pending"):
     uploaded_file = st.session_state.pop("_home_upload_pending")
 
 # ── Ctrl+V screenshot paste handler ──────────────────────────────────────────
+# Inject tier into JS so DOM truncation shows the right limit label
+_js_tier = st.session_state.get("titan_tier", "basic")
+_tier_dom_limits = {"basic": 40000, "pro": 70000, "max": 90000}
+_tier_labels_js  = {"basic": "ZB limit (Basic)", "pro": "RB limit (Pro)", "max": "QB limit (Max)"}
+st.html(f"<script>window.parent.__titanTier='{_js_tier}';"
+        f"window.parent.__titanDomMax={_tier_dom_limits[_js_tier]};"
+        f"window.parent.__titanLimitLabel='{_tier_labels_js[_js_tier]}';</script>")
+
 import streamlit.components.v1 as _cv1_paste
 _cv1_paste.html("""<script>
 (function(){
@@ -7075,7 +7479,8 @@ pd.head.appendChild(_s);
 
 var _pw=pd.createElement('div');
 _pw.innerHTML='<div id="tpop">'+
-'<button class="tpb" data-act="photos">📷  Photos</button>'+
+'<button class="tpb" data-act="camera">📸  Camera</button>'+
+'<button class="tpb" data-act="photos">📷  Photos / Gallery</button>'+
 '<button class="tpb" data-act="files">📎  Files</button>'+
 '<hr style="border:none;border-top:1px solid #2d2d40;margin:4px 0">'+
 '<button class="tpb" id="tpb-fast">⚡  Fast Mode</button>'+
@@ -7083,7 +7488,7 @@ _pw.innerHTML='<div id="tpop">'+
 '</div>';
 pd.body.appendChild(_pw);
 var _pop=pd.getElementById('tpop');
-var _popAnchor=null; // which button opened the popup
+var _popAnchor=null;
 
 function _refreshModeUI(){
     var mode=localStorage.getItem('titan_mode')||'normal';
@@ -7102,35 +7507,54 @@ function _openPopup(anchorEl){
     _popAnchor=anchorEl;
     _refreshModeUI();
     var r=anchorEl.getBoundingClientRect();
-    _pop.style.left=r.left+'px';
+    var vw=pd.documentElement.clientWidth;
+    var popW=190;
+    var left=r.left;
+    if(left+popW>vw-10) left=vw-popW-10;
+    if(left<10) left=10;
+    _pop.style.left=left+'px';
     _pop.style.bottom=(pd.documentElement.clientHeight-r.top+8)+'px';
     _pop.style.top='auto';
     _pop.style.display='flex';
 }
 
 function _clickHiddenBtn(txt){
+    // Streamlit strips leading/trailing __ (markdown bold) from button labels
+    var stripped=txt.replace(/^_+|_+$/g,'');
     var all=pd.querySelectorAll('button');
     for(var i=0;i<all.length;i++){
-        if(all[i].textContent.trim()===txt){all[i].click();return true;}
+        var t=all[i].textContent.trim();
+        if(t===txt||t===stripped){all[i].click();return true;}
     }
     return false;
+}
+
+function _triggerFileInput(accept, capture, multi){
+    var fi=pd.querySelector('[data-testid="stChatInput"] input[type="file"]')
+           ||pd.querySelector('input[type="file"]');
+    if(!fi) return;
+    var origAccept=fi.getAttribute('accept')||'';
+    var origCapture=fi.getAttribute('capture')||'';
+    if(accept) fi.setAttribute('accept',accept); else fi.removeAttribute('accept');
+    if(capture) fi.setAttribute('capture',capture); else fi.removeAttribute('capture');
+    if(multi) fi.setAttribute('multiple',''); else fi.removeAttribute('multiple');
+    try{ fi.click(); } catch(err){}
+    setTimeout(function(){
+        if(origAccept) fi.setAttribute('accept',origAccept); else fi.removeAttribute('accept');
+        if(origCapture) fi.setAttribute('capture',origCapture); else fi.removeAttribute('capture');
+    },500);
 }
 
 _pop.addEventListener('click',function(e){
     var btn=e.target.closest('.tpb');
     if(!btn) return;
     var act=btn.getAttribute('data-act')||btn.id;
-    if(act==='photos'||act==='files'){
-        // Inject a one-shot script into parent so fi.click() is in parent context (trusted)
-        var sc=pd.createElement('script');
-        sc.textContent='(function(){'+
-            'var fi=document.querySelector(\'[data-testid="stChatInput"] input[type="file"]\')||document.querySelector(\'input[type="file"]\');'+
-            'if(!fi) return;'+
-            (act==='photos'?'fi.setAttribute("accept","image/*,video/*");':'fi.removeAttribute("accept");')+
-            'fi.click();'+
-        '})();';
-        pd.head.appendChild(sc);
-        sc.remove();
+    if(act==='camera'){
+        _triggerFileInput('image/*','environment',false);
+    } else if(act==='photos'){
+        _triggerFileInput('image/*,video/*',null,true);
+    } else if(act==='files'){
+        _triggerFileInput(null,null,true);
     } else if(act==='tpb-fast'){
         var cur=localStorage.getItem('titan_mode')||'normal';
         var next=cur==='fast'?'normal':'fast';
@@ -7257,13 +7681,22 @@ function _injectChatThink(){
 
 // ── Hide mode buttons in chat mode (home screen hides them via CSS) ───────────
 function _hideModeBtns(){
-    if(!pd.querySelector('[data-testid="stChatMessage"]')) return;
     var _hide=['TITAN_SET_FAST','TITAN_SET_THINK','TITAN_SET_NORMAL'];
     pd.querySelectorAll('button').forEach(function(b){
-        if(_hide.indexOf(b.textContent.trim())>=0){
-            var el=b;
+        var txt=b.textContent.trim();
+        if(_hide.some(function(h){return txt.indexOf(h)>=0;})){
+            // Keep the button accessible for programmatic click() — only move it off-screen
+            b.style.setProperty('position','fixed','important');
+            b.style.setProperty('left','-9999px','important');
+            b.style.setProperty('top','-9999px','important');
+            b.style.setProperty('width','1px','important');
+            b.style.setProperty('height','1px','important');
+            // Hide only 2 immediate wrapper divs — stop before any major layout node
+            var el=b.parentElement;
             for(var i=0;i<2;i++){
                 if(!el) break;
+                var tid=(el.getAttribute&&el.getAttribute('data-testid'))||'';
+                if(tid==='stVerticalBlock'||tid==='stMain'||tid==='stSidebar') break;
                 el.style.setProperty('display','none','important');
                 el.style.setProperty('height','0','important');
                 el.style.setProperty('overflow','hidden','important');
@@ -7275,17 +7708,224 @@ function _hideModeBtns(){
     });
 }
 
+// ── Fix chatbar floating — JS positions it correctly accounting for sidebar ──
+function _fixChatBar(){
+    var bar=pd.querySelector('[data-testid="stBottom"]');
+    if(!bar) return;
+    var sb=pd.querySelector('[data-testid="stSidebar"]');
+    var sbW=sb?sb.getBoundingClientRect().width:0;
+    bar.style.setProperty('position','fixed','important');
+    bar.style.setProperty('bottom','0','important');
+    bar.style.setProperty('left',sbW+'px','important');
+    bar.style.setProperty('right','0','important');
+}
+// Also run on window resize in case sidebar toggles
+window.addEventListener('resize',_fixChatBar);
+setInterval(_fixChatBar,800);
+
+// ── Thinking indicator: replace Streamlit spinner with Claude-style dots ────────
+var _TP={
+    think:['Crystallizing the answer','Weaving the response','Connecting the dots',
+           'Forming the thoughts','Analyzing deeply','Building the answer',
+           'Processing your request','Synthesizing knowledge',
+           'Architecting a response','Distilling information',
+           'Mapping the answer','Assembling the response'],
+    search:['Scanning the web','Pulling live data','Fetching results',
+            'Gathering information','Reading the internet','Searching sources'],
+    image:['Painting the image','Rendering the pixels','Creating the visual',
+           'Generating the artwork','Composing the diagram'],
+    video:['Rendering frames','Composing the video','Building the scene','Animating'],
+    gen:['Processing','Working on it','Calculating','Running']
+};
+function _pickPhrase(orig,idx){
+    var t=orig.toLowerCase();
+    var arr=_TP.think;
+    if(t.includes('search')||t.includes('web')||t.includes('fetching')||t.includes('information')||t.includes('reading'))
+        arr=_TP.search;
+    else if(t.includes('image')||t.includes('diagram')||t.includes('visual')||t.includes('generat'))
+        arr=_TP.image;
+    else if(t.includes('video')||t.includes('anim')||t.includes('cinematic'))
+        arr=_TP.video;
+    return arr[idx%arr.length];
+}
+function _titanSpinnerHook(){
+    pd.querySelectorAll('[data-testid="stStatusWidget"]').forEach(function(w){
+        if(w.__tsHooked) return;
+        w.__tsHooked=true;
+        // hide the circle SVG and spinner elements
+        w.querySelectorAll('svg,[class*="Spinner"],[class*="spinner"]').forEach(function(el){
+            el.style.cssText='display:none !important';
+        });
+        var textEl=w.querySelector('p')||w.querySelector('span:not(.t-dot)')||w.lastElementChild;
+        if(!textEl) return;
+        var orig=textEl.textContent||'';
+        var t0=Date.now(), pi=0;
+        var dots='<span class="t-dot"></span><span class="t-dot"></span><span class="t-dot"></span>';
+        setInterval(function(){
+            if(!pd.body.contains(w)) return;
+            var s=Math.round((Date.now()-t0)/1000);
+            pi=Math.floor(s/3);
+            textEl.innerHTML=dots+
+                '<span style="color:#888;font-size:.82rem;margin-left:8px;">'+
+                _pickPhrase(orig,pi)+' \xb7 '+s+'s</span>';
+        },400);
+    });
+}
+
+// ── Collapse long user messages (like Gemini's shrink) ───────────────────────
+var _COLL_H=110;
+var _DOM_MAX=window.parent.__titanDomMax||4000;
+var _LIMIT_LBL=window.parent.__titanLimitLabel||'tier limit';
+function _escH(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function _collapseUserMsgs(){
+    var msgs=pd.querySelectorAll('[data-testid="stChatMessage"]');
+    msgs.forEach(function(msg){
+        if(!msg.querySelector('[data-testid="stChatMessageAvatarUser"]')) return;
+        if(msg.__tuColInit) return;
+        var mc=msg.querySelector('[data-testid="stMarkdownContainer"]');
+        if(!mc) return;
+
+        // ── INSTANT check: use text length, NOT scrollHeight ──────────────────
+        var rawTxt=mc.textContent||'';
+        var charLen=rawTxt.length;
+
+        // For massive content replace DOM BEFORE browser tries to render it all
+        if(charLen>_DOM_MAX){
+            var preview=_escH(rawTxt.slice(0,500));
+            mc.innerHTML='<p style="margin:0;white-space:pre-wrap">'+preview+'…</p>'+
+                '<p style="color:#555;font-size:0.76rem;margin:6px 0 0">[ '+
+                charLen.toLocaleString()+' characters · within '+_LIMIT_LBL+
+                ' · full content processed by Titan Ultra ]</p>';
+        }
+
+        msg.__tuColInit=true;
+        // Use charLen to decide collapse without needing scrollHeight render
+        var needsCollapse=(charLen>280)||(mc.scrollHeight>_COLL_H+40);
+        if(!needsCollapse) return;
+
+        // ── wrap bubble + chevron in a column ──
+        var col=pd.createElement('div');
+        col.style.cssText='display:flex;flex-direction:column;align-items:flex-end;';
+        msg.insertBefore(col,mc);
+        col.appendChild(mc);
+        mc.style.setProperty('max-width','100%','important');
+        mc.style.setProperty('width','100%','important');
+
+        // ── gradient fade at bottom of collapsed bubble ──
+        var grad=pd.createElement('div');
+        grad.style.cssText='position:absolute;bottom:0;left:0;right:0;height:38px;'+
+            'background:linear-gradient(transparent,#1e1e1e);pointer-events:none;'+
+            'border-radius:0 0 4px 18px;';
+        mc.style.position='relative';
+        mc.style.setProperty('max-height',_COLL_H+'px','important');
+        mc.style.setProperty('overflow','hidden','important');
+        mc.appendChild(grad);
+
+        // ── chevron button ──
+        var btn=pd.createElement('button');
+        btn.innerHTML='&#8964;'; // ⌄
+        btn.title='Show full message';
+        btn.style.cssText='background:#1a1a1a;border:1px solid #333;border-radius:50%;'+
+            'width:26px;height:26px;cursor:pointer;color:#aaaaaa;font-size:14px;'+
+            'display:flex;align-items:center;justify-content:center;'+
+            'margin-top:5px;padding:0;line-height:1;flex-shrink:0;'+
+            'transition:background .15s,color .15s;';
+        btn.addEventListener('mouseover',function(){btn.style.background='#2a2a2a';btn.style.color='#fff';});
+        btn.addEventListener('mouseout', function(){btn.style.background='#1a1a1a';btn.style.color='#aaa';});
+        col.appendChild(btn);
+
+        var open=false;
+        btn.addEventListener('click',function(e){
+            e.stopPropagation();
+            open=!open;
+            if(open){
+                mc.style.setProperty('max-height','none','important');
+                mc.style.setProperty('overflow','visible','important');
+                grad.style.display='none';
+                btn.innerHTML='&#8963;'; // ⌃
+                btn.title='Collapse message';
+            } else {
+                mc.style.setProperty('max-height',_COLL_H+'px','important');
+                mc.style.setProperty('overflow','hidden','important');
+                grad.style.display='block';
+                btn.innerHTML='&#8964;';
+                btn.title='Show full message';
+            }
+        });
+    });
+}
+
+// ── Scroll-to-bottom arrow button ────────────────────────────────────────────
+(function(){
+  if(pd.getElementById('_titanScrollBtn')) return;
+  var btn=pd.createElement('button');
+  btn.id='_titanScrollBtn';
+  btn.innerHTML='&#8595;';
+  btn.style.cssText='position:fixed;bottom:90px;right:22px;z-index:99999;'
+    +'width:40px;height:40px;border-radius:50%;border:none;cursor:pointer;'
+    +'background:rgba(40,40,60,0.85);color:#fff;font-size:20px;line-height:1;'
+    +'box-shadow:0 2px 12px rgba(0,0,0,0.5);backdrop-filter:blur(6px);'
+    +'display:none;align-items:center;justify-content:center;'
+    +'transition:opacity .2s,transform .2s;';
+  btn.onclick=function(){
+    var sc=pd.querySelector('[data-testid="stAppViewBlockContainer"]')
+           ||pd.querySelector('.main')
+           ||pd.documentElement;
+    sc.scrollTop=sc.scrollHeight;
+    pd.documentElement.scrollTop=pd.documentElement.scrollHeight;
+    pd.body.scrollTop=pd.body.scrollHeight;
+  };
+  pd.body.appendChild(btn);
+  function _checkScroll(){
+    var sc=pd.documentElement;
+    var fromBottom=sc.scrollHeight-sc.scrollTop-sc.clientHeight;
+    btn.style.display=(fromBottom>180)?'flex':'none';
+  }
+  pd.addEventListener('scroll',_checkScroll,true);
+  setInterval(_checkScroll,600);
+})();
+
+// ── Auto-scroll to first line of new answer ──────────────────────────────────
+var _tuMsgCount = 0;
+var _tuScrollT  = null;
+// Initialise count after DOM settles so existing messages don't trigger a scroll
+setTimeout(function(){
+    _tuMsgCount = pd.querySelectorAll('[data-testid="stChatMessage"]').length;
+}, 400);
+
+function _tuScrollNewAnswer(){
+    clearTimeout(_tuScrollT);
+    _tuScrollT = setTimeout(function(){
+        var msgs = pd.querySelectorAll('[data-testid="stChatMessage"]');
+        var n = msgs.length;
+        if(n > _tuMsgCount && n > 0){
+            _tuMsgCount = n;
+            // Scroll so the FIRST LINE of the new last message is at the top
+            msgs[n-1].scrollIntoView({behavior:'smooth', block:'start'});
+        } else {
+            _tuMsgCount = n;
+        }
+    }, 300);
+}
+
 var _obs=new MutationObserver(function(){
     _hookChatPlus();
     _injectHomePlus();
     _injectChatThink();
     _hideModeBtns();
+    _fixChatBar();
+    _titanSpinnerHook();
+    _collapseUserMsgs();
+    _tuScrollNewAnswer();
 });
 _obs.observe(pd.body,{childList:true,subtree:true});
 _hookChatPlus();
 _injectHomePlus();
 _injectChatThink();
 _hideModeBtns();
+_fixChatBar();
+_titanSpinnerHook();
+_collapseUserMsgs();
 _refreshModeUI();
 
 // ── Ctrl+V paste image into chat ─────────────────────────────────────────────
@@ -7315,7 +7955,79 @@ pd.addEventListener('paste',function(e){
 _current_vision = None
 if uploaded_file:
     try:
-        if uploaded_file.type and uploaded_file.type.startswith("image"):
+        _uname_low = uploaded_file.name.lower()
+        _is_video_file = (
+            (uploaded_file.type and uploaded_file.type.startswith("video")) or
+            any(_uname_low.endswith(ext) for ext in ('.mp4','.mov','.webm','.avi','.mkv','.m4v','.3gp','.flv','.wmv'))
+        )
+        if _is_video_file:
+            # ── Video: extract representative frames and analyse them ──────────
+            import base64 as _b64vid, io as _io_vid, tempfile as _tmp_vid, os as _os_vid
+            _vid_raw = uploaded_file.read()
+            _vid_frames = []
+            try:
+                import cv2 as _cv2
+                _tmp_vf = _tmp_vid.NamedTemporaryFile(delete=False, suffix=".mp4")
+                _tmp_vf.write(_vid_raw); _tmp_vf.close()
+                _cap = _cv2.VideoCapture(_tmp_vf.name)
+                _total_frames = int(_cap.get(_cv2.CAP_PROP_FRAME_COUNT)) or 1
+                _fps_v = _cap.get(_cv2.CAP_PROP_FPS) or 24
+                _duration_s = _total_frames / _fps_v
+                _pick = [int(_total_frames * p) for p in [0.1, 0.35, 0.6, 0.85]]
+                from PIL import Image as _PILvid
+                for _fidx in _pick:
+                    _cap.set(_cv2.CAP_PROP_POS_FRAMES, min(_fidx, _total_frames - 1))
+                    _ret, _frm = _cap.read()
+                    if not _ret: continue
+                    _frm_rgb = _cv2.cvtColor(_frm, _cv2.COLOR_BGR2RGB)
+                    _pil_f = _PILvid.fromarray(_frm_rgb)
+                    _pil_f.thumbnail((960, 960))
+                    _fbuf = _io_vid.BytesIO()
+                    _pil_f.save(_fbuf, "JPEG", quality=85); _fbuf.seek(0)
+                    _vid_frames.append(_b64vid.b64encode(_fbuf.getvalue()).decode())
+                _cap.release()
+                _os_vid.unlink(_tmp_vf.name)
+            except Exception:
+                # cv2 not available — try ffmpeg via subprocess
+                try:
+                    import subprocess as _sp_vid, tempfile as _tmp2
+                    _tmp2f = _tmp2.NamedTemporaryFile(delete=False, suffix=".mp4")
+                    _tmp2f.write(_vid_raw); _tmp2f.close()
+                    _duration_s = 10  # fallback estimate
+                    for _ts in ["1", "3", "6", "9"]:
+                        _out_f = _tmp2.NamedTemporaryFile(delete=False, suffix=".jpg")
+                        _out_f.close()
+                        _sp_vid.run(
+                            ["ffmpeg", "-ss", _ts, "-i", _tmp2f.name,
+                             "-vframes", "1", "-q:v", "3", "-y", _out_f.name],
+                            capture_output=True, timeout=15
+                        )
+                        if _os_vid.path.getsize(_out_f.name) > 100:
+                            with open(_out_f.name, "rb") as _rf:
+                                _vid_frames.append(_b64vid.b64encode(_rf.read()).decode())
+                        _os_vid.unlink(_out_f.name)
+                    _os_vid.unlink(_tmp2f.name)
+                except Exception:
+                    _duration_s = 0
+            if _vid_frames:
+                # Use the middle frame as the vision image for the AI
+                _pick_frame = _vid_frames[len(_vid_frames) // 2]
+                from PIL import Image as _PILvid2
+                _fb2 = _io_vid.BytesIO(_b64vid.b64decode(_pick_frame))
+                _current_vision = {
+                    "name": uploaded_file.name,
+                    "mime": "image/jpeg",
+                    "b64": _pick_frame,
+                    "bytes": _b64vid.b64decode(_pick_frame),
+                    "video_frames": _vid_frames,
+                    "video_duration": round(_duration_s, 1),
+                }
+                file_content = f"[Video attached: {uploaded_file.name} — {round(_duration_s,1)}s — {len(_vid_frames)} frames extracted]"
+            else:
+                # Could not extract frames — still acknowledge the file
+                file_content = f"[Video attached: {uploaded_file.name}]"
+                _current_vision = None
+        elif uploaded_file.type and uploaded_file.type.startswith("image"):
             import base64 as _b64v
             _img_raw = uploaded_file.read()
             _mime = uploaded_file.type or "image/png"
@@ -7609,6 +8321,48 @@ if user_input:
                             f"{_mentioned_app} {user_input} {_ca_date}", max_results=10
                         )
 
+            # ── Google Image Search — works for ALL tiers ────────────────────────
+            if _is_image_search_request(user_input):
+                import re as _re_imgsrch
+                # Extract the subject they want images of
+                _img_srch_q = _re_imgsrch.sub(
+                    r'(?i)\b(?:send\s+me|show\s+me|find|get|search\s+for?|give\s+me)\s*'
+                    r'(?:\d+\s+)?(?:images?|pictures?|photos?)\s*(?:of\s*|from\s*)?',
+                    '', user_input, count=1).strip() or user_input
+                with st.spinner(f"🖼️ Searching for images of {_img_srch_q}…"):
+                    _img_results = _search_images(_img_srch_q, max_results=12)
+                if _img_results:
+                    msgs = cur_msgs()
+                    msgs.append({"role": "user", "content": user_input})
+                    # Build HTML grid of images
+                    _grid_html = (
+                        f"<div style='margin-bottom:8px;color:#a0aec0;font-size:.82rem'>"
+                        f"🖼️ Here are <b>{len(_img_results)} images</b> of <b>{_img_srch_q}</b>:</div>"
+                        "<div style='display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));"
+                        "gap:10px;margin-top:6px'>"
+                    )
+                    for _ir in _img_results:
+                        _grid_html += (
+                            f"<div style='border-radius:10px;overflow:hidden;background:#1a1a2e;"
+                            f"border:1px solid rgba(255,255,255,0.08)'>"
+                            f"<img src='{_ir['image']}' style='width:100%;height:140px;object-fit:cover;"
+                            f"display:block' onerror=\"this.parentElement.style.display='none'\" loading='lazy'/>"
+                            f"</div>"
+                        )
+                    _grid_html += "</div>"
+                    import streamlit.components.v1 as _cv1_imgs
+                    with st.chat_message("assistant", avatar="🔱"):
+                        _cv1_imgs.html(_grid_html, height=min(len(_img_results) * 60, 600), scrolling=True)
+                    msgs.append({"role": "assistant", "content": f"[IMAGES: {_img_srch_q} — {len(_img_results)} results]"})
+                    set_msgs(msgs)
+                    st.rerun()
+                else:
+                    msgs = cur_msgs()
+                    msgs.append({"role": "user", "content": user_input})
+                    msgs.append({"role": "assistant", "content": f"I couldn't find images for '{_img_srch_q}' right now. Try a different search term!"})
+                    set_msgs(msgs)
+                    st.rerun()
+
             # ── AI Image / Video generation (Pro + Max) ──────────────────────────
             _gen_tier = st.session_state.get("titan_tier", "basic")
             if _gen_tier in ("pro", "max"):
@@ -7719,10 +8473,32 @@ if user_input:
                             f"{user_input}\n\n"
                             f"[LIVE {_src_label.upper()}]:\n{_extra}\n\n"
                             f"Use the above {_src_label} to give a complete, accurate answer. "
-                            f"Mention sources where relevant."
+                            f"Write entirely in your own words — never mention source names, website names, URLs, or where the data came from.\n\n"
+                            f"CRITICAL — RELEASE STATUS: If the search results mention any product, software, or hardware as 'expected', "
+                            f"'rumoured', 'leaked', 'announced', 'upcoming', or not yet released — say so clearly. "
+                            f"NEVER state an unreleased item as if it is already available. "
+                            f"Only say something is released if the search results explicitly confirm a release date that has already passed."
                         )
+                    # If diagram was generated, tell the AI NOT to draw ASCII art
+                    if _is_diagram_request(user_input):
+                        _diag_note = (
+                            "\n\nIMPORTANT — A beautiful animated diagram is ALREADY being shown to the user above your answer. "
+                            "Do NOT draw any ASCII art, text diagrams, box diagrams, or character-art diagrams. "
+                            "Do NOT use box-drawing characters (┌┐└┘│─╔╗╚╝). "
+                            "Just write a SHORT, clear text explanation (3-6 sentences max) about what the diagram shows. "
+                            "No headers, no bullet lists — just plain, simple sentences the user can read instantly."
+                        )
+                        if _api_msgs[-1]["role"] == "user":
+                            _api_msgs[-1]["content"] = str(_api_msgs[-1]["content"]) + _diag_note
                     answer = _do_ai_call(_api_msgs)
-                    msgs = cur_msgs(); msgs.append({"role":"assistant","content":answer}); set_msgs(msgs)
+                    _asst_msg = {"role": "assistant", "content": answer}
+                    if _is_diagram_request(user_input):
+                        import hashlib as _hlib_dmsg
+                        _dkey_dmsg = _hlib_dmsg.md5(user_input.encode()).hexdigest()
+                        _dhtml_dmsg = st.session_state.diagram_cache.get(_dkey_dmsg, "")
+                        if _dhtml_dmsg:
+                            _asst_msg["diagram_html"] = _dhtml_dmsg
+                    msgs = cur_msgs(); msgs.append(_asst_msg); set_msgs(msgs)
                     st.rerun()
                 except Exception as e:
                     st.error(f"❌ Error: {e}")
