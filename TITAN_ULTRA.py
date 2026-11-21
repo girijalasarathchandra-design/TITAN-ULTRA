@@ -7678,10 +7678,12 @@ function _hideModeBtns(){
             b.style.setProperty('top','-9999px','important');
             b.style.setProperty('width','1px','important');
             b.style.setProperty('height','1px','important');
-            // Hide parent containers so no layout space is taken
+            // Hide only 2 immediate wrapper divs — stop before any major layout node
             var el=b.parentElement;
-            for(var i=0;i<5;i++){
+            for(var i=0;i<2;i++){
                 if(!el) break;
+                var tid=(el.getAttribute&&el.getAttribute('data-testid'))||'';
+                if(tid==='stVerticalBlock'||tid==='stMain'||tid==='stSidebar') break;
                 el.style.setProperty('display','none','important');
                 el.style.setProperty('height','0','important');
                 el.style.setProperty('overflow','hidden','important');
