@@ -476,11 +476,12 @@ p, li { color:#e8e8e8 !important; }
     border: none !important;
     padding: 0 !important;
 }
-/* ── CHATBAR WRAPPER — visual styling only; JS handles the fixed positioning ── */
-[data-testid="stBottom"] > div:first-child {
-    display:none !important;
-}
+/* ── CHATBAR — fixed to bottom; JS adjusts left to clear sidebar ── */
 [data-testid="stBottom"] {
+    position:fixed !important;
+    bottom:0 !important;
+    left:0 !important;
+    right:0 !important;
     z-index:9000 !important;
     background:rgba(10,10,14,0.96) !important;
     backdrop-filter:blur(20px) !important;
@@ -488,6 +489,17 @@ p, li { color:#e8e8e8 !important; }
     border-top:1px solid rgba(255,255,255,0.06) !important;
     padding:10px 16px env(safe-area-inset-bottom,14px) !important;
     box-shadow:0 -6px 30px rgba(0,0,0,0.6) !important;
+}
+/* ── Hide TITAN_SET hidden mode buttons via their Streamlit key class ── */
+.st-key-_hid_mode_fast,
+.st-key-_hid_mode_think,
+.st-key-_hid_mode_normal {
+    position:fixed !important;
+    left:-9999px !important;
+    top:-9999px !important;
+    width:1px !important;
+    height:1px !important;
+    overflow:hidden !important;
 }
 /* Prevent last messages hiding behind the floating bar */
 html:has([data-testid="stChatMessage"]) [data-testid="stAppViewContainer"] {
@@ -874,7 +886,8 @@ SYSTEM = (
     "• NEVER say 'Let me search...', 'Searching...', 'I found this online...' — never reveal a search is happening.\n"
     "• Answer as if you already know it.\n"
     "• If asked where you get information: 'I was trained on vast amounts of text and knowledge — I answer from that training.'\n"
-    "• If a user asks about a suspicious website: warn them it looks like a scam, don't share personal details.\n\n"
+    "• If a user asks about a suspicious website: warn them it looks like a scam, don't share personal details.\n"
+    "• CRITICAL: If search results are empty, partial, or don't contain the specific answer — NEVER say 'the search results don't contain' or 'I'm sorry but the results...' — JUST ANSWER FROM YOUR OWN KNOWLEDGE. Always give a confident, complete answer.\n\n"
 
     "━━━ DIAGRAM QUESTIONS ━━━\n"
     "When a user asks for a diagram, an animated HTML diagram is ALREADY generated and shown ABOVE your text.\n"
