@@ -477,11 +477,15 @@ p, li { color:#e8e8e8 !important; }
     padding: 0 !important;
 }
 /* ── CHATBAR — Gemini-style floating pill ── */
-[data-testid="stBottom"] {
+[data-testid="stBottom"],
+[data-testid="stBottom"] > div,
+[data-testid="stBottom"] > div > div {
     background:transparent !important;
     border:none !important;
     box-shadow:none !important;
-    padding:0 24px 20px !important;
+}
+[data-testid="stBottom"] {
+    padding:0 20px 18px !important;
     min-height:80px !important;
 }
 [data-testid="stChatInput"] {
@@ -492,7 +496,7 @@ p, li { color:#e8e8e8 !important; }
     -webkit-backdrop-filter:blur(24px) !important;
     box-shadow:0 4px 28px rgba(0,0,0,0.55) !important;
     overflow:hidden !important;
-    max-width:800px !important;
+    max-width:820px !important;
     margin:0 auto !important;
 }
 [data-testid="stChatInput"] textarea {
@@ -518,7 +522,7 @@ p, li { color:#e8e8e8 !important; }
 }
 /* Prevent last messages hiding behind the floating bar */
 html:has([data-testid="stChatMessage"]) [data-testid="stAppViewContainer"] {
-    padding-bottom:100px !important;
+    padding-bottom:110px !important;
 }
 [data-testid="stMain"] { scroll-behavior:smooth !important; }
 /* ── HOME SCREEN: hide sticky bottom bar & center content ── */
@@ -7598,6 +7602,15 @@ function _hookChatPlus(){
     var plusBtn=ci.querySelector('button');
     if(!plusBtn||plusBtn.__titanHooked) return;
     plusBtn.__titanHooked=true;
+    // The + is inside a <label> which opens the file dialog by browser default.
+    // Block BOTH the label and the button to prevent the native file dialog.
+    var lbl=plusBtn.closest('label');
+    if(lbl && !lbl.__titanHooked){
+        lbl.__titanHooked=true;
+        lbl.addEventListener('click',function(e){
+            e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+        },true);
+    }
     plusBtn.addEventListener('click',function(e){
         e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
         if(_pop.style.display==='flex'){_pop.style.display='none';}
@@ -7723,7 +7736,7 @@ function _hideModeBtns(){
     });
 }
 
-// ── Fix chatbar — force visible + fixed at bottom, sidebar-aware ──
+// ── Fix chatbar — truly floating pill, sidebar-aware ──
 function _fixChatBar(){
     var bar=pd.querySelector('[data-testid="stBottom"]');
     if(!bar) return;
@@ -7732,10 +7745,13 @@ function _fixChatBar(){
     bar.style.setProperty('display','block','important');
     bar.style.setProperty('visibility','visible','important');
     bar.style.setProperty('position','fixed','important');
-    bar.style.setProperty('bottom','0','important');
-    bar.style.setProperty('left',sbW+'px','important');
-    bar.style.setProperty('right','0','important');
-    bar.style.setProperty('min-height','80px','important');
+    bar.style.setProperty('bottom','16px','important');
+    bar.style.setProperty('left',(sbW+16)+'px','important');
+    bar.style.setProperty('right','16px','important');
+    bar.style.setProperty('background','transparent','important');
+    bar.style.setProperty('border','none','important');
+    bar.style.setProperty('box-shadow','none','important');
+    bar.style.setProperty('min-height','72px','important');
     bar.style.setProperty('z-index','9000','important');
 }
 window.addEventListener('resize',_fixChatBar);
