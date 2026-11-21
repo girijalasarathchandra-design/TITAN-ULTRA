@@ -476,12 +476,8 @@ p, li { color:#e8e8e8 !important; }
     border: none !important;
     padding: 0 !important;
 }
-/* ── CHATBAR — fixed to bottom; JS adjusts left to clear sidebar ── */
+/* ── CHATBAR — visual styling only; JS handles all positioning ── */
 [data-testid="stBottom"] {
-    position:fixed !important;
-    bottom:0 !important;
-    left:0 !important;
-    right:0 !important;
     z-index:9000 !important;
     background:rgba(10,10,14,0.96) !important;
     backdrop-filter:blur(20px) !important;
@@ -489,6 +485,7 @@ p, li { color:#e8e8e8 !important; }
     border-top:1px solid rgba(255,255,255,0.06) !important;
     padding:10px 16px env(safe-area-inset-bottom,14px) !important;
     box-shadow:0 -6px 30px rgba(0,0,0,0.6) !important;
+    min-height:72px !important;
 }
 /* ── Hide TITAN_SET hidden mode buttons via their Streamlit key class ── */
 .st-key-_hid_mode_fast,
@@ -7708,20 +7705,23 @@ function _hideModeBtns(){
     });
 }
 
-// ── Fix chatbar floating — JS positions it correctly accounting for sidebar ──
+// ── Fix chatbar — force visible + fixed at bottom, sidebar-aware ──
 function _fixChatBar(){
     var bar=pd.querySelector('[data-testid="stBottom"]');
     if(!bar) return;
     var sb=pd.querySelector('[data-testid="stSidebar"]');
     var sbW=sb?sb.getBoundingClientRect().width:0;
+    bar.style.setProperty('display','block','important');
+    bar.style.setProperty('visibility','visible','important');
     bar.style.setProperty('position','fixed','important');
     bar.style.setProperty('bottom','0','important');
     bar.style.setProperty('left',sbW+'px','important');
     bar.style.setProperty('right','0','important');
+    bar.style.setProperty('min-height','72px','important');
+    bar.style.setProperty('z-index','9000','important');
 }
-// Also run on window resize in case sidebar toggles
 window.addEventListener('resize',_fixChatBar);
-setInterval(_fixChatBar,800);
+setInterval(_fixChatBar,400);
 
 // ── Thinking indicator: replace Streamlit spinner with Claude-style dots ────────
 var _TP={
