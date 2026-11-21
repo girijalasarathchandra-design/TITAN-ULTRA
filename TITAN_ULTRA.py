@@ -476,24 +476,22 @@ p, li { color:#e8e8e8 !important; }
     border: none !important;
     padding: 0 !important;
 }
-/* ── FLOATING CHATBAR — always fixed at bottom, visible while scrolling ── */
+/* ── CHATBAR WRAPPER — visual styling only; JS handles the fixed positioning ── */
 [data-testid="stBottom"] > div:first-child {
-    height:0 !important; min-height:0 !important; background:none !important;
+    display:none !important;
 }
 [data-testid="stBottom"] {
-    position:fixed !important;
-    bottom:0 !important; left:0 !important; right:0 !important;
     z-index:9000 !important;
-    background:rgba(10,10,14,0.97) !important;
-    backdrop-filter:blur(18px) !important;
-    -webkit-backdrop-filter:blur(18px) !important;
-    border-top:1px solid rgba(255,255,255,0.05) !important;
-    padding:10px 0 env(safe-area-inset-bottom,14px) !important;
-    box-shadow:0 -4px 24px rgba(0,0,0,0.5) !important;
+    background:rgba(10,10,14,0.96) !important;
+    backdrop-filter:blur(20px) !important;
+    -webkit-backdrop-filter:blur(20px) !important;
+    border-top:1px solid rgba(255,255,255,0.06) !important;
+    padding:10px 16px env(safe-area-inset-bottom,14px) !important;
+    box-shadow:0 -6px 30px rgba(0,0,0,0.6) !important;
 }
-/* Prevent last messages hiding behind the fixed bar */
-html:has([data-testid="stChatMessage"]) section[data-testid="stMain"] {
-    padding-bottom:110px !important;
+/* Prevent last messages hiding behind the floating bar */
+html:has([data-testid="stChatMessage"]) [data-testid="stAppViewContainer"] {
+    padding-bottom:100px !important;
 }
 [data-testid="stMain"] { scroll-behavior:smooth !important; }
 /* ── HOME SCREEN: hide sticky bottom bar & center content ── */
@@ -7508,9 +7506,12 @@ function _openPopup(anchorEl){
 }
 
 function _clickHiddenBtn(txt){
+    // Streamlit strips leading/trailing __ (markdown bold) from button labels
+    var stripped=txt.replace(/^_+|_+$/g,'');
     var all=pd.querySelectorAll('button');
     for(var i=0;i<all.length;i++){
-        if(all[i].textContent.trim()===txt){all[i].click();return true;}
+        var t=all[i].textContent.trim();
+        if(t===txt||t===stripped){all[i].click();return true;}
     }
     return false;
 }
@@ -7667,12 +7668,19 @@ function _injectChatThink(){
 
 // ── Hide mode buttons in chat mode (home screen hides them via CSS) ───────────
 function _hideModeBtns(){
-    if(!pd.querySelector('[data-testid="stChatMessage"]')) return;
     var _hide=['TITAN_SET_FAST','TITAN_SET_THINK','TITAN_SET_NORMAL'];
     pd.querySelectorAll('button').forEach(function(b){
-        if(_hide.indexOf(b.textContent.trim())>=0){
-            var el=b;
-            for(var i=0;i<2;i++){
+        var txt=b.textContent.trim();
+        if(_hide.some(function(h){return txt.indexOf(h)>=0;})){
+            // Keep the button accessible for programmatic click() — only move it off-screen
+            b.style.setProperty('position','fixed','important');
+            b.style.setProperty('left','-9999px','important');
+            b.style.setProperty('top','-9999px','important');
+            b.style.setProperty('width','1px','important');
+            b.style.setProperty('height','1px','important');
+            // Hide parent containers so no layout space is taken
+            var el=b.parentElement;
+            for(var i=0;i<5;i++){
                 if(!el) break;
                 el.style.setProperty('display','none','important');
                 el.style.setProperty('height','0','important');
@@ -7684,6 +7692,21 @@ function _hideModeBtns(){
         }
     });
 }
+
+// ── Fix chatbar floating — JS positions it correctly accounting for sidebar ──
+function _fixChatBar(){
+    var bar=pd.querySelector('[data-testid="stBottom"]');
+    if(!bar) return;
+    var sb=pd.querySelector('[data-testid="stSidebar"]');
+    var sbW=sb?sb.getBoundingClientRect().width:0;
+    bar.style.setProperty('position','fixed','important');
+    bar.style.setProperty('bottom','0','important');
+    bar.style.setProperty('left',sbW+'px','important');
+    bar.style.setProperty('right','0','important');
+}
+// Also run on window resize in case sidebar toggles
+window.addEventListener('resize',_fixChatBar);
+setInterval(_fixChatBar,800);
 
 // ── Thinking indicator: replace Streamlit spinner with Claude-style dots ────────
 var _TP={
@@ -7875,6 +7898,7 @@ var _obs=new MutationObserver(function(){
     _injectHomePlus();
     _injectChatThink();
     _hideModeBtns();
+    _fixChatBar();
     _titanSpinnerHook();
     _collapseUserMsgs();
     _tuScrollNewAnswer();
@@ -7884,6 +7908,7 @@ _hookChatPlus();
 _injectHomePlus();
 _injectChatThink();
 _hideModeBtns();
+_fixChatBar();
 _titanSpinnerHook();
 _collapseUserMsgs();
 _refreshModeUI();
