@@ -7753,6 +7753,9 @@ function _fixChatBar(){
     bar.style.setProperty('box-shadow','none','important');
     bar.style.setProperty('min-height','72px','important');
     bar.style.setProperty('z-index','9000','important');
+    // Strip background from immediate wrapper divs too
+    var ch=bar.firstElementChild;
+    while(ch){ch.style.setProperty('background','transparent','important');ch=ch.nextElementSibling;}
 }
 window.addEventListener('resize',_fixChatBar);
 setInterval(_fixChatBar,400);
@@ -8167,7 +8170,22 @@ if uploaded_file:
             except Exception:
                 file_content = f"[PDF: {uploaded_file.name}]"
         else:
-            file_content = uploaded_file.read().decode("utf-8", errors="replace")
+            try:
+                _raw_misc = uploaded_file.read()
+                # Binary file detection: null bytes = not text
+                if b'\x00' in _raw_misc[:1024]:
+                    _fext = uploaded_file.name.rsplit('.', 1)[-1].upper() if '.' in uploaded_file.name else 'file'
+                    msgs = cur_msgs()
+                    msgs.append({"role": "user", "content": f"I uploaded {uploaded_file.name}"})
+                    msgs.append({"role": "assistant", "content":
+                        f"⚠️ **{uploaded_file.name}** is a binary file (.{_fext.lower()}) — I can't read those.\n\n"
+                        f"I can open: 🖼️ Images · 📄 PDFs · 📊 CSV / Excel · 📝 Text / code files (.txt .py .js etc)\n\n"
+                        f"Try sending one of those instead!"})
+                    set_msgs(msgs)
+                    st.rerun()
+                file_content = _raw_misc.decode("utf-8", errors="replace")
+            except Exception:
+                file_content = f"[File: {uploaded_file.name}]"
     except Exception:
         file_content = f"[File: {uploaded_file.name}]"
 st.session_state.pending_vision = _current_vision
