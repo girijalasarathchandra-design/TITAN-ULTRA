@@ -476,17 +476,38 @@ p, li { color:#e8e8e8 !important; }
     border: none !important;
     padding: 0 !important;
 }
-/* ── CHATBAR — visual styling only; JS handles all positioning ── */
-[data-testid="stBottom"] {
-    z-index:9000 !important;
-    background:rgba(10,10,14,0.96) !important;
-    backdrop-filter:blur(20px) !important;
-    -webkit-backdrop-filter:blur(20px) !important;
-    border-top:1px solid rgba(255,255,255,0.06) !important;
-    padding:10px 16px env(safe-area-inset-bottom,14px) !important;
-    box-shadow:0 -6px 30px rgba(0,0,0,0.6) !important;
-    min-height:72px !important;
+/* ── CHATBAR — Gemini-style floating pill ── */
+[data-testid="stBottom"],
+[data-testid="stBottom"] > div,
+[data-testid="stBottom"] > div > div {
+    background:transparent !important;
+    border:none !important;
+    box-shadow:none !important;
 }
+[data-testid="stBottom"] {
+    padding:0 20px 18px !important;
+    min-height:80px !important;
+}
+[data-testid="stChatInput"] {
+    border-radius:28px !important;
+    background:rgba(255,255,255,0.97) !important;
+    border:1px solid rgba(0,0,0,0.08) !important;
+    box-shadow:0 2px 20px rgba(0,0,0,0.18) !important;
+    overflow:hidden !important;
+    max-width:820px !important;
+    margin:0 auto !important;
+}
+[data-testid="stChatInput"] textarea {
+    background:transparent !important;
+    border:none !important;
+    color:#1a1a1a !important;
+    font-size:1rem !important;
+    padding:14px 12px !important;
+    resize:none !important;
+}
+[data-testid="stChatInput"] textarea::placeholder { color:#999 !important; }
+[data-testid="stChatInput"] textarea:focus { outline:none !important; box-shadow:none !important; }
+[data-testid="stChatInput"] button { color:#555 !important; }
 /* ── Hide TITAN_SET hidden mode buttons via their Streamlit key class ── */
 .st-key-_hid_mode_fast,
 .st-key-_hid_mode_think,
@@ -500,7 +521,7 @@ p, li { color:#e8e8e8 !important; }
 }
 /* Prevent last messages hiding behind the floating bar */
 html:has([data-testid="stChatMessage"]) [data-testid="stAppViewContainer"] {
-    padding-bottom:100px !important;
+    padding-bottom:110px !important;
 }
 [data-testid="stMain"] { scroll-behavior:smooth !important; }
 /* ── HOME SCREEN: hide sticky bottom bar & center content ── */
@@ -7530,6 +7551,9 @@ function _triggerFileInput(accept, capture, multi){
     var fi=pd.querySelector('[data-testid="stChatInput"] input[type="file"]')
            ||pd.querySelector('input[type="file"]');
     if(!fi) return;
+    // Temporarily remove label guard so fi.click() opens the native file dialog
+    var lbl=fi.closest('label');
+    if(lbl&&lbl.__titanGuard) lbl.removeEventListener('click',lbl.__titanGuard,true);
     var origAccept=fi.getAttribute('accept')||'';
     var origCapture=fi.getAttribute('capture')||'';
     if(accept) fi.setAttribute('accept',accept); else fi.removeAttribute('accept');
@@ -7537,6 +7561,7 @@ function _triggerFileInput(accept, capture, multi){
     if(multi) fi.setAttribute('multiple',''); else fi.removeAttribute('multiple');
     try{ fi.click(); } catch(err){}
     setTimeout(function(){
+        if(lbl&&lbl.__titanGuard) lbl.addEventListener('click',lbl.__titanGuard,true);
         if(origAccept) fi.setAttribute('accept',origAccept); else fi.removeAttribute('accept');
         if(origCapture) fi.setAttribute('capture',origCapture); else fi.removeAttribute('capture');
     },500);
@@ -7580,6 +7605,16 @@ function _hookChatPlus(){
     var plusBtn=ci.querySelector('button');
     if(!plusBtn||plusBtn.__titanHooked) return;
     plusBtn.__titanHooked=true;
+    // The + is inside a <label> which opens the file dialog by browser default.
+    // Block BOTH the label and the button to prevent the native file dialog.
+    var lbl=plusBtn.closest('label');
+    if(lbl && !lbl.__titanHooked){
+        lbl.__titanHooked=true;
+        lbl.__titanGuard=function(e){
+            e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+        };
+        lbl.addEventListener('click',lbl.__titanGuard,true);
+    }
     plusBtn.addEventListener('click',function(e){
         e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
         if(_pop.style.display==='flex'){_pop.style.display='none';}
@@ -7682,19 +7717,19 @@ function _hideModeBtns(){
     pd.querySelectorAll('button').forEach(function(b){
         var txt=b.textContent.trim();
         if(_hide.some(function(h){return txt.indexOf(h)>=0;})){
-            // Keep the button accessible for programmatic click() — only move it off-screen
+            // Move button off-screen but keep it accessible for programmatic .click()
             b.style.setProperty('position','fixed','important');
             b.style.setProperty('left','-9999px','important');
             b.style.setProperty('top','-9999px','important');
             b.style.setProperty('width','1px','important');
             b.style.setProperty('height','1px','important');
-            // Hide only 2 immediate wrapper divs — stop before any major layout node
+            // Collapse wrapper height so it takes no layout space — use height:0
+            // NOT display:none, which would break programmatic click() in some browsers
             var el=b.parentElement;
             for(var i=0;i<2;i++){
                 if(!el) break;
                 var tid=(el.getAttribute&&el.getAttribute('data-testid'))||'';
                 if(tid==='stVerticalBlock'||tid==='stMain'||tid==='stSidebar') break;
-                el.style.setProperty('display','none','important');
                 el.style.setProperty('height','0','important');
                 el.style.setProperty('overflow','hidden','important');
                 el.style.setProperty('margin','0','important');
@@ -7705,23 +7740,73 @@ function _hideModeBtns(){
     });
 }
 
-// ── Fix chatbar — force visible + fixed at bottom, sidebar-aware ──
+// ── Fix chatbar — truly floating pill, sidebar-aware ──
 function _fixChatBar(){
     var bar=pd.querySelector('[data-testid="stBottom"]');
     if(!bar) return;
+    // Strip transform/will-change from every ancestor of stBottom up to body.
+    // Streamlit adds transform:translateZ(0) on stMain for GPU scroll perf,
+    // which turns any position:fixed child relative to stMain instead of viewport —
+    // causing the bar to scroll away when the user scrolls up.
+    var anc=bar.parentElement;
+    while(anc && anc!==pd.body){
+        var cs=window.parent.getComputedStyle(anc);
+        if(cs.transform!=='none'||cs.willChange.indexOf('transform')>=0){
+            anc.style.setProperty('transform','none','important');
+            anc.style.setProperty('will-change','auto','important');
+        }
+        anc=anc.parentElement;
+    }
     var sb=pd.querySelector('[data-testid="stSidebar"]');
     var sbW=sb?sb.getBoundingClientRect().width:0;
     bar.style.setProperty('display','block','important');
     bar.style.setProperty('visibility','visible','important');
     bar.style.setProperty('position','fixed','important');
-    bar.style.setProperty('bottom','0','important');
-    bar.style.setProperty('left',sbW+'px','important');
-    bar.style.setProperty('right','0','important');
+    bar.style.setProperty('bottom','16px','important');
+    bar.style.setProperty('left',(sbW+16)+'px','important');
+    bar.style.setProperty('right','16px','important');
+    bar.style.setProperty('background','transparent','important');
+    bar.style.setProperty('border','none','important');
+    bar.style.setProperty('box-shadow','none','important');
     bar.style.setProperty('min-height','72px','important');
     bar.style.setProperty('z-index','9000','important');
+    var ch=bar.firstElementChild;
+    while(ch){ch.style.setProperty('background','transparent','important');ch=ch.nextElementSibling;}
 }
 window.addEventListener('resize',_fixChatBar);
 setInterval(_fixChatBar,400);
+
+// ── Scroll-to-bottom arrow ────────────────────────────────────────────────────
+function _injectScrollArrow(){
+    if(pd.getElementById('tu-scroll-arrow')) return;
+    var btn=pd.createElement('div');
+    btn.id='tu-scroll-arrow';
+    btn.innerHTML='&#8595;';
+    // Centered horizontally above the floating chatbar, white Gemini-style
+    btn.style.cssText='position:fixed;bottom:92px;left:50%;transform:translateX(-50%);'+
+        'width:36px;height:36px;'+
+        'border-radius:50%;background:rgba(255,255,255,0.92);border:1px solid rgba(0,0,0,0.12);'+
+        'color:#444;font-size:18px;display:none;align-items:center;justify-content:center;'+
+        'cursor:pointer;z-index:8999;backdrop-filter:blur(8px);'+
+        'box-shadow:0 2px 8px rgba(0,0,0,0.18);transition:opacity 0.2s;user-select:none;';
+    btn.onclick=function(){
+        var main=pd.querySelector('[data-testid="stMain"]');
+        if(main) main.scrollTo({top:main.scrollHeight,behavior:'smooth'});
+        else pd.documentElement.scrollTo({top:pd.body.scrollHeight,behavior:'smooth'});
+    };
+    pd.body.appendChild(btn);
+}
+function _checkScrollArrow(){
+    _injectScrollArrow();
+    var btn=pd.getElementById('tu-scroll-arrow');
+    if(!btn) return;
+    var main=pd.querySelector('[data-testid="stMain"]');
+    if(!main){btn.style.display='none';return;}
+    var atBottom=main.scrollHeight-main.scrollTop-main.clientHeight<80;
+    btn.style.display=atBottom?'none':'flex';
+}
+_injectScrollArrow();
+setInterval(_checkScrollArrow,500);
 
 // ── Thinking indicator: replace Streamlit spinner with Claude-style dots ────────
 var _TP={
@@ -8103,7 +8188,22 @@ if uploaded_file:
             except Exception:
                 file_content = f"[PDF: {uploaded_file.name}]"
         else:
-            file_content = uploaded_file.read().decode("utf-8", errors="replace")
+            try:
+                _raw_misc = uploaded_file.read()
+                # Binary file detection: null bytes = not text
+                if b'\x00' in _raw_misc[:1024]:
+                    _fext = uploaded_file.name.rsplit('.', 1)[-1].upper() if '.' in uploaded_file.name else 'file'
+                    msgs = cur_msgs()
+                    msgs.append({"role": "user", "content": f"I uploaded {uploaded_file.name}"})
+                    msgs.append({"role": "assistant", "content":
+                        f"⚠️ **{uploaded_file.name}** is a binary file (.{_fext.lower()}) — I can't read those.\n\n"
+                        f"I can open: 🖼️ Images · 📄 PDFs · 📊 CSV / Excel · 📝 Text / code files (.txt .py .js etc)\n\n"
+                        f"Try sending one of those instead!"})
+                    set_msgs(msgs)
+                    st.rerun()
+                file_content = _raw_misc.decode("utf-8", errors="replace")
+            except Exception:
+                file_content = f"[File: {uploaded_file.name}]"
     except Exception:
         file_content = f"[File: {uploaded_file.name}]"
 st.session_state.pending_vision = _current_vision
@@ -8474,10 +8574,9 @@ if user_input:
                             f"[LIVE {_src_label.upper()}]:\n{_extra}\n\n"
                             f"Use the above {_src_label} to give a complete, accurate answer. "
                             f"Write entirely in your own words — never mention source names, website names, URLs, or where the data came from.\n\n"
-                            f"CRITICAL — RELEASE STATUS: If the search results mention any product, software, or hardware as 'expected', "
-                            f"'rumoured', 'leaked', 'announced', 'upcoming', or not yet released — say so clearly. "
-                            f"NEVER state an unreleased item as if it is already available. "
-                            f"Only say something is released if the search results explicitly confirm a release date that has already passed."
+                            f"IMPORTANT: If the user asks for the LATEST or CURRENT version of something — answer with the most recent RELEASED version first and state it clearly as released. "
+                            f"Only if search results also mention upcoming/rumoured future versions, mention them SEPARATELY and briefly as 'upcoming' or 'expected'. "
+                            f"Do NOT focus on unreleased rumours if the user asked about what is available NOW."
                         )
                     # If diagram was generated, tell the AI NOT to draw ASCII art
                     if _is_diagram_request(user_input):
