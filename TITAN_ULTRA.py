@@ -490,9 +490,9 @@ p, li { color:#e8e8e8 !important; }
 }
 [data-testid="stChatInput"] {
     border-radius:28px !important;
-    background:rgba(255,255,255,0.97) !important;
-    border:1px solid rgba(0,0,0,0.08) !important;
-    box-shadow:0 2px 20px rgba(0,0,0,0.18) !important;
+    background:rgba(30,30,42,0.97) !important;
+    border:1px solid rgba(255,255,255,0.08) !important;
+    box-shadow:0 4px 24px rgba(0,0,0,0.5) !important;
     overflow:hidden !important;
     max-width:820px !important;
     margin:0 auto !important;
@@ -500,14 +500,14 @@ p, li { color:#e8e8e8 !important; }
 [data-testid="stChatInput"] textarea {
     background:transparent !important;
     border:none !important;
-    color:#1a1a1a !important;
+    color:#e8e8e8 !important;
     font-size:1rem !important;
     padding:14px 12px !important;
     resize:none !important;
 }
-[data-testid="stChatInput"] textarea::placeholder { color:#999 !important; }
-[data-testid="stChatInput"] textarea:focus { outline:none !important; box-shadow:none !important; }
-[data-testid="stChatInput"] button { color:#555 !important; }
+[data-testid="stChatInput"] textarea::placeholder { color:#666 !important; }
+[data-testid="stChatInput"] textarea:focus { outline:none !important; box-shadow:none !important; background:transparent !important; }
+[data-testid="stChatInput"] button { color:#aaa !important; }
 /* ── Hide TITAN_SET hidden mode buttons via their Streamlit key class ── */
 .st-key-_hid_mode_fast,
 .st-key-_hid_mode_think,
@@ -522,6 +522,12 @@ p, li { color:#e8e8e8 !important; }
 /* Prevent last messages hiding behind the floating bar */
 html:has([data-testid="stChatMessage"]) [data-testid="stAppViewContainer"] {
     padding-bottom:110px !important;
+}
+/* Strip transform/will-change from stMain so position:fixed works relative to viewport */
+[data-testid="stMain"],
+[data-testid="stAppViewContainer"] {
+    transform:none !important;
+    will-change:auto !important;
 }
 [data-testid="stMain"] { scroll-behavior:smooth !important; }
 /* ── HOME SCREEN: hide sticky bottom bar & center content ── */
@@ -7744,19 +7750,16 @@ function _hideModeBtns(){
 function _fixChatBar(){
     var bar=pd.querySelector('[data-testid="stBottom"]');
     if(!bar) return;
-    // Strip transform/will-change from every ancestor of stBottom up to body.
-    // Streamlit adds transform:translateZ(0) on stMain for GPU scroll perf,
-    // which turns any position:fixed child relative to stMain instead of viewport —
-    // causing the bar to scroll away when the user scrolls up.
-    var anc=bar.parentElement;
-    while(anc && anc!==pd.body){
-        var cs=window.parent.getComputedStyle(anc);
-        if(cs.transform!=='none'||cs.willChange.indexOf('transform')>=0){
-            anc.style.setProperty('transform','none','important');
-            anc.style.setProperty('will-change','auto','important');
+    // Directly strip inline transforms from known Streamlit containers.
+    // These get transform:translateZ(0) for GPU scroll, which makes position:fixed
+    // children scroll with the content instead of sticking to the viewport.
+    ['[data-testid="stMain"]','[data-testid="stAppViewContainer"]','[data-testid="stApp"]'].forEach(function(s){
+        var el=pd.querySelector(s);
+        if(el){
+            el.style.setProperty('transform','none','important');
+            el.style.setProperty('will-change','auto','important');
         }
-        anc=anc.parentElement;
-    }
+    });
     var sb=pd.querySelector('[data-testid="stSidebar"]');
     var sbW=sb?sb.getBoundingClientRect().width:0;
     bar.style.setProperty('display','block','important');
@@ -7774,7 +7777,16 @@ function _fixChatBar(){
     while(ch){ch.style.setProperty('background','transparent','important');ch=ch.nextElementSibling;}
 }
 window.addEventListener('resize',_fixChatBar);
-setInterval(_fixChatBar,400);
+setInterval(_fixChatBar,200);
+// MutationObserver: re-fix immediately when Streamlit re-renders stMain
+(function(){
+    var _mo=new MutationObserver(function(){_fixChatBar();});
+    function _startMO(){
+        var main=pd.querySelector('[data-testid="stMain"]');
+        if(main&&!main.__tuMO){main.__tuMO=true;_mo.observe(main,{childList:true,subtree:false});}
+    }
+    setInterval(_startMO,600);
+})();
 
 // ── Scroll-to-bottom arrow ────────────────────────────────────────────────────
 function _injectScrollArrow(){
@@ -7782,13 +7794,13 @@ function _injectScrollArrow(){
     var btn=pd.createElement('div');
     btn.id='tu-scroll-arrow';
     btn.innerHTML='&#8595;';
-    // Centered horizontally above the floating chatbar, white Gemini-style
-    btn.style.cssText='position:fixed;bottom:92px;left:50%;transform:translateX(-50%);'+
+    // Centered horizontally above the floating chatbar, black style
+    btn.style.cssText='position:fixed;bottom:120px;left:50%;transform:translateX(-50%);'+
         'width:36px;height:36px;'+
-        'border-radius:50%;background:rgba(255,255,255,0.92);border:1px solid rgba(0,0,0,0.12);'+
-        'color:#444;font-size:18px;display:none;align-items:center;justify-content:center;'+
+        'border-radius:50%;background:rgba(0,0,0,0.85);border:1px solid rgba(255,255,255,0.1);'+
+        'color:#ffffff;font-size:18px;display:none;align-items:center;justify-content:center;'+
         'cursor:pointer;z-index:8999;backdrop-filter:blur(8px);'+
-        'box-shadow:0 2px 8px rgba(0,0,0,0.18);transition:opacity 0.2s;user-select:none;';
+        'box-shadow:0 2px 8px rgba(0,0,0,0.5);transition:opacity 0.2s;user-select:none;';
     btn.onclick=function(){
         var main=pd.querySelector('[data-testid="stMain"]');
         if(main) main.scrollTo({top:main.scrollHeight,behavior:'smooth'});
