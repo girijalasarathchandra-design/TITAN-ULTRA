@@ -7765,7 +7765,7 @@ function _fixChatBar(){
     bar.style.setProperty('display','block','important');
     bar.style.setProperty('visibility','visible','important');
     bar.style.setProperty('position','fixed','important');
-    bar.style.setProperty('bottom','16px','important');
+    bar.style.setProperty('bottom','22px','important');
     bar.style.setProperty('left',(sbW+16)+'px','important');
     bar.style.setProperty('right','16px','important');
     bar.style.setProperty('background','transparent','important');
@@ -7813,12 +7813,52 @@ function _checkScrollArrow(){
     var btn=pd.getElementById('tu-scroll-arrow');
     if(!btn) return;
     var main=pd.querySelector('[data-testid="stMain"]');
-    if(!main){btn.style.display='none';return;}
-    var atBottom=main.scrollHeight-main.scrollTop-main.clientHeight<80;
+    var atBottom=true;
+    if(main && main.scrollHeight>main.clientHeight+20){
+        atBottom=main.scrollHeight-main.scrollTop-main.clientHeight<80;
+    } else {
+        // Fallback: check document scroll
+        var dh=pd.documentElement.scrollHeight;
+        var dv=pd.documentElement.clientHeight;
+        var dt=pd.documentElement.scrollTop||pd.body.scrollTop||0;
+        if(dh>dv+20) atBottom=dh-dt-dv<80;
+    }
     btn.style.display=atBottom?'none':'flex';
 }
 _injectScrollArrow();
-setInterval(_checkScrollArrow,500);
+// Run in parent window so interval stays active even if component iframe sleeps
+window.parent.setInterval(_checkScrollArrow,400);
+// Also bind real scroll events for instant response
+(function(){
+    function _bindScroll(){
+        var main=pd.querySelector('[data-testid="stMain"]');
+        if(main&&!main.__tuScrollEvt){
+            main.__tuScrollEvt=true;
+            main.addEventListener('scroll',_checkScrollArrow,{passive:true});
+        }
+        if(!pd.__tuDocScrollEvt){
+            pd.__tuDocScrollEvt=true;
+            pd.addEventListener('scroll',_checkScrollArrow,{passive:true});
+        }
+    }
+    _bindScroll();
+    setInterval(_bindScroll,800);
+})();
+
+// ── Auto-scroll to bottom when a new message is added ────────────────────────
+(function(){
+    var _prevMsgCount=0;
+    function _autoScrollNewMsg(){
+        var msgs=pd.querySelectorAll('[data-testid="stChatMessage"]');
+        if(msgs.length>_prevMsgCount){
+            _prevMsgCount=msgs.length;
+            var main=pd.querySelector('[data-testid="stMain"]');
+            if(main) main.scrollTo({top:main.scrollHeight,behavior:'smooth'});
+            else pd.documentElement.scrollTo({top:pd.body.scrollHeight,behavior:'smooth'});
+        }
+    }
+    window.parent.setInterval(_autoScrollNewMsg,300);
+})();
 
 // ── Thinking indicator: replace Streamlit spinner with Claude-style dots ────────
 var _TP={
